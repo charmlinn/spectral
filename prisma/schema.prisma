@@ -1,0 +1,357 @@
+generator client {
+  provider     = "prisma-client"
+  output       = "../packages/db/src/generated/client"
+  engineType   = "client"
+  runtime      = "nodejs"
+  moduleFormat = "esm"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum MediaAssetKind {
+  audio
+  image
+  video
+  logo
+  font
+  thumbnail
+  analysis
+  other
+}
+
+enum MediaAssetStatus {
+  pending
+  ready
+  failed
+  deleted
+}
+
+enum ExportJobStatus {
+  queued
+  running
+  completed
+  failed
+  cancelled
+}
+
+enum ExportFormat {
+  mp4
+  mov
+  webm
+}
+
+enum EventLevel {
+  info
+  warning
+  error
+}
+
+enum RenderArtifactKind {
+  waveform
+  spectrum
+  thumbnail
+  export_chunk
+  export_final
+  poster
+  preview_frame
+  other
+}
+
+enum OutboxMessageStatus {
+  pending
+  processing
+  sent
+  failed
+}
+
+model Project {
+  /// 项目主键 ID。
+  id               String    @id @default(uuid()) @db.Uuid
+  /// 项目名称，供编辑器列表和标题栏展示。
+  name             String
+  /// 项目描述，用于补充说明当前项目内容。
+  description      String?
+  /// 当前项目来源预设 ID，仅做业务引用，不建立外键。
+  presetId         String?   @db.Uuid
+  /// 当前激活快照 ID，仅做业务引用，不建立外键。
+  activeSnapshotId String?   @unique @db.Uuid
+  /// 项目附加元数据 JSON，用于存储标签、来源等松散信息。
+  metadata         Json      @default("{}") @db.JsonB
+  /// 项目创建时间。
+  createdAt        DateTime  @default(now()) @db.Timestamptz(6)
+  /// 项目最近更新时间。
+  updatedAt        DateTime  @updatedAt @db.Timestamptz(6)
+  /// 项目归档时间，为空表示未归档。
+  archivedAt       DateTime? @db.Timestamptz(6)
+
+  @@index([updatedAt(sort: Desc)])
+}
+
+model ProjectSnapshot {
+  /// 项目快照主键 ID。
+  id            String   @id @default(uuid()) @db.Uuid
+  /// 所属项目 ID，仅做业务引用，不建立外键。
+  projectId     String   @db.Uuid
+  /// 快照所对应的 VideoProject schema 版本号。
+  schemaVersion Int
+  /// 同一项目下的递增快照序号。
+  snapshotIndex Int
+  /// 快照来源，例如 editor、preset、import。
+  source        String   @default("editor")
+  /// 触发保存的原因说明，例如 autosave、manual-save。
+  reason        String?
+  /// 完整项目文档 JSON 快照。
+  projectData   Json     @db.JsonB
+  /// 快照创建时间。
+  createdAt     DateTime @default(now()) @db.Timestamptz(6)
+
+  @@unique([projectId, snapshotIndex])
+  @@index([projectId, createdAt(sort: Desc)])
+}
+
+model Preset {
+  /// 预设主键 ID，沿用旧系统 preset 标识。
+  id              String    @id @db.Uuid
+  /// 预设 slug，用于接口和路由中的稳定可读标识。
+  slug            String?   @unique
+  /// 预设名称。
+  name            String
+  /// 预设是否启用。
+  enabled         Boolean   @default(true)
+  /// 预设是否为付费内容，当前阶段仅保留原始信息。
+  isPremium       Boolean   @default(false)
+  /// 预设是否属于最近新增。
+  recentlyAdded   Boolean   @default(false)
+  /// 预设排序优先级，值越大越靠前。
+  priority        Int       @default(0)
+  /// 预设热度值，供排序和推荐使用。
+  popularity      Int       @default(0)
+  /// 预设缩略图 URL。
+  thumbnailUrl    String?
+  /// 预设示例视频 URL。
+  exampleUrl      String?
+  /// 预设转换后的项目 schema 版本号。
+  schemaVersion   Int
+  /// 转换后的标准化 VideoProject 文档。
+  projectData     Json      @db.JsonB
+  /// 原始 legacy preset payload，用于保真导入。
+  sourcePayload   Json      @db.JsonB
+  /// 原始数据更新时间。
+  sourceUpdatedAt DateTime? @db.Timestamptz(6)
+  /// 导入到当前系统的时间。
+  importedAt      DateTime  @default(now()) @db.Timestamptz(6)
+  /// 预设记录最近更新时间。
+  updatedAt       DateTime  @updatedAt @db.Timestamptz(6)
+
+  @@index([enabled, priority(sort: Desc), popularity(sort: Desc)])
+}
+
+model MediaAsset {
+  /// 素材主键 ID。
+  id               String           @id @default(uuid()) @db.Uuid
+  /// 所属项目 ID，仅做业务引用，不建立外键。
+  projectId        String?          @db.Uuid
+  /// 素材类型，例如 audio、image、video。
+  kind             MediaAssetKind
+  /// 素材当前状态。
+  status           MediaAssetStatus @default(pending)
+  /// 对象存储中的统一 storage key。
+  storageKey       String           @unique
+  /// 对象存储 bucket 名称。
+  bucket           String?
+  /// 用户原始文件名。
+  originalFilename String?
+  /// 素材 MIME 类型。
+  mimeType         String?
+  /// 素材内容哈希，用于去重和校验。
+  sha256           String?
+  /// 素材字节大小。
+  byteSize         BigInt?
+  /// 图片或视频宽度。
+  width            Int?
+  /// 图片或视频高度。
+  height           Int?
+  /// 媒体时长，单位毫秒。
+  durationMs       Int?
+  /// 音频采样率。
+  sampleRate       Int?
+  /// 音频声道数。
+  channels         Int?
+  /// 素材附加元数据 JSON。
+  metadata         Json             @default("{}") @db.JsonB
+  /// 素材记录创建时间。
+  createdAt        DateTime         @default(now()) @db.Timestamptz(6)
+  /// 素材记录最近更新时间。
+  updatedAt        DateTime         @updatedAt @db.Timestamptz(6)
+  /// 素材处理完成时间。
+  completedAt      DateTime?        @db.Timestamptz(6)
+
+  @@index([projectId, createdAt(sort: Desc)])
+  @@index([sha256])
+  @@index([kind, status, createdAt(sort: Desc)])
+}
+
+model AudioAnalysis {
+  /// 音频分析记录主键 ID。
+  id                 String   @id @default(uuid()) @db.Uuid
+  /// 被分析素材 ID，仅做业务引用，不建立外键。
+  assetId            String   @db.Uuid
+  /// 分析器版本号，用于区分不同算法输出。
+  analyzerVersion    String
+  /// 音频总时长，单位毫秒。
+  durationMs         Int
+  /// 音频采样率。
+  sampleRate         Int?
+  /// 音频声道数量。
+  channelCount       Int?
+  /// 分析采样点数量。
+  sampleCount        Int?
+  /// 波形 JSON 内联缓存。
+  waveformJson       Json?    @db.JsonB
+  /// 频谱 JSON 内联缓存。
+  spectrumJson       Json?    @db.JsonB
+  /// 波形 JSON 在对象存储中的 key。
+  waveformStorageKey String?
+  /// 频谱 JSON 在对象存储中的 key。
+  spectrumStorageKey String?
+  /// 分析附加元数据 JSON。
+  metadata           Json     @default("{}") @db.JsonB
+  /// 分析记录创建时间。
+  createdAt          DateTime @default(now()) @db.Timestamptz(6)
+  /// 分析记录最近更新时间。
+  updatedAt          DateTime @updatedAt @db.Timestamptz(6)
+
+  @@unique([assetId, analyzerVersion])
+  @@index([assetId, createdAt(sort: Desc)])
+}
+
+model ExportJob {
+  /// 导出任务主键 ID。
+  id               String          @id @default(uuid()) @db.Uuid
+  /// 所属项目 ID，仅做业务引用，不建立外键。
+  projectId        String          @db.Uuid
+  /// 导出使用的项目快照 ID，仅做业务引用，不建立外键。
+  snapshotId       String          @db.Uuid
+  /// 导出任务状态。
+  status           ExportJobStatus @default(queued)
+  /// 导出输出格式。
+  format           ExportFormat    @default(mp4)
+  /// 导出视频宽度。
+  width            Int
+  /// 导出视频高度。
+  height           Int
+  /// 导出帧率。
+  fps              Int
+  /// 导出目标时长，单位毫秒。
+  durationMs       Int?
+  /// 当前已尝试次数。
+  attempts         Int             @default(0)
+  /// 当前导出进度，建议范围 0-100。
+  progress         Int             @default(0)
+  /// 最终输出文件 storage key。
+  outputStorageKey String?
+  /// 海报图 storage key。
+  posterStorageKey String?
+  /// 失败错误码。
+  errorCode        String?
+  /// 失败错误信息。
+  errorMessage     String?
+  /// 导出附加元数据 JSON。
+  metadata         Json            @default("{}") @db.JsonB
+  /// 导出任务创建时间。
+  createdAt        DateTime        @default(now()) @db.Timestamptz(6)
+  /// 导出入队时间。
+  queuedAt         DateTime?       @db.Timestamptz(6)
+  /// 导出开始执行时间。
+  startedAt        DateTime?       @db.Timestamptz(6)
+  /// 导出完成时间。
+  completedAt      DateTime?       @db.Timestamptz(6)
+  /// 导出失败时间。
+  failedAt         DateTime?       @db.Timestamptz(6)
+  /// 导出取消时间。
+  cancelledAt      DateTime?       @db.Timestamptz(6)
+  /// 导出任务最近更新时间。
+  updatedAt        DateTime        @updatedAt @db.Timestamptz(6)
+
+  @@index([projectId, createdAt(sort: Desc)])
+  @@index([status, createdAt(sort: Desc)])
+  @@index([snapshotId])
+}
+
+model ExportJobEvent {
+  /// 导出事件自增主键，用于 SSE 增量读取。
+  id        BigInt     @id @default(autoincrement())
+  /// 所属导出任务 ID，仅做业务引用，不建立外键。
+  jobId     String     @db.Uuid
+  /// 所属项目 ID，仅做业务引用，不建立外键。
+  projectId String?    @db.Uuid
+  /// 事件级别。
+  level     EventLevel @default(info)
+  /// 事件类型，例如 queued、progress、failed。
+  type      String
+  /// 人类可读事件消息。
+  message   String?
+  /// 当前进度值。
+  progress  Int?
+  /// 事件附加 payload JSON。
+  payload   Json       @default("{}") @db.JsonB
+  /// 事件创建时间。
+  createdAt DateTime   @default(now()) @db.Timestamptz(6)
+
+  @@index([jobId, createdAt(sort: Asc)])
+  @@index([projectId, createdAt(sort: Asc)])
+}
+
+model RenderArtifact {
+  /// 渲染产物主键 ID。
+  id          String             @id @default(uuid()) @db.Uuid
+  /// 所属项目 ID，仅做业务引用，不建立外键。
+  projectId   String?            @db.Uuid
+  /// 所属导出任务 ID，仅做业务引用，不建立外键。
+  exportJobId String?            @db.Uuid
+  /// 产物类型，例如 waveform、export_final。
+  kind        RenderArtifactKind
+  /// 产物在对象存储中的 key。
+  storageKey  String             @unique
+  /// 产物 MIME 类型。
+  mimeType    String?
+  /// 产物字节大小。
+  byteSize    BigInt?
+  /// 产物附加元数据 JSON。
+  metadata    Json               @default("{}") @db.JsonB
+  /// 产物创建时间。
+  createdAt   DateTime           @default(now()) @db.Timestamptz(6)
+
+  @@index([projectId, createdAt(sort: Desc)])
+  @@index([exportJobId, createdAt(sort: Desc)])
+}
+
+model OutboxMessage {
+  /// Outbox 消息主键 ID。
+  id           String              @id @default(uuid()) @db.Uuid
+  /// 消息主题或路由键。
+  topic        String
+  /// 幂等消息键，用于去重。
+  messageKey   String?
+  /// Outbox 消息状态。
+  status       OutboxMessageStatus @default(pending)
+  /// 待投递的消息内容 JSON。
+  payload      Json                @db.JsonB
+  /// 当前投递尝试次数。
+  attempts     Int                 @default(0)
+  /// 允许开始处理的时间。
+  availableAt  DateTime            @default(now()) @db.Timestamptz(6)
+  /// 实际处理完成时间。
+  processedAt  DateTime?           @db.Timestamptz(6)
+  /// 最近一次失败错误信息。
+  errorMessage String?
+  /// 消息创建时间。
+  createdAt    DateTime            @default(now()) @db.Timestamptz(6)
+  /// 消息最近更新时间。
+  updatedAt    DateTime            @updatedAt @db.Timestamptz(6)
+
+  @@index([status, availableAt(sort: Asc)])
+  @@index([topic, createdAt(sort: Desc)])
+}

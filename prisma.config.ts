@@ -1,0 +1,15 @@
+import { defineConfig, env } from "prisma/config";
+
+export default defineConfig({
+  schema: "prisma/schema.prisma",
+  migrations: {
+    path: "prisma/migrations",
+    seed: "tsx packages/db/src/presets/seed-cli.ts",
+  },
+  datasource: {
+    url: env("DATABASE_URL"),
+    shadowDatabaseUrl: process.env.SHADOW_DATABASE_URL
+      ? env("SHADOW_DATABASE_URL")
+      : undefined,
+  },
+});
