@@ -1,9 +1,7 @@
 import { handleRouteError, jsonResponse } from "@/src/server/http";
-import { runtime } from "@/src/server/node-runtime";
+export const runtime = "nodejs";
 import { createExportJobSchema } from "@/src/server/schemas/export";
 import { createExportJob } from "@/src/server/services";
-
-export { runtime };
 
 export async function POST(request: Request) {
   try {

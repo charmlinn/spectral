@@ -1,8 +1,6 @@
 import { handleRouteError, jsonResponse } from "@/src/server/http";
-import { runtime } from "@/src/server/node-runtime";
+export const runtime = "nodejs";
 import { getRenderPageBootstrap } from "@/src/server/services";
-
-export { runtime };
 export const dynamic = "force-dynamic";
 
 type RenderBootstrapRouteProps = {

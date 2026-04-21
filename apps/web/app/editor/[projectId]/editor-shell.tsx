@@ -74,8 +74,6 @@ export function EditorShell({ projectId, initialProjectDetail, initialExportJobs
   const [exportError, setExportError] = useState<string | null>(null);
   const [lastSavedAt, setLastSavedAt] = useState(initialProjectDetail.activeSnapshot?.createdAt ?? null);
 
-  const analysis = useProjectAudioAnalysis(initialProjectDetail.activeProject?.audio.analysisId ?? null);
-
   const setProject = useProjectStore((state) => state.setProject);
   const project = useProjectStore((state) => state.project);
   const dirty = useProjectStore((state) => state.dirty);
@@ -95,6 +93,10 @@ export function EditorShell({ projectId, initialProjectDetail, initialExportJobs
   const setLoopRegion = usePlaybackStore((state) => state.setLoopRegion);
   const setAspectRatio = usePreviewStore((state) => state.setAspectRatio);
   const setRuntimeHealth = usePreviewStore((state) => state.setRuntimeHealth);
+  const analysis = useProjectAudioAnalysis({
+    analysisId: project.audio.analysisId,
+    project,
+  });
 
   useEffect(() => {
     if (!initialProjectDetail.activeProject || !initialProjectDetail.activeSnapshot) {
@@ -135,10 +137,6 @@ export function EditorShell({ projectId, initialProjectDetail, initialExportJobs
     setProject,
     setRuntimeHealth,
   ]);
-
-  if (!hydrated) {
-    return null;
-  }
 
   useEffect(() => {
     if (!dirty && saveState === "saved") {
@@ -298,6 +296,10 @@ export function EditorShell({ projectId, initialProjectDetail, initialExportJobs
       setSseConnectionState("closed");
     };
   }, [appendEvent, currentJobId, projectId, setSseConnectionState, upsertJob]);
+
+  if (!hydrated) {
+    return null;
+  }
 
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-[1800px] flex-col gap-4 px-3 py-3 sm:px-4 sm:py-4 lg:px-5">

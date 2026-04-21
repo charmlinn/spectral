@@ -1,3 +1,4 @@
+export * from "./analyze-audio-buffer";
 export * from "./configuration/audio-analyzer-constants";
 export * from "./configuration/audio-analyzer-options";
 export * from "./helpers/audio-analyzer-calculations";

@@ -1,9 +1,7 @@
 import { handleRouteError, jsonResponse } from "@/src/server/http";
-import { runtime } from "@/src/server/node-runtime";
+export const runtime = "nodejs";
 import { updateProjectSchema } from "@/src/server/schemas/project";
 import { getProject, updateProject } from "@/src/server/services";
-
-export { runtime };
 
 type ProjectRouteProps = {
   params: Promise<{

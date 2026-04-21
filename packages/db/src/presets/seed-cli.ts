@@ -1,3 +1,5 @@
+import "dotenv/config";
+
 import { disconnectDataLayer, getDataLayer } from "../client/index";
 import { importBundledLegacyPresets } from "./import-legacy-presets";
 

@@ -2,9 +2,7 @@ import type { NextRequest } from "next/server";
 
 import { createEventStreamResponse } from "@/src/server/services";
 import { handleRouteError } from "@/src/server/http";
-import { runtime } from "@/src/server/node-runtime";
-
-export { runtime };
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 type ExportEventsRouteProps = {

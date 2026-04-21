@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowRight, LoaderCircle, Plus } from "lucide-react";
 
@@ -8,12 +8,27 @@ import { Button } from "@spectral/ui/components/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@spectral/ui/components/card";
 import { Input } from "@spectral/ui/components/input";
 import { Label } from "@spectral/ui/components/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@spectral/ui/components/select";
 
 import type { ProjectDetailDto } from "@/src/lib/editor-api";
 
 type CreateProjectResponse = ProjectDetailDto;
+type PresetSummary = {
+  id: string;
+  name: string;
+  thumbnailUrl: string | null;
+};
 
-async function createProject(name: string): Promise<CreateProjectResponse> {
+async function createProject(
+  name: string,
+  presetId: string | null,
+): Promise<CreateProjectResponse> {
   const response = await fetch("/api/projects", {
     method: "POST",
     headers: {
@@ -22,6 +37,7 @@ async function createProject(name: string): Promise<CreateProjectResponse> {
     },
     body: JSON.stringify({
       name,
+      presetId,
     }),
   });
 
@@ -43,19 +59,64 @@ async function createProject(name: string): Promise<CreateProjectResponse> {
   return response.json() as Promise<CreateProjectResponse>;
 }
 
+async function listPresets(): Promise<PresetSummary[]> {
+  const response = await fetch("/api/presets", {
+    headers: {
+      accept: "application/json",
+    },
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to load presets with ${response.status}.`);
+  }
+
+  return response.json() as Promise<PresetSummary[]>;
+}
+
 export function EditorLauncher() {
   const router = useRouter();
   const [projectId, setProjectId] = useState("");
   const [projectName, setProjectName] = useState("Untitled Project");
+  const [presets, setPresets] = useState<PresetSummary[]>([]);
+  const [presetId, setPresetId] = useState<string>("none");
   const [pendingAction, setPendingAction] = useState<"create" | "open" | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    void listPresets()
+      .then((nextPresets) => {
+        if (cancelled) {
+          return;
+        }
+
+        setPresets(nextPresets);
+      })
+      .catch((requestError: unknown) => {
+        if (cancelled) {
+          return;
+        }
+
+        setError(
+          requestError instanceof Error ? requestError.message : "Failed to load presets.",
+        );
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   return (
     <div className="grid gap-4 lg:grid-cols-2">
       <Card>
         <CardHeader>
           <CardTitle>Create Project</CardTitle>
-          <CardDescription>Directly call the real project API and open the editor with a persisted draft.</CardDescription>
+          <CardDescription>
+            Create a persisted project from either a blank document or an imported Specterr preset.
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
@@ -66,6 +127,22 @@ export function EditorLauncher() {
               onChange={(event) => setProjectName(event.target.value)}
             />
           </div>
+          <div className="space-y-2">
+            <Label htmlFor="project-preset">Preset</Label>
+            <Select value={presetId} onValueChange={setPresetId}>
+              <SelectTrigger id="project-preset">
+                <SelectValue placeholder="Blank project" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">Blank project</SelectItem>
+                {presets.map((preset) => (
+                  <SelectItem key={preset.id} value={preset.id}>
+                    {preset.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
           <Button
             className="w-full"
             disabled={pendingAction !== null || projectName.trim().length === 0}
@@ -74,7 +151,10 @@ export function EditorLauncher() {
               setError(null);
 
               try {
-                const project = await createProject(projectName.trim());
+                const project = await createProject(
+                  projectName.trim(),
+                  presetId === "none" ? null : presetId,
+                );
                 router.push(`/editor/${project.project.id}`);
               } catch (requestError) {
                 setError(
@@ -125,4 +205,3 @@ export function EditorLauncher() {
     </div>
   );
 }
-

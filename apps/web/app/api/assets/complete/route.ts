@@ -1,9 +1,7 @@
 import { completeAssetSchema } from "@/src/server/schemas/asset";
 import { completeAsset } from "@/src/server/services";
 import { handleRouteError, jsonResponse } from "@/src/server/http";
-import { runtime } from "@/src/server/node-runtime";
-
-export { runtime };
+export const runtime = "nodejs";
 
 export async function POST(request: Request) {
   try {

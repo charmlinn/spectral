@@ -1,9 +1,7 @@
 import { createProjectSchema } from "@/src/server/schemas/project";
 import { createProject } from "@/src/server/services";
 import { handleRouteError, jsonResponse } from "@/src/server/http";
-import { runtime } from "@/src/server/node-runtime";
-
-export { runtime };
+export const runtime = "nodejs";
 
 export async function POST(request: Request) {
   try {

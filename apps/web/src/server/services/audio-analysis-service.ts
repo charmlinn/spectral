@@ -1,3 +1,6 @@
+import type { JsonRecord, JsonValue } from "@spectral/db";
+
+import { badRequest } from "../errors";
 import { notFound } from "../errors";
 import { getServerRepositories } from "../repositories";
 
@@ -5,6 +8,13 @@ export async function requestAudioAnalysis(input: {
   assetId: string;
   analyzerVersion: string;
   force?: boolean;
+  durationMs?: number;
+  sampleRate?: number | null;
+  channelCount?: number | null;
+  sampleCount?: number | null;
+  waveformJson?: JsonValue;
+  spectrumJson?: JsonValue[];
+  metadata?: JsonRecord;
 }) {
   const { assetRepository, audioAnalysisRepository } = getServerRepositories();
   const asset = await assetRepository.getAssetById(input.assetId);
@@ -28,16 +38,26 @@ export async function requestAudioAnalysis(input: {
     };
   }
 
+  if (!input.waveformJson || !input.spectrumJson) {
+    throw badRequest("Audio analysis payload is required when no reusable analysis exists.", {
+      assetId: input.assetId,
+      analyzerVersion: input.analyzerVersion,
+    });
+  }
+
   const analysis = await audioAnalysisRepository.upsertAnalysis({
     assetId: input.assetId,
     analyzerVersion: input.analyzerVersion,
-    durationMs: asset.durationMs ?? 0,
-    sampleRate: asset.sampleRate,
-    channelCount: asset.channels,
+    durationMs: input.durationMs ?? asset.durationMs ?? 0,
+    sampleRate: input.sampleRate ?? asset.sampleRate,
+    channelCount: input.channelCount ?? asset.channels,
+    sampleCount: input.sampleCount ?? null,
+    waveformJson: input.waveformJson,
+    spectrumJson: input.spectrumJson,
     metadata: {
-      status: "pending",
+      status: "ready",
       requestedAt: new Date().toISOString(),
-      note: "Audio analysis worker integration is pending codex3 alignment.",
+      ...(input.metadata ?? {}),
     },
   });
 

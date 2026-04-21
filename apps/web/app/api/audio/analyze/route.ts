@@ -1,13 +1,13 @@
 import { handleRouteError, jsonResponse } from "@/src/server/http";
-import { runtime } from "@/src/server/node-runtime";
+export const runtime = "nodejs";
 import { requestAudioAnalysisSchema } from "@/src/server/schemas/audio";
 import { requestAudioAnalysis } from "@/src/server/services";
 
-export { runtime };
-
 export async function POST(request: Request) {
   try {
-    const body = requestAudioAnalysisSchema.parse(await request.json());
+    const body = requestAudioAnalysisSchema.parse(await request.json()) as Parameters<
+      typeof requestAudioAnalysis
+    >[0];
     const result = await requestAudioAnalysis(body);
 
     return jsonResponse(result, {

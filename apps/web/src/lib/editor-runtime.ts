@@ -5,6 +5,7 @@ import {
   type SpectrumFrame,
   type WaveformOverview,
 } from "@spectral/audio-analysis";
+import type { MediaReference } from "@spectral/project-schema";
 import { createCachedBrowserAssetResolver } from "@spectral/render-runtime-browser";
 
 import type { AudioAnalysisDto } from "./editor-api";
@@ -146,3 +147,50 @@ export function createProjectAssetResolver() {
   });
 }
 
+export function serializeAudioAnalysisSnapshot(snapshot: AudioAnalysisSnapshot) {
+  return {
+    createdAt: snapshot.createdAt,
+    fps: snapshot.fps,
+    waveform: snapshot.waveform,
+    spectrumFrames: snapshot.spectrumFrames.map((frame) => ({
+      frame: frame.frame,
+      timeMs: frame.timeMs,
+      values: Array.from(frame.values),
+    })),
+  };
+}
+
+export async function resolveMediaReferenceUrl(
+  reference: MediaReference | null | undefined,
+): Promise<string | null> {
+  if (!reference) {
+    return null;
+  }
+
+  if (reference.url) {
+    return reference.url;
+  }
+
+  if (!reference.assetId) {
+    return null;
+  }
+
+  return resolveAssetUrl(reference.assetId);
+}
+
+export async function resolveProjectAudioUrl(input: {
+  assetId: string | null | undefined;
+  source: MediaReference | null | undefined;
+}): Promise<string | null> {
+  const sourceUrl = await resolveMediaReferenceUrl(input.source);
+
+  if (sourceUrl) {
+    return sourceUrl;
+  }
+
+  if (input.assetId) {
+    return resolveAssetUrl(input.assetId);
+  }
+
+  return null;
+}

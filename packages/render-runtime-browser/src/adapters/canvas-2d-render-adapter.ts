@@ -139,6 +139,29 @@ function drawTextLayer(
   context.shadowColor = "transparent";
 }
 
+async function resolveLayerSourceUrl(
+  source: Extract<RenderLayer, { kind: "backdrop" }>["props"]["source"],
+  assetResolver: RenderAssetResolver | null | undefined,
+): Promise<string | null> {
+  if (!source) {
+    return null;
+  }
+
+  if (source.url) {
+    return source.url;
+  }
+
+  if (!source.assetId || !assetResolver) {
+    return null;
+  }
+
+  if (source.kind === "video") {
+    return assetResolver.resolveVideo(source.assetId);
+  }
+
+  return assetResolver.resolveImage(source.assetId);
+}
+
 export function createCanvas2dRenderAdapter(
   options: Canvas2dRenderAdapterOptions = {},
 ): BrowserRenderAdapter {
@@ -198,18 +221,43 @@ export function createCanvas2dRenderAdapter(
       currentContext.fillRect(0, 0, input.surface.width, input.surface.height);
 
       for (const layer of input.visibleLayers) {
-        if (layer.kind === "backdrop" && layer.props.assetId) {
-          if (!options.assetResolver) {
-            throw new Error(
-              `Backdrop asset ${layer.props.assetId} requires an asset resolver.`,
-            );
+        if (layer.kind === "backdrop" && layer.props.source) {
+          const sourceUrl = await resolveLayerSourceUrl(layer.props.source, options.assetResolver);
+
+          if (!sourceUrl) {
+            throw new Error("Backdrop source is missing both url and assetId.");
           }
 
           if (layer.props.sourceKind === "image" || layer.props.sourceKind === "logo") {
-            const image = await loadImage(layer.props.assetId, options.assetResolver, cache.images);
+            const sourceKey = layer.props.source.assetId ?? sourceUrl;
+            const image =
+              !layer.props.source.url && layer.props.source.assetId && options.assetResolver
+                ? await loadImage(layer.props.source.assetId, options.assetResolver, cache.images)
+                : await new Promise<HTMLImageElement>((resolve, reject) => {
+                    const nextImage = new Image();
+                    nextImage.crossOrigin = "anonymous";
+                    nextImage.onload = () => resolve(nextImage);
+                    nextImage.onerror = () =>
+                      reject(new Error(`Failed to load image source ${sourceKey}.`));
+                    nextImage.src = sourceUrl;
+                  });
             currentContext.drawImage(image, 0, 0, input.surface.width, input.surface.height);
           } else if (layer.props.sourceKind === "video") {
-            const video = await loadVideo(layer.props.assetId, options.assetResolver, cache.videos);
+            const sourceKey = layer.props.source.assetId ?? sourceUrl;
+            const video =
+              !layer.props.source.url && layer.props.source.assetId && options.assetResolver
+                ? await loadVideo(layer.props.source.assetId, options.assetResolver, cache.videos)
+                : await new Promise<HTMLVideoElement>((resolve, reject) => {
+                    const nextVideo = document.createElement("video");
+                    nextVideo.muted = true;
+                    nextVideo.playsInline = true;
+                    nextVideo.preload = "auto";
+                    nextVideo.crossOrigin = "anonymous";
+                    nextVideo.onloadeddata = () => resolve(nextVideo);
+                    nextVideo.onerror = () =>
+                      reject(new Error(`Failed to load video source ${sourceKey}.`));
+                    nextVideo.src = sourceUrl;
+                  });
             if (Math.abs(video.currentTime - (input.frameContext.timeMs / 1000)) > 0.05) {
               video.currentTime = input.frameContext.timeMs / 1000;
             }

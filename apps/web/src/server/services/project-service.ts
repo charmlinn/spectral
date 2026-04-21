@@ -1,4 +1,8 @@
-import { createDefaultVideoProject, type VideoProject } from "@spectral/project-schema";
+import {
+  createDefaultVideoProject,
+  normalizeVideoProject,
+  type VideoProject,
+} from "@spectral/project-schema";
 
 import { notFound } from "../errors";
 import { getServerRepositories } from "../repositories";
@@ -31,7 +35,21 @@ export async function createProject(input: {
 
   const initialProject =
     input.projectData ??
-    preset?.projectData ??
+    (preset
+      ? normalizeVideoProject({
+          ...preset.projectData,
+          projectId: project.id,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          meta: {
+            ...preset.projectData.meta,
+            name: input.name,
+            description: input.description ?? preset.projectData.meta.description ?? null,
+            presetId: input.presetId ?? null,
+            source: "preset",
+          },
+        })
+      : undefined) ??
     createDefaultVideoProject({
       projectId: project.id,
       meta: {

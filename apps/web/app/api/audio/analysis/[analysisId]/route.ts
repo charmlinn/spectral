@@ -1,8 +1,6 @@
 import { handleRouteError, jsonResponse } from "@/src/server/http";
-import { runtime } from "@/src/server/node-runtime";
+export const runtime = "nodejs";
 import { getAudioAnalysis } from "@/src/server/services";
-
-export { runtime };
 
 type AudioAnalysisRouteProps = {
   params: Promise<{

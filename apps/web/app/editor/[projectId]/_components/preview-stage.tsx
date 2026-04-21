@@ -17,7 +17,7 @@ import { Button } from "@spectral/ui/components/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@spectral/ui/components/card";
 import { Slider } from "@spectral/ui/components/slider";
 
-import { createProjectAssetResolver } from "@/src/lib/editor-runtime";
+import { createProjectAssetResolver, resolveProjectAudioUrl } from "@/src/lib/editor-runtime";
 
 type PreviewStageProps = {
   analysisError: string | null;
@@ -97,15 +97,17 @@ export function PreviewStage({
   }, [setSurface]);
 
   useEffect(() => {
-    if (!project.audio.assetId) {
+    if (!project.audio.assetId && !project.audio.source?.url) {
       setAudioUrl(null);
       return;
     }
 
     let cancelled = false;
 
-    void assetResolverRef.current
-      .resolveAudio(project.audio.assetId)
+    void resolveProjectAudioUrl({
+      assetId: project.audio.assetId,
+      source: project.audio.source,
+    })
       .then((url) => {
         if (!cancelled) {
           setAudioUrl(url);
@@ -122,7 +124,7 @@ export function PreviewStage({
     return () => {
       cancelled = true;
     };
-  }, [project.audio.assetId, setRuntimeHealth]);
+  }, [project.audio.assetId, project.audio.source?.url, setRuntimeHealth]);
 
   useEffect(() => {
     const target = stageRef.current;

@@ -7,6 +7,12 @@ type LegacyMediaSource = {
   mediaId?: string | null;
   data?: {
     url?: string | null;
+    originalImageUrl?: string | null;
+    k4Url?: string | null;
+    p1080Url?: string | null;
+    p720Url?: string | null;
+    p540Url?: string | null;
+    p360Url?: string | null;
   } | null;
   mediaSourceType?: number | null;
   mediaResourceType?: number | null;
@@ -84,9 +90,23 @@ export function isLegacySpecterrPreset(value: unknown): value is LegacySpecterrP
 function legacyMediaSourceToReference(
   mediaSource: LegacyMediaSource | null | undefined,
   fallbackUrl?: string | null,
-  kind: MediaReference["kind"] = "unknown",
+  defaultKind: MediaReference["kind"] = "unknown",
 ): MediaReference | null {
-  const url = mediaSource?.data?.url ?? fallbackUrl ?? null;
+  const videoUrl =
+    mediaSource?.data?.p1080Url ??
+    mediaSource?.data?.k4Url ??
+    mediaSource?.data?.p720Url ??
+    mediaSource?.data?.p540Url ??
+    mediaSource?.data?.p360Url ??
+    null;
+  const imageUrl =
+    mediaSource?.data?.url ??
+    mediaSource?.data?.originalImageUrl ??
+    fallbackUrl ??
+    null;
+  const kind =
+    mediaSource?.mediaResourceType === 1 ? "video" : defaultKind;
+  const url = kind === "video" ? videoUrl ?? imageUrl : imageUrl ?? videoUrl;
 
   if (!mediaSource?.mediaId && !url) {
     return null;
@@ -160,6 +180,132 @@ function toTextLayer(element: LegacyTextElement, index: number): TextLayer {
   };
 }
 
+function sanitizeVisualizerSettings(
+  defaults: VideoProject["visualizer"],
+  settings: LegacySpecterrPreset["settings"],
+): VideoProject["visualizer"] {
+  const {
+    mediaSource: _mediaSource,
+    logoUrl: _logoUrl,
+    ...visualizerRest
+  } = settings?.visualizer ?? {};
+
+  return {
+    ...defaults,
+    ...visualizerRest,
+    glowType:
+      typeof settings?.visualizer?.glowType === "string"
+        ? settings.visualizer.glowType
+        : defaults.glowType,
+  };
+}
+
+function sanitizeBackdropSettings(
+  defaults: VideoProject["backdrop"],
+  settings: LegacySpecterrPreset["settings"],
+): VideoProject["backdrop"] {
+  const {
+    mediaSource: _mediaSource,
+    url: _url,
+    reflection: _reflection,
+    ...backgroundRest
+  } = settings?.background ?? {};
+  const reflection = settings?.background?.reflection as
+    | {
+        type?: unknown;
+        direction?: unknown;
+      }
+    | undefined;
+
+  return {
+    ...defaults,
+    ...backgroundRest,
+    reflection: {
+      ...defaults.reflection,
+      type:
+        reflection && typeof reflection.type === "string"
+          ? reflection.type
+          : defaults.reflection.type,
+      direction:
+        reflection && typeof reflection.direction === "string"
+          ? reflection.direction
+          : defaults.reflection.direction,
+    },
+  };
+}
+
+function sanitizeLyricsStyle(
+  defaults: VideoProject["lyrics"]["style"],
+  settings: LegacySpecterrPreset["settings"],
+): VideoProject["lyrics"]["style"] {
+  const style = settings?.lyrics?.style;
+  const {
+    shadow: _shadow,
+    position: _position,
+    drift: _drift,
+    ...styleRest
+  } = style ?? {};
+  const shadow =
+    style && typeof style.shadow === "object" && style.shadow !== null
+      ? style.shadow
+      : defaults.shadow;
+  const position =
+    style && typeof style.position === "object" && style.position !== null
+      ? style.position
+      : defaults.position;
+  const drift =
+    style && typeof style.drift === "object" && style.drift !== null
+      ? style.drift
+      : defaults.drift;
+
+  return {
+    ...defaults,
+    ...styleRest,
+    text: typeof style?.text === "string" ? style.text : defaults.text,
+    shadow: {
+      ...defaults.shadow,
+      ...shadow,
+    },
+    position: {
+      ...defaults.position,
+      ...position,
+    },
+    drift: {
+      ...defaults.drift,
+      ...drift,
+    },
+  };
+}
+
+function sanitizeParticleSettings(
+  defaults: VideoProject["overlays"]["particles"],
+  settings: LegacySpecterrPreset["settings"],
+): VideoProject["overlays"]["particles"] {
+  const particles = settings?.elements?.particles;
+
+  return {
+    ...defaults,
+    ...(particles ?? {}),
+    items: typeof particles?.items === "string" ? particles.items : defaults.items,
+  };
+}
+
+function sanitizeYouTubeCtaSettings(
+  defaults: VideoProject["overlays"]["youTubeCta"],
+  settings: LegacySpecterrPreset["settings"],
+): VideoProject["overlays"]["youTubeCta"] {
+  const youTubeCta = settings?.elements?.youTubeCta;
+
+  return {
+    ...defaults,
+    ...(youTubeCta ?? {}),
+    cornerPosition:
+      typeof youTubeCta?.cornerPosition === "string"
+        ? youTubeCta.cornerPosition
+        : defaults.cornerPosition,
+  };
+}
+
 export function legacyPresetToVideoProject(preset: LegacySpecterrPreset): VideoProject {
   const settings = preset.settings ?? {};
   const defaults = createDefaultVideoProject();
@@ -199,8 +345,7 @@ export function legacyPresetToVideoProject(preset: LegacySpecterrPreset): VideoP
       ...legacyAspectRatioToViewport(settings.aspectRatio),
     },
     visualizer: {
-      ...defaults.visualizer,
-      ...settings.visualizer,
+      ...sanitizeVisualizerSettings(defaults.visualizer, settings),
       enabled: true,
       pipeline: settings.pipeline ?? defaults.visualizer.pipeline,
       mediaSource: visualizerMedia,
@@ -216,15 +361,11 @@ export function legacyPresetToVideoProject(preset: LegacySpecterrPreset): VideoP
         : null,
     },
     backdrop: {
-      ...defaults.backdrop,
-      ...(settings.background ?? {}),
+      ...sanitizeBackdropSettings(defaults.backdrop, settings),
       source: backgroundSource,
     },
     lyrics: {
-      style: {
-        ...defaults.lyrics.style,
-        ...(settings.lyrics?.style ?? {}),
-      },
+      style: sanitizeLyricsStyle(defaults.lyrics.style, settings),
       segments: (settings.lyrics?.segments ?? []).map((segment, index) => ({
         id: `lyric-${index + 1}`,
         startMs: Number(segment.startTime ?? segment.startMs ?? 0),
@@ -235,14 +376,8 @@ export function legacyPresetToVideoProject(preset: LegacySpecterrPreset): VideoP
     },
     textLayers: (settings.text?.textElements ?? []).map(toTextLayer),
     overlays: {
-      particles: {
-        ...defaults.overlays.particles,
-        ...(settings.elements?.particles ?? {}),
-      },
-      youTubeCta: {
-        ...defaults.overlays.youTubeCta,
-        ...(settings.elements?.youTubeCta ?? {}),
-      },
+      particles: sanitizeParticleSettings(defaults.overlays.particles, settings),
+      youTubeCta: sanitizeYouTubeCtaSettings(defaults.overlays.youTubeCta, settings),
       emojiImages: settings.emojiImages ?? [],
     },
     export: {

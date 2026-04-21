@@ -1,6 +1,7 @@
 import type { AudioAnalysisProvider } from "@spectral/audio-analysis";
 import type {
   LyricsSegment,
+  MediaReference,
   TextLayer,
   VideoProject,
   ViewportSettings,
@@ -48,7 +49,7 @@ export type LyricsLayerProps = {
 
 export type BackdropLayerProps = {
   viewport: ViewportSettings;
-  assetId: string | null;
+  source: MediaReference | null;
   sourceKind: string | null;
 };
 

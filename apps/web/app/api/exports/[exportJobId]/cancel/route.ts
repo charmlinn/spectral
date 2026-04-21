@@ -1,8 +1,6 @@
 import { handleRouteError, jsonResponse } from "@/src/server/http";
-import { runtime } from "@/src/server/node-runtime";
+export const runtime = "nodejs";
 import { cancelExportJob } from "@/src/server/services";
-
-export { runtime };
 
 type CancelExportRouteProps = {
   params: Promise<{

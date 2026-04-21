@@ -30,7 +30,6 @@ function getActiveLyricsProps(input: BuildSceneGraphInput): LyricsLayerProps {
 }
 
 export function buildSceneGraph(input: BuildSceneGraphInput): RenderSceneGraph {
-  const backdropAssetId = input.project.backdrop.source?.assetId ?? null;
   const spectrum = getSpectrumForFrame(input.analysisProvider, input.frameContext);
   const layers: RenderLayer[] = [
     {
@@ -41,7 +40,7 @@ export function buildSceneGraph(input: BuildSceneGraphInput): RenderSceneGraph {
       endMs: null,
       props: {
         viewport: input.project.viewport,
-        assetId: backdropAssetId,
+        source: input.project.backdrop.source,
         sourceKind: input.project.backdrop.source?.kind ?? null,
       },
     },

@@ -130,6 +130,19 @@ export type AudioAnalysisDto = {
   updatedAt: string;
 };
 
+export type CreateAudioAnalysisInput = {
+  assetId: string;
+  analyzerVersion?: string;
+  force?: boolean;
+  durationMs?: number;
+  sampleRate?: number | null;
+  channelCount?: number | null;
+  sampleCount?: number | null;
+  waveformJson?: unknown;
+  spectrumJson?: unknown;
+  metadata?: Record<string, unknown>;
+};
+
 async function readErrorMessage(response: Response): Promise<string> {
   try {
     const payload = (await response.json()) as ApiErrorPayload;
@@ -245,3 +258,17 @@ export async function getAudioAnalysis(analysisId: string): Promise<AudioAnalysi
   return readApiResponse<AudioAnalysisDto>(`/api/audio/analysis/${analysisId}`);
 }
 
+export async function createAudioAnalysis(
+  input: CreateAudioAnalysisInput,
+): Promise<{
+  analysis: AudioAnalysisDto;
+  reused: boolean;
+}> {
+  return readApiResponse("/api/audio/analyze", {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+    },
+    body: JSON.stringify(input),
+  });
+}

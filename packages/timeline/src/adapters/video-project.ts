@@ -24,6 +24,14 @@ export type CreateTimelinePropsFromVideoProjectInput = {
 export function createTimelinePropsFromVideoProject(
   input: CreateTimelinePropsFromVideoProjectInput,
 ): EditorTimelineProps {
+  const snapPointsMs = Array.from(
+    new Set([
+      0,
+      input.project.timing.durationMs,
+      ...input.project.lyrics.segments.flatMap((segment) => [segment.startMs, segment.endMs]),
+    ]),
+  ).sort((left, right) => left - right);
+
   return {
     durationMs: input.project.timing.durationMs,
     currentTimeMs: input.currentTimeMs,
@@ -40,6 +48,7 @@ export function createTimelinePropsFromVideoProject(
     segments: input.project.lyrics.segments,
     markers: [],
     selection: input.selection,
+    snapPointsMs,
     onSeek: input.onSeek,
     onZoomChange: input.onZoomChange,
     onScrollChange: input.onScrollChange,
