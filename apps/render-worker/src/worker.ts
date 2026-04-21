@@ -1,7 +1,6 @@
 import {
-  createExportJobRepository,
-  disconnectPrismaClient,
-  getPrismaClient,
+  disconnectDataLayer,
+  getDataLayer,
 } from "@spectral/db";
 import {
   closeAmqpResources,
@@ -12,13 +11,14 @@ import {
 
 import { NonRetryableWorkerError, RetryableWorkerError } from "./errors";
 import { getWorkerEnv } from "./env";
-import {
-  type RenderExecutor,
-  UnimplementedRenderExecutor,
-} from "./render-executor";
+import { HttpRenderExecutor, type RenderExecutor } from "./render-executor";
 
 function buildRenderPageUrl(exportJobId: string, webBaseUrl: string): string {
   return new URL(`/render/export/${exportJobId}`, webBaseUrl).toString();
+}
+
+function buildRenderBootstrapUrl(exportJobId: string, webBaseUrl: string): string {
+  return new URL(`/render/export/${exportJobId}/bootstrap`, webBaseUrl).toString();
 }
 
 function toErrorDetails(error: unknown) {
@@ -53,15 +53,16 @@ async function handleExportJobMessage(
     webBaseUrl: string;
   },
 ): Promise<ExportJobConsumeResult> {
-  const prisma = getPrismaClient();
-  const exportJobRepository = createExportJobRepository(prisma);
-  const job = await exportJobRepository.getJobById(input.exportJobId);
+  const dataLayer = getDataLayer();
+  const jobDetail = await dataLayer.exportJobRepository.getJobById(input.exportJobId);
 
-  if (!job) {
+  if (!jobDetail) {
     return {
       action: "ack",
     };
   }
+
+  const job = jobDetail.job;
 
   if (job.status === "completed" || job.status === "cancelled") {
     return {
@@ -70,13 +71,13 @@ async function handleExportJobMessage(
   }
 
   if (job.attempts >= dependencies.exportMaxAttempts) {
-    await exportJobRepository.updateJobStatus(job.id, {
+    await dataLayer.exportJobRepository.updateJobStatus(job.id, {
       status: "failed",
       attempts: job.attempts,
       errorCode: "MAX_ATTEMPTS_REACHED",
       errorMessage: "Export job exceeded maximum attempts before worker execution.",
     });
-    await exportJobRepository.appendEvent(job.id, {
+    await dataLayer.exportJobRepository.appendEvent(job.id, {
       projectId: job.projectId,
       level: "error",
       type: "failed",
@@ -92,12 +93,12 @@ async function handleExportJobMessage(
 
   const nextAttempts = job.attempts + 1;
 
-  await exportJobRepository.updateJobStatus(job.id, {
+  await dataLayer.exportJobRepository.updateJobStatus(job.id, {
     status: "running",
     progress: 5,
     attempts: nextAttempts,
   });
-  await exportJobRepository.appendEvent(job.id, {
+  await dataLayer.exportJobRepository.appendEvent(job.id, {
     projectId: job.projectId,
     type: "started",
     message: "Render worker started processing export job.",
@@ -112,9 +113,10 @@ async function handleExportJobMessage(
     const result = await dependencies.executor.execute({
       exportJobId: job.id,
       renderPageUrl: buildRenderPageUrl(job.id, dependencies.webBaseUrl),
+      renderBootstrapUrl: buildRenderBootstrapUrl(job.id, dependencies.webBaseUrl),
     });
 
-    await exportJobRepository.updateJobStatus(job.id, {
+    await dataLayer.exportJobRepository.updateJobStatus(job.id, {
       status: "completed",
       progress: 100,
       attempts: nextAttempts,
@@ -122,7 +124,7 @@ async function handleExportJobMessage(
       posterStorageKey: result.posterStorageKey ?? null,
       metadata: result.metadata,
     });
-    await exportJobRepository.appendEvent(job.id, {
+    await dataLayer.exportJobRepository.appendEvent(job.id, {
       projectId: job.projectId,
       type: "completed",
       message: "Export job completed.",
@@ -140,14 +142,14 @@ async function handleExportJobMessage(
       nextAttempts < dependencies.exportMaxAttempts;
 
     if (canRetry) {
-      await exportJobRepository.updateJobStatus(job.id, {
+      await dataLayer.exportJobRepository.updateJobStatus(job.id, {
         status: "queued",
         progress: 0,
         attempts: nextAttempts,
         errorCode: details.code,
         errorMessage: details.message,
       });
-      await exportJobRepository.appendEvent(job.id, {
+      await dataLayer.exportJobRepository.appendEvent(job.id, {
         projectId: job.projectId,
         level: "warning",
         type: "retry_scheduled",
@@ -166,14 +168,14 @@ async function handleExportJobMessage(
       };
     }
 
-    await exportJobRepository.updateJobStatus(job.id, {
+    await dataLayer.exportJobRepository.updateJobStatus(job.id, {
       status: "failed",
       progress: job.progress,
       attempts: nextAttempts,
       errorCode: details.code,
       errorMessage: details.message,
     });
-    await exportJobRepository.appendEvent(job.id, {
+    await dataLayer.exportJobRepository.appendEvent(job.id, {
       projectId: job.projectId,
       level: "error",
       type: "failed",
@@ -194,7 +196,7 @@ async function handleExportJobMessage(
 }
 
 export async function startRenderWorker(
-  executor: RenderExecutor = new UnimplementedRenderExecutor(),
+  executor: RenderExecutor = new HttpRenderExecutor(),
 ) {
   const env = getWorkerEnv();
   const connection = await createConnection(env.amqpUrl);
@@ -222,7 +224,7 @@ export async function startRenderWorker(
       channel,
       connection,
     });
-    await disconnectPrismaClient();
+    await disconnectDataLayer();
   };
 
   process.once("SIGINT", () => {

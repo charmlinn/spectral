@@ -48,12 +48,8 @@ export async function requestAudioAnalysis(input: {
 }
 
 export async function getAudioAnalysis(analysisId: string) {
-  const { prisma } = getServerRepositories();
-  const analysis = await prisma.audioAnalysis.findUnique({
-    where: {
-      id: analysisId,
-    },
-  });
+  const { audioAnalysisRepository } = getServerRepositories();
+  const analysis = await audioAnalysisRepository.getAnalysisById(analysisId);
 
   if (!analysis) {
     throw notFound("Audio analysis not found.", {

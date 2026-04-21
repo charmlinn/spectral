@@ -1,4 +1,5 @@
 import type { NextRequest } from "next/server";
+import type { ExportJobEventRecord } from "@spectral/db";
 
 import { getServerEnv } from "../env";
 import { badRequest } from "../errors";
@@ -39,17 +40,7 @@ function parseCursor(request: NextRequest): bigint {
   return BigInt(rawValue);
 }
 
-function serializeEvent(event: {
-  id: bigint;
-  jobId: string;
-  projectId: string | null;
-  level: string;
-  type: string;
-  message: string | null;
-  progress: number | null;
-  payload: unknown;
-  createdAt: Date;
-}): SerializedEvent {
+function serializeEvent(event: ExportJobEventRecord): SerializedEvent {
   return {
     id: event.id.toString(),
     jobId: event.jobId,
@@ -64,34 +55,18 @@ function serializeEvent(event: {
 }
 
 async function readEvents(scope: EventStreamScope, cursor: bigint) {
-  const { prisma } = getServerRepositories();
+  const { exportJobRepository } = getServerRepositories();
 
   if (scope.type === "project") {
-    return prisma.exportJobEvent.findMany({
-      where: {
-        projectId: scope.projectId,
-        id: {
-          gt: cursor,
-        },
-      },
-      orderBy: {
-        id: "asc",
-      },
-      take: 100,
+    return exportJobRepository.listEventsByProjectId(scope.projectId, {
+      afterEventId: cursor,
+      limit: 100,
     });
   }
 
-  return prisma.exportJobEvent.findMany({
-    where: {
-      jobId: scope.exportJobId,
-      id: {
-        gt: cursor,
-      },
-    },
-    orderBy: {
-      id: "asc",
-    },
-    take: 100,
+  return exportJobRepository.listEventsByJobId(scope.exportJobId, {
+    afterEventId: cursor,
+    limit: 100,
   });
 }
 

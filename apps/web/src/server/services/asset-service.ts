@@ -1,7 +1,7 @@
-import { createAssetUploadSignature, inferExtensionFromFilename, buildProjectAssetStorageKey } from "@spectral/media";
+import { createProjectAssetUploadPlan } from "@spectral/media";
 
 import { notFound } from "../errors";
-import { getStorageAdapter } from "../media";
+import { resolveAssetRecordUrl, getStorageAdapter } from "../media";
 import { getServerRepositories } from "../repositories";
 
 export async function createAssetUploadUrl(input: {
@@ -21,10 +21,11 @@ export async function createAssetUploadUrl(input: {
   }
 
   const assetId = crypto.randomUUID();
-  const storageKey = buildProjectAssetStorageKey({
+  const uploadPlan = await createProjectAssetUploadPlan(getStorageAdapter(), {
     projectId: input.projectId,
     assetId,
-    extension: inferExtensionFromFilename(input.originalFilename),
+    originalFilename: input.originalFilename,
+    contentType: input.contentType,
   });
 
   const pendingAsset = await assetRepository.createPendingAsset({
@@ -33,23 +34,15 @@ export async function createAssetUploadUrl(input: {
     kind: input.kind,
     originalFilename: input.originalFilename,
     mimeType: input.contentType,
-    storageKey,
+    storageKey: uploadPlan.storageKey,
     metadata: {
       uploadStatus: "signing",
     },
   });
 
-  const signedUpload = await createAssetUploadSignature(getStorageAdapter(), {
-    projectId: input.projectId,
-    assetId: pendingAsset.id,
-    storageKey,
-    contentType: input.contentType,
-    originalFilename: input.originalFilename,
-  });
-
   return {
     asset: pendingAsset,
-    upload: signedUpload,
+    upload: uploadPlan.upload,
   };
 }
 
@@ -87,11 +80,7 @@ export async function getAsset(assetId: string) {
   }
 
   const resolvedUrl =
-    asset.status === "ready"
-      ? await getStorageAdapter().createSignedReadUrl({
-          key: asset.storageKey,
-        })
-      : null;
+    asset.status === "ready" ? await resolveAssetRecordUrl(asset) : null;
 
   return {
     ...asset,
