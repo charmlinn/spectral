@@ -14,6 +14,7 @@ export function createBrowserRenderRuntime(
   let surface = options.surface;
   let clock = options.clock ?? null;
   let analysisProvider = options.analysisProvider ?? null;
+  let assetResolver = options.assetResolver ?? null;
   let rafId: number | null = null;
   let running = false;
 
@@ -92,6 +93,10 @@ export function createBrowserRenderRuntime(
     },
     setAudioAnalysisProvider(provider) {
       analysisProvider = provider;
+    },
+    setAssetResolver(nextAssetResolver) {
+      assetResolver = nextAssetResolver;
+      void assetResolver;
     },
     start() {
       if (running) {

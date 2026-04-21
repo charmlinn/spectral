@@ -3,6 +3,12 @@ import React, { useEffect, useMemo, useRef } from "react";
 import { useTimelinePlayhead } from "../hooks/use-timeline-playhead";
 import { useTimelineScroll } from "../hooks/use-timeline-scroll";
 import { useTimelineZoom } from "../hooks/use-timeline-zoom";
+import {
+  duplicateTimelineSegment,
+  removeTimelineSegment,
+  replaceTimelineSegment,
+  splitTimelineSegment,
+} from "../lib/segment-operations";
 import { getTimelineWidth } from "../lib/time";
 import type { EditorTimelineProps } from "../types";
 import { AudioWaveformTrack } from "./audio-waveform-track";
@@ -32,11 +38,18 @@ export function EditorTimeline({
   onScrollChange,
   onSegmentSelect,
   onSegmentChange,
+  onSelectionChange,
+  onSegmentsChange,
 }: EditorTimelineProps) {
   const viewportRef = useRef<HTMLDivElement | null>(null);
   const timelineWidth = useMemo(
     () => getTimelineWidth(durationMs, pxPerSecond),
     [durationMs, pxPerSecond],
+  );
+  const selectedSegment = useMemo(
+    () =>
+      segments.find((segment) => selection?.selectedSegmentIds.includes(segment.id)) ?? null,
+    [segments, selection?.selectedSegmentIds],
   );
   const handleWheelZoom = useTimelineZoom({
     pxPerSecond,
@@ -53,6 +66,63 @@ export function EditorTimeline({
   });
 
   useTimelineScroll(viewportRef, onScrollChange);
+
+  useEffect(() => {
+    const element = viewportRef.current;
+    if (!element) {
+      return;
+    }
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (!selectedSegment || !onSegmentsChange) {
+        return;
+      }
+
+      if (event.key === "Backspace" || event.key === "Delete") {
+        event.preventDefault();
+        onSegmentsChange(removeTimelineSegment(segments, selectedSegment.id));
+        onSelectionChange?.({ selectedSegmentIds: [] });
+      }
+
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "d") {
+        event.preventDefault();
+        const duplicate = duplicateTimelineSegment(selectedSegment, durationMs);
+        onSegmentsChange([...segments, duplicate]);
+        onSelectionChange?.({ selectedSegmentIds: [duplicate.id] });
+      }
+
+      if (event.key.toLowerCase() === "s") {
+        event.preventDefault();
+        try {
+          const [leftSegment, rightSegment] = splitTimelineSegment(
+            selectedSegment,
+            currentTimeMs,
+          );
+          onSegmentsChange(
+            segments.flatMap((segment) =>
+              segment.id === selectedSegment.id ? [leftSegment, rightSegment] : [segment],
+            ),
+          );
+          onSelectionChange?.({ selectedSegmentIds: [rightSegment.id] });
+        } catch {
+          return;
+        }
+      }
+    };
+
+    element.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      element.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [
+    currentTimeMs,
+    durationMs,
+    onSegmentsChange,
+    onSelectionChange,
+    segments,
+    selectedSegment,
+  ]);
 
   useEffect(() => {
     const element = viewportRef.current;
@@ -80,12 +150,47 @@ export function EditorTimeline({
         pxPerSecond={pxPerSecond}
         minPxPerSecond={minPxPerSecond}
         maxPxPerSecond={maxPxPerSecond}
+        selectedSegmentLabel={selectedSegment?.text ?? null}
         onZoomChange={onZoomChange}
+        onSplitSelected={() => {
+          if (!selectedSegment || !onSegmentsChange) {
+            return;
+          }
+
+          const [leftSegment, rightSegment] = splitTimelineSegment(
+            selectedSegment,
+            currentTimeMs,
+          );
+          onSegmentsChange(
+            segments.flatMap((segment) =>
+              segment.id === selectedSegment.id ? [leftSegment, rightSegment] : [segment],
+            ),
+          );
+          onSelectionChange?.({ selectedSegmentIds: [rightSegment.id] });
+        }}
+        onDuplicateSelected={() => {
+          if (!selectedSegment || !onSegmentsChange) {
+            return;
+          }
+
+          const duplicate = duplicateTimelineSegment(selectedSegment, durationMs);
+          onSegmentsChange([...segments, duplicate]);
+          onSelectionChange?.({ selectedSegmentIds: [duplicate.id] });
+        }}
+        onDeleteSelected={() => {
+          if (!selectedSegment || !onSegmentsChange) {
+            return;
+          }
+
+          onSegmentsChange(removeTimelineSegment(segments, selectedSegment.id));
+          onSelectionChange?.({ selectedSegmentIds: [] });
+        }}
       />
       <div
         ref={viewportRef}
         onWheel={handleWheelZoom}
         onPointerDown={handlePlayheadPointerDown}
+        tabIndex={0}
         style={{
           position: "relative",
           overflowX: "auto",
@@ -119,8 +224,14 @@ export function EditorTimeline({
               selectedSegmentIds={selection?.selectedSegmentIds}
               snapPointsMs={snapPointsMs}
               snapThresholdMs={snapThresholdMs}
-              onSegmentSelect={onSegmentSelect}
-              onSegmentChange={onSegmentChange}
+              onSegmentSelect={(segmentId) => {
+                onSegmentSelect?.(segmentId);
+                onSelectionChange?.({ selectedSegmentIds: [segmentId] });
+              }}
+              onSegmentChange={(segment) => {
+                onSegmentChange?.(segment);
+                onSegmentsChange?.(replaceTimelineSegment(segments, segment));
+              }}
             />
             {markers.length > 0 ? (
               <MarkersTrack

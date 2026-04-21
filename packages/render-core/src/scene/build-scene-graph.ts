@@ -42,6 +42,7 @@ export function buildSceneGraph(input: BuildSceneGraphInput): RenderSceneGraph {
       props: {
         viewport: input.project.viewport,
         assetId: backdropAssetId,
+        sourceKind: input.project.backdrop.source?.kind ?? null,
       },
     },
   ];

@@ -16,5 +16,9 @@
     "@spectral/audio-analysis": "workspace:*",
     "@spectral/project-schema": "workspace:*",
     "react": "^19.0.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3"
   }
 }

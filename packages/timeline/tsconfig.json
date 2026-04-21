@@ -4,6 +4,7 @@
     "baseUrl": ".",
     "declaration": true,
     "noEmit": true,
+    "types": ["react", "react-dom"],
     "paths": {
       "@spectral/audio-analysis": ["../audio-analysis/src/index.ts"],
       "@spectral/project-schema": ["../project-schema/src/index.ts"]

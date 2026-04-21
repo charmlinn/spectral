@@ -49,6 +49,7 @@ export type LyricsLayerProps = {
 export type BackdropLayerProps = {
   viewport: ViewportSettings;
   assetId: string | null;
+  sourceKind: string | null;
 };
 
 export type TextLayerProps = {
@@ -94,6 +95,15 @@ export type RenderSceneGraph = {
   frameContext: RenderFrameContext;
   surface: RenderSurface;
   layers: RenderLayer[];
+};
+
+export type VisualizerBar = {
+  index: number;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  value: number;
 };
 
 export type BuildSceneGraphInput = {

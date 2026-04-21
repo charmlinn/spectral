@@ -45,7 +45,30 @@ export type BrowserRenderRuntime = {
   setClock(clock: RenderClock | null): void;
   setSurface(surface: RenderSurface): Promise<void>;
   setAudioAnalysisProvider(provider: AudioAnalysisProvider | null): void;
+  setAssetResolver(assetResolver: RenderAssetResolver | null): void;
   start(): void;
   stop(): void;
   renderFrameAt(timeMs: number): Promise<BrowserRenderAdapterRenderInput>;
+};
+
+export type PreviewStageRuntimeOptions = {
+  target: BrowserRenderAdapterMountTarget;
+  project: VideoProject;
+  surface: RenderSurface;
+  audioElement: HTMLMediaElement;
+  analysisProvider: AudioAnalysisProvider;
+  assetResolver?: RenderAssetResolver | null;
+  adapter?: BrowserRenderAdapter;
+  autoStart?: boolean;
+};
+
+export type RenderPageRuntimeOptions = {
+  target: BrowserRenderAdapterMountTarget;
+  project: VideoProject;
+  surface: RenderSurface;
+  analysisProvider: AudioAnalysisProvider;
+  assetResolver?: RenderAssetResolver | null;
+  adapter?: BrowserRenderAdapter;
+  clock?: RenderClock | null;
+  autoStart?: boolean;
 };

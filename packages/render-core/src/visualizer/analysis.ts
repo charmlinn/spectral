@@ -11,7 +11,7 @@ export function getSpectrumForFrame(
     return new Float32Array(EMPTY_AUDIO_FREQUENCY);
   }
 
-  return provider.getSpectrumAtFrame(frameContext.frame);
+  return provider.getSpectrumAtTimeMs(frameContext.timeMs);
 }
 
 export function getAverageAmplitude(values: Float32Array): number {

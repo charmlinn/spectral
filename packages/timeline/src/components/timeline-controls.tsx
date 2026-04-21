@@ -4,14 +4,22 @@ type TimelineControlsProps = {
   pxPerSecond: number;
   minPxPerSecond: number;
   maxPxPerSecond: number;
+  selectedSegmentLabel?: string | null;
   onZoomChange?(pxPerSecond: number): void;
+  onSplitSelected?(): void;
+  onDuplicateSelected?(): void;
+  onDeleteSelected?(): void;
 };
 
 export function TimelineControls({
   pxPerSecond,
   minPxPerSecond,
   maxPxPerSecond,
+  selectedSegmentLabel,
   onZoomChange,
+  onSplitSelected,
+  onDuplicateSelected,
+  onDeleteSelected,
 }: TimelineControlsProps) {
   return (
     <div
@@ -40,6 +48,32 @@ export function TimelineControls({
       >
         +
       </button>
+      {selectedSegmentLabel ? (
+        <>
+          <span
+            style={{
+              marginInlineStart: 12,
+              fontSize: 12,
+              color: "#a1a1aa",
+              whiteSpace: "nowrap",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              maxWidth: 180,
+            }}
+          >
+            {selectedSegmentLabel}
+          </span>
+          <button type="button" onClick={onSplitSelected}>
+            Split
+          </button>
+          <button type="button" onClick={onDuplicateSelected}>
+            Duplicate
+          </button>
+          <button type="button" onClick={onDeleteSelected}>
+            Delete
+          </button>
+        </>
+      ) : null}
     </div>
   );
 }

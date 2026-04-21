@@ -1,3 +1,4 @@
+export * from "./adapters/video-project";
 export * from "./components/audio-waveform-track";
 export * from "./components/editor-timeline";
 export * from "./components/lyrics-segment-block";
@@ -11,6 +12,7 @@ export * from "./hooks/use-timeline-playhead";
 export * from "./hooks/use-timeline-scroll";
 export * from "./hooks/use-timeline-snapping";
 export * from "./hooks/use-timeline-zoom";
+export * from "./lib/segment-operations";
 export * from "./lib/snapping";
 export * from "./lib/time";
 export * from "./types";

@@ -11,5 +11,8 @@
   "scripts": {
     "lint": "eslint src --ext .ts",
     "typecheck": "tsc --project tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "fft.js": "^4.0.4"
   }
 }

@@ -33,6 +33,8 @@ export type EditorTimelineProps = {
   onScrollChange?(scrollLeft: number): void;
   onSegmentSelect?(segmentId: string): void;
   onSegmentChange?(segment: TimelineLyricsSegment): void;
+  onSelectionChange?(selection: TimelineSelection): void;
+  onSegmentsChange?(segments: TimelineLyricsSegment[]): void;
 };
 
 export type TimelineGridProps = {
