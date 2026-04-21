@@ -10,11 +10,14 @@
     "typecheck": "tsc --project tsconfig.json --noEmit"
   },
   "dependencies": {
+    "@spectral/audio-analysis": "workspace:*",
     "@spectral/db": "workspace:*",
+    "@spectral/editor-store": "workspace:*",
     "@spectral/media": "workspace:*",
     "@spectral/project-schema": "workspace:*",
     "@spectral/queue": "workspace:*",
     "@spectral/render-runtime-browser": "workspace:*",
+    "@spectral/timeline": "workspace:*",
     "@spectral/ui": "workspace:*",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",

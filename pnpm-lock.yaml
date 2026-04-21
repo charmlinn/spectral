@@ -51,9 +51,15 @@ importers:
 
   apps/web:
     dependencies:
+      '@spectral/audio-analysis':
+        specifier: workspace:*
+        version: link:../../packages/audio-analysis
       '@spectral/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@spectral/editor-store':
+        specifier: workspace:*
+        version: link:../../packages/editor-store
       '@spectral/media':
         specifier: workspace:*
         version: link:../../packages/media
@@ -66,6 +72,9 @@ importers:
       '@spectral/render-runtime-browser':
         specifier: workspace:*
         version: link:../../packages/render-runtime-browser
+      '@spectral/timeline':
+        specifier: workspace:*
+        version: link:../../packages/timeline
       '@spectral/ui':
         specifier: workspace:*
         version: link:../../packages/ui

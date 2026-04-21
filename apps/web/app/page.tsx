@@ -5,11 +5,7 @@ import { Badge } from "@spectral/ui/components/badge";
 import { Button } from "@spectral/ui/components/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@spectral/ui/components/card";
 
-import { listEditorEntries } from "@/src/lib/editor-mocks";
-
 export default async function HomePage() {
-  const entries = await listEditorEntries();
-
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-7xl flex-col gap-8 px-4 py-8 sm:px-6 lg:px-8">
       <section className="grid gap-6 lg:grid-cols-[minmax(0,1.3fr)_minmax(20rem,0.7fr)]">
@@ -30,13 +26,13 @@ export default async function HomePage() {
           </CardHeader>
           <CardContent className="flex flex-col gap-4 sm:flex-row sm:items-center">
             <Button asChild size="lg">
-              <Link href="/editor/signal-bloom">
-                Open demo editor
+              <Link href="/editor">
+                Open real editor launcher
                 <ArrowRight className="size-4" />
               </Link>
             </Button>
             <Button asChild size="lg" variant="outline">
-              <Link href="/editor">Browse project shells</Link>
+              <Link href="/editor">Create or open a project</Link>
             </Button>
           </CardContent>
         </Card>
@@ -73,23 +69,35 @@ export default async function HomePage() {
       </section>
 
       <section className="grid gap-4 lg:grid-cols-2">
-        {entries.map((entry) => (
-          <Card key={entry.id}>
-            <CardHeader className="gap-3">
-              <div className="flex flex-wrap items-center gap-2">
-                <Badge>{entry.presetName}</Badge>
-                <Badge variant="outline">{entry.resolution}</Badge>
-              </div>
-              <CardTitle>{entry.title}</CardTitle>
-              <CardDescription>{entry.description}</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Button asChild variant="outline">
-                <Link href={`/editor/${entry.id}`}>Launch workspace</Link>
-              </Button>
-            </CardContent>
-          </Card>
-        ))}
+        <Card>
+          <CardHeader>
+            <Badge className="w-fit">Current Mode</Badge>
+            <CardTitle>Editor routes now expect real persisted projects.</CardTitle>
+            <CardDescription>
+              Mock snapshots and fake timeline/preview placeholders are being removed from the main editor chain.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="text-sm text-muted-foreground">
+            Use the launcher to create a real project record or open an existing project ID. The editor page now loads
+            through the actual project API rather than demo content.
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <Badge className="w-fit" variant="outline">
+              Integration
+            </Badge>
+            <CardTitle>Runtime, timeline, save, and export wire directly into upstream packages.</CardTitle>
+            <CardDescription>
+              The central goal is a connected editor path, not a decorative shell.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button asChild variant="outline">
+              <Link href="/editor">Go to launcher</Link>
+            </Button>
+          </CardContent>
+        </Card>
       </section>
     </main>
   );

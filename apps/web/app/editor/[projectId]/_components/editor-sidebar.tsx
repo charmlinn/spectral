@@ -1,47 +1,56 @@
 "use client";
 
-import type { EditorPanelId, EditorSection } from "@/src/lib/editor-mocks";
+import { useEditorUiStore, useProjectStore } from "@spectral/editor-store";
 
 import { Button } from "@spectral/ui/components/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@spectral/ui/components/card";
 import { Input } from "@spectral/ui/components/input";
+import { Label } from "@spectral/ui/components/label";
 import { ScrollArea } from "@spectral/ui/components/scroll-area";
+import { Switch } from "@spectral/ui/components/switch";
 import { Textarea } from "@spectral/ui/components/textarea";
 
-type EditorSidebarProps = {
-  activeSectionId: EditorPanelId;
-  section: EditorSection;
-  sections: EditorSection[];
-  onSelectSection: (sectionId: EditorPanelId) => void;
-};
+const sections = [
+  { id: "general", label: "General" },
+  { id: "audio", label: "Audio" },
+  { id: "visualizer", label: "Visualizer" },
+  { id: "backdrop", label: "Backdrop" },
+  { id: "lyrics", label: "Lyrics" },
+  { id: "text", label: "Text" },
+  { id: "export", label: "Export" },
+] as const;
 
-export function EditorSidebar({
-  activeSectionId,
-  section,
-  sections,
-  onSelectSection,
-}: EditorSidebarProps) {
+function toNumber(value: string) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+export function EditorSidebar() {
+  const currentTab = useEditorUiStore((state) => state.currentTab);
+  const setCurrentTab = useEditorUiStore((state) => state.setCurrentTab);
+  const project = useProjectStore((state) => state.project);
+  const updateAtPath = useProjectStore((state) => state.updateAtPath);
+
   return (
     <Card className="flex min-h-[32rem] flex-col overflow-hidden">
       <CardHeader className="gap-2">
         <CardTitle>Settings</CardTitle>
         <CardDescription>
-          The left rail mirrors the original Specterr editor categories while keeping the data layer out of the
-          shell.
+          Minimal editing controls now bind directly to the real project document in the shared store.
         </CardDescription>
       </CardHeader>
 
       <CardContent className="grid gap-4 px-4 pt-0">
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 xl:grid-cols-1">
-          {sections.map((item) => (
+          {sections.map((section) => (
             <Button
-              key={item.id}
+              key={section.id}
               className="justify-start rounded-[22px]"
               size="sm"
-              variant={item.id === activeSectionId ? "secondary" : "ghost"}
-              onClick={() => onSelectSection(item.id)}
+              variant={section.id === currentTab ? "secondary" : "ghost"}
+              onClick={() => setCurrentTab(section.id)}
             >
-              {item.label}
+              {section.label}
             </Button>
           ))}
         </div>
@@ -50,33 +59,242 @@ export function EditorSidebar({
       <ScrollArea className="min-h-0 flex-1 px-4 pb-4">
         <div className="space-y-6 pb-6">
           <div className="rounded-[24px] border border-border/70 bg-background/70 p-4">
-            <p className="text-xs font-medium uppercase tracking-[0.22em] text-primary">{section.eyebrow}</p>
-            <h2 className="mt-2 font-heading text-2xl font-semibold">{section.label}</h2>
-            <p className="mt-2 text-sm leading-6 text-muted-foreground">{section.description}</p>
+            <p className="text-xs font-medium uppercase tracking-[0.22em] text-primary">Project document</p>
+            <h2 className="mt-2 font-heading text-2xl font-semibold">
+              {sections.find((section) => section.id === currentTab)?.label ?? "General"}
+            </h2>
+            <p className="mt-2 text-sm leading-6 text-muted-foreground">
+              These inputs patch the live `VideoProject` store. There is no mock field layer between the UI and the
+              saved document now.
+            </p>
           </div>
 
-          <div className="grid gap-3">
-            {section.fields.map((field) => (
-              <label key={field.label} className="grid gap-2">
-                <span className="text-sm font-medium">{field.label}</span>
-                {field.multiline ? (
-                  <Textarea readOnly value={field.value} />
-                ) : (
-                  <Input readOnly value={field.value} />
-                )}
-                <span className="text-xs leading-5 text-muted-foreground">{field.helper}</span>
+          {currentTab === "general" ? (
+            <div className="grid gap-3">
+              <label className="grid gap-2">
+                <span className="text-sm font-medium">Project name</span>
+                <Input
+                  value={project.meta.name}
+                  onChange={(event) => updateAtPath(["meta", "name"], event.target.value)}
+                />
               </label>
-            ))}
-          </div>
+              <label className="grid gap-2">
+                <span className="text-sm font-medium">Description</span>
+                <Textarea
+                  value={project.meta.description ?? ""}
+                  onChange={(event) => updateAtPath(["meta", "description"], event.target.value || null)}
+                />
+              </label>
+              <label className="grid gap-2">
+                <span className="text-sm font-medium">Duration (ms)</span>
+                <Input
+                  type="number"
+                  value={String(project.timing.durationMs)}
+                  onChange={(event) => {
+                    const nextValue = toNumber(event.target.value);
+                    if (nextValue !== null && nextValue > 0) {
+                      updateAtPath(["timing", "durationMs"], nextValue);
+                    }
+                  }}
+                />
+              </label>
+              <label className="grid gap-2">
+                <span className="text-sm font-medium">Background color</span>
+                <Input
+                  type="color"
+                  value={project.viewport.backgroundColor}
+                  onChange={(event) => updateAtPath(["viewport", "backgroundColor"], event.target.value)}
+                />
+              </label>
+            </div>
+          ) : null}
 
-          <div className="rounded-[24px] border border-dashed border-border bg-background/60 p-4">
-            <p className="text-sm font-medium">Integration edges</p>
-            <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
-              {section.highlights.map((highlight) => (
-                <li key={highlight}>• {highlight}</li>
-              ))}
-            </ul>
-          </div>
+          {currentTab === "audio" ? (
+            <div className="grid gap-3">
+              <label className="grid gap-2">
+                <span className="text-sm font-medium">Audio asset</span>
+                <Input readOnly value={project.audio.assetId ?? "No audio asset"} />
+              </label>
+              <label className="grid gap-2">
+                <span className="text-sm font-medium">Analysis ID</span>
+                <Input readOnly value={project.audio.analysisId ?? "No audio analysis"} />
+              </label>
+              <label className="grid gap-2">
+                <span className="text-sm font-medium">Gain</span>
+                <Input
+                  type="number"
+                  step="0.1"
+                  value={String(project.audio.gain)}
+                  onChange={(event) => {
+                    const nextValue = toNumber(event.target.value);
+                    if (nextValue !== null) {
+                      updateAtPath(["audio", "gain"], nextValue);
+                    }
+                  }}
+                />
+              </label>
+            </div>
+          ) : null}
+
+          {currentTab === "visualizer" ? (
+            <div className="grid gap-3">
+              <div className="flex items-center justify-between gap-3 rounded-[20px] border border-border/70 p-3">
+                <div>
+                  <Label htmlFor="visualizer-enabled">Visualizer enabled</Label>
+                  <p className="text-xs text-muted-foreground">Directly patches `visualizer.enabled`.</p>
+                </div>
+                <Switch
+                  checked={project.visualizer.enabled}
+                  id="visualizer-enabled"
+                  onCheckedChange={(checked) => updateAtPath(["visualizer", "enabled"], checked)}
+                />
+              </div>
+              <label className="grid gap-2">
+                <span className="text-sm font-medium">Pipeline</span>
+                <Input
+                  value={project.visualizer.pipeline}
+                  onChange={(event) => updateAtPath(["visualizer", "pipeline"], event.target.value)}
+                />
+              </label>
+              <label className="grid gap-2">
+                <span className="text-sm font-medium">Bar count</span>
+                <Input
+                  type="number"
+                  value={String(project.visualizer.barCount)}
+                  onChange={(event) => {
+                    const nextValue = toNumber(event.target.value);
+                    if (nextValue !== null && nextValue > 0) {
+                      updateAtPath(["visualizer", "barCount"], nextValue);
+                    }
+                  }}
+                />
+              </label>
+            </div>
+          ) : null}
+
+          {currentTab === "backdrop" ? (
+            <div className="grid gap-3">
+              <label className="grid gap-2">
+                <span className="text-sm font-medium">Backdrop asset</span>
+                <Input readOnly value={project.backdrop.source?.assetId ?? "No backdrop asset"} />
+              </label>
+              <div className="flex items-center justify-between gap-3 rounded-[20px] border border-border/70 p-3">
+                <div>
+                  <Label htmlFor="backdrop-filter">Filter enabled</Label>
+                  <p className="text-xs text-muted-foreground">Direct store binding for backdrop filter state.</p>
+                </div>
+                <Switch
+                  checked={project.backdrop.filterEnabled}
+                  id="backdrop-filter"
+                  onCheckedChange={(checked) => updateAtPath(["backdrop", "filterEnabled"], checked)}
+                />
+              </div>
+              <div className="flex items-center justify-between gap-3 rounded-[20px] border border-border/70 p-3">
+                <div>
+                  <Label htmlFor="backdrop-shake">Shake enabled</Label>
+                  <p className="text-xs text-muted-foreground">Uses the real backdrop config instead of placeholder toggles.</p>
+                </div>
+                <Switch
+                  checked={project.backdrop.shakeEnabled}
+                  id="backdrop-shake"
+                  onCheckedChange={(checked) => updateAtPath(["backdrop", "shakeEnabled"], checked)}
+                />
+              </div>
+            </div>
+          ) : null}
+
+          {currentTab === "lyrics" ? (
+            <div className="grid gap-3">
+              <label className="grid gap-2">
+                <span className="text-sm font-medium">Segment count</span>
+                <Input readOnly value={String(project.lyrics.segments.length)} />
+              </label>
+              <label className="grid gap-2">
+                <span className="text-sm font-medium">Current lyric style text</span>
+                <Textarea
+                  value={project.lyrics.style.text}
+                  onChange={(event) => updateAtPath(["lyrics", "style", "text"], event.target.value)}
+                />
+              </label>
+              <label className="grid gap-2">
+                <span className="text-sm font-medium">First visible segment preview</span>
+                <Textarea
+                  readOnly
+                  value={
+                    project.lyrics.segments.slice(0, 5).map((segment) => segment.text).join("\n") ||
+                    "No lyric segments"
+                  }
+                />
+              </label>
+            </div>
+          ) : null}
+
+          {currentTab === "text" ? (
+            <div className="grid gap-3">
+              <label className="grid gap-2">
+                <span className="text-sm font-medium">Text layers</span>
+                <Input readOnly value={String(project.textLayers.length)} />
+              </label>
+              <label className="grid gap-2">
+                <span className="text-sm font-medium">Primary text preview</span>
+                <Textarea
+                  readOnly
+                  value={project.textLayers[0]?.style.text ?? "No text layer configured"}
+                />
+              </label>
+            </div>
+          ) : null}
+
+          {currentTab === "export" ? (
+            <div className="grid gap-3">
+              <label className="grid gap-2">
+                <span className="text-sm font-medium">Format</span>
+                <Input
+                  value={project.export.format}
+                  onChange={(event) => updateAtPath(["export", "format"], event.target.value)}
+                />
+              </label>
+              <label className="grid gap-2">
+                <span className="text-sm font-medium">Width</span>
+                <Input
+                  type="number"
+                  value={String(project.export.width)}
+                  onChange={(event) => {
+                    const nextValue = toNumber(event.target.value);
+                    if (nextValue !== null && nextValue > 0) {
+                      updateAtPath(["export", "width"], nextValue);
+                    }
+                  }}
+                />
+              </label>
+              <label className="grid gap-2">
+                <span className="text-sm font-medium">Height</span>
+                <Input
+                  type="number"
+                  value={String(project.export.height)}
+                  onChange={(event) => {
+                    const nextValue = toNumber(event.target.value);
+                    if (nextValue !== null && nextValue > 0) {
+                      updateAtPath(["export", "height"], nextValue);
+                    }
+                  }}
+                />
+              </label>
+              <label className="grid gap-2">
+                <span className="text-sm font-medium">FPS</span>
+                <Input
+                  type="number"
+                  value={String(project.export.fps)}
+                  onChange={(event) => {
+                    const nextValue = toNumber(event.target.value);
+                    if (nextValue !== null && nextValue > 0) {
+                      updateAtPath(["export", "fps"], nextValue);
+                    }
+                  }}
+                />
+              </label>
+            </div>
+          ) : null}
         </div>
       </ScrollArea>
     </Card>

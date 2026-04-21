@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowLeft, MoreHorizontal, PanelRight, Rocket, Save, Sparkles } from "lucide-react";
+import { ArrowLeft, LoaderCircle, MoreHorizontal, PanelRight, Rocket, Save } from "lucide-react";
 
+import { useExportStore, useProjectStore } from "@spectral/editor-store";
 import { Badge } from "@spectral/ui/components/badge";
 import { Button } from "@spectral/ui/components/button";
 import { Card } from "@spectral/ui/components/card";
@@ -14,43 +15,58 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@spectral/ui/components/dropdown-menu";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@spectral/ui/components/select";
 
 type EditorHeaderProps = {
+  exportError: string | null;
+  exportState: "idle" | "creating" | "error";
   inspectorOpen: boolean;
-  lastSavedAt: string;
-  presetName: string;
+  lastSavedAt: string | null;
   projectId: string;
-  resolution: string;
-  status: "Draft" | "Autosaved";
-  title: string;
+  saveError: string | null;
+  saveState: "idle" | "saving" | "saved" | "error";
   onOpenMobileInspector: () => void;
+  onSave: () => void;
+  onStartExport: () => void;
   onToggleInspector: () => void;
 };
 
 export function EditorHeader({
+  exportError,
+  exportState,
   inspectorOpen,
   lastSavedAt,
-  presetName,
   projectId,
-  resolution,
-  status,
-  title,
+  saveError,
+  saveState,
   onOpenMobileInspector,
+  onSave,
+  onStartExport,
   onToggleInspector,
 }: EditorHeaderProps) {
-  const formattedSaveTime = new Intl.DateTimeFormat("en", {
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    month: "short",
-  }).format(new Date(lastSavedAt));
+  const project = useProjectStore((state) => state.project);
+  const dirty = useProjectStore((state) => state.dirty);
+  const snapshotVersion = useProjectStore((state) => state.snapshotVersion);
+  const currentJobId = useExportStore((state) => state.currentJobId);
+
+  const formattedSaveTime = lastSavedAt
+    ? new Intl.DateTimeFormat("en", {
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+        month: "short",
+      }).format(new Date(lastSavedAt))
+    : "Not saved yet";
+
+  const saveStatusLabel =
+    saveState === "saving"
+      ? "Saving"
+      : saveState === "saved"
+        ? "Saved"
+        : saveState === "error"
+          ? "Save failed"
+          : dirty
+            ? "Unsaved"
+            : "Synced";
 
   return (
     <Card className="flex flex-col gap-4 px-4 py-4 sm:px-6">
@@ -63,39 +79,28 @@ export function EditorHeader({
                 Projects
               </Link>
             </Button>
-            <Badge variant="secondary">{status}</Badge>
-            <Badge variant="outline">{resolution}</Badge>
-            <Badge>{presetName}</Badge>
+            <Badge variant={saveState === "error" ? "destructive" : "secondary"}>{saveStatusLabel}</Badge>
+            <Badge variant="outline">
+              {project.viewport.width} x {project.viewport.height}
+            </Badge>
+            <Badge variant="outline">{project.export.format.toUpperCase()}</Badge>
+            {snapshotVersion ? <Badge variant="outline">Snapshot {snapshotVersion.slice(0, 8)}</Badge> : null}
           </div>
           <div className="min-w-0">
-            <h1 className="truncate font-heading text-3xl font-semibold tracking-tight">{title}</h1>
+            <h1 className="truncate font-heading text-3xl font-semibold tracking-tight">{project.meta.name}</h1>
             <p className="text-sm text-muted-foreground">
-              Project ID: {projectId} · Last save checkpoint {formattedSaveTime}
+              Project ID: {projectId} · Last checkpoint {formattedSaveTime}
             </p>
           </div>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <Select defaultValue={resolution}>
-            <SelectTrigger className="min-w-36 bg-background/70">
-              <SelectValue placeholder="Output preset" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={resolution}>{resolution}</SelectItem>
-              <SelectItem value="1080 x 1080">1080 x 1080</SelectItem>
-              <SelectItem value="3840 x 2160">3840 x 2160</SelectItem>
-            </SelectContent>
-          </Select>
-          <Button size="sm" variant="outline">
-            <Sparkles className="size-4" />
-            Presets
-          </Button>
-          <Button size="sm" variant="outline">
-            <Save className="size-4" />
+          <Button size="sm" variant="outline" onClick={onSave}>
+            {saveState === "saving" ? <LoaderCircle className="size-4 animate-spin" /> : <Save className="size-4" />}
             Save draft
           </Button>
-          <Button size="sm">
-            <Rocket className="size-4" />
+          <Button disabled={exportState === "creating"} size="sm" onClick={onStartExport}>
+            {exportState === "creating" ? <LoaderCircle className="size-4 animate-spin" /> : <Rocket className="size-4" />}
             Export
           </Button>
           <Button className="xl:hidden" size="icon" variant="outline" onClick={onOpenMobileInspector}>
@@ -122,15 +127,18 @@ export function EditorHeader({
             <DropdownMenuContent align="end">
               <DropdownMenuLabel>Project Actions</DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem>Duplicate draft</DropdownMenuItem>
-              <DropdownMenuItem>Open export history</DropdownMenuItem>
-              <DropdownMenuItem>Reveal save checkpoints</DropdownMenuItem>
+              <DropdownMenuItem onSelect={onSave}>Save current snapshot</DropdownMenuItem>
+              <DropdownMenuItem onSelect={onStartExport}>Create export job</DropdownMenuItem>
+              <DropdownMenuItem disabled={!currentJobId}>Current export: {currentJobId?.slice(0, 8) ?? "none"}</DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem variant="destructive">Archive shell</DropdownMenuItem>
+              <DropdownMenuItem variant="destructive">No destructive shell actions wired</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
       </div>
+
+      {saveError ? <p className="text-sm text-destructive">{saveError}</p> : null}
+      {exportError ? <p className="text-sm text-destructive">{exportError}</p> : null}
     </Card>
   );
 }
