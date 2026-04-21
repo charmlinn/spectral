@@ -110,8 +110,7 @@ export const mediaReferenceSchema = z
       .enum(["upload", "preset", "legacy-url", "generated", "external", "unknown"])
       .default("unknown"),
     mimeType: z.string().nullable().default(null),
-  })
-  .passthrough();
+  });
 
 export const driftSettingsSchema = z
   .object({
@@ -125,15 +124,13 @@ export const driftSettingsSchema = z
     octaves: z.number().default(1),
     scale: z.number().default(1),
     acceleration: z.number().default(0),
-  })
-  .passthrough();
+  });
 
 export const pointSchema = z
   .object({
     x: z.number().default(0),
     y: z.number().default(0),
-  })
-  .passthrough();
+  });
 
 export const shadowSettingsSchema = z
   .object({
@@ -141,8 +138,7 @@ export const shadowSettingsSchema = z
     color: z.string().default("#000000"),
     blur: z.number().default(0),
     opacity: z.number().default(1),
-  })
-  .passthrough();
+  });
 
 export const glowSettingsSchema = z
   .object({
@@ -150,16 +146,14 @@ export const glowSettingsSchema = z
     glowType: z.string().default("outer"),
     blur: z.number().default(0),
     scale: z.number().default(1),
-  })
-  .passthrough();
+  });
 
 export const fireSettingsSchema = z
   .object({
     enabled: z.boolean().default(false),
     intensity: z.number().default(0),
     detail: z.number().default(0),
-  })
-  .passthrough();
+  });
 
 export const spinSettingsSchema = z
   .object({
@@ -167,15 +161,13 @@ export const spinSettingsSchema = z
     speed: z.number().default(0),
     acceleration: z.number().default(0),
     logoLocked: z.boolean().default(false),
-  })
-  .passthrough();
+  });
 
 export const reflectionSettingsSchema = z
   .object({
     type: z.string().default("none"),
     direction: z.string().default("down"),
-  })
-  .passthrough();
+  });
 
 export const hlsAdjustmentSchema = z
   .object({
@@ -185,8 +177,7 @@ export const hlsAdjustmentSchema = z
     hue: z.number().default(0),
     lightness: z.number().default(0),
     saturation: z.number().default(0),
-  })
-  .passthrough();
+  });
 
 export const textStyleSchema = z
   .object({
@@ -199,8 +190,7 @@ export const textStyleSchema = z
     shadow: shadowSettingsSchema.default(createDefaultShadowSettings),
     position: pointSchema.default(createDefaultPoint),
     drift: driftSettingsSchema.default(createDefaultDriftSettings),
-  })
-  .passthrough();
+  });
 
 export const lyricsSegmentSchema = z
   .object({
@@ -208,8 +198,7 @@ export const lyricsSegmentSchema = z
     startMs: z.number().nonnegative().default(0),
     endMs: z.number().nonnegative().default(0),
     text: z.string().default(""),
-  })
-  .passthrough();
+  });
 
 export const textLayerSchema = z
   .object({
@@ -218,8 +207,7 @@ export const textLayerSchema = z
     startMs: z.number().nonnegative().default(0),
     endMs: z.number().nonnegative().nullable().default(null),
     style: textStyleSchema,
-  })
-  .passthrough();
+  });
 
 export const visualizerWaveCircleSchema = z
   .object({
@@ -235,8 +223,7 @@ export const visualizerWaveCircleSchema = z
     visible: z.boolean().default(true),
     spinSettings: spinSettingsSchema.default(createDefaultSpinSettings),
     customOptions: z.record(z.string(), z.unknown()).default({}),
-  })
-  .passthrough();
+  });
 
 export const visualizerSchema = z
   .object({
@@ -274,8 +261,7 @@ export const visualizerSchema = z
     rotation: z.number().default(0),
     shape: z.string().default("circle"),
     glowType: z.string().default("outer"),
-  })
-  .passthrough();
+  });
 
 export const backdropSchema = z
   .object({
@@ -286,8 +272,7 @@ export const backdropSchema = z
     reflection: reflectionSettingsSchema.default(createDefaultReflectionSettings),
     hlsAdjustment: hlsAdjustmentSchema.default(createDefaultHlsAdjustment),
     drift: driftSettingsSchema.default(createDefaultDriftSettings),
-  })
-  .passthrough();
+  });
 
 export const particleSettingsSchema = z
   .object({
@@ -301,8 +286,7 @@ export const particleSettingsSchema = z
     minSize: z.number().default(0),
     maxOpacity: z.number().default(1),
     minOpacity: z.number().default(0),
-  })
-  .passthrough();
+  });
 
 export const overlaysSchema = z
   .object({
@@ -312,14 +296,12 @@ export const overlaysSchema = z
         enabled: z.boolean().default(false),
         cornerPosition: z.string().default("bottom-right"),
       })
-      .passthrough()
       .default(() => ({
         enabled: false,
         cornerPosition: "bottom-right",
       })),
     emojiImages: z.array(z.unknown()).default([]),
-  })
-  .passthrough();
+  });
 
 export const projectMetaSchema = z
   .object({
@@ -328,16 +310,14 @@ export const projectMetaSchema = z
     presetId: z.string().nullable().default(null),
     source: z.enum(["editor", "preset", "import"]).default("editor"),
     tags: z.array(z.string()).default([]),
-  })
-  .passthrough();
+  });
 
 export const projectTimingSchema = z
   .object({
     durationMs: z.number().positive().default(DEFAULT_PROJECT_DURATION_MS),
     fps: z.number().positive().default(DEFAULT_FRAME_RATE),
     beatOffsetMs: z.number().default(0),
-  })
-  .passthrough();
+  });
 
 export const viewportSchema = z
   .object({
@@ -345,8 +325,7 @@ export const viewportSchema = z
     height: z.number().positive().default(DEFAULT_PROJECT_DIMENSIONS.height),
     backgroundColor: z.string().default("#000000"),
     aspectRatio: z.string().default("1:1"),
-  })
-  .passthrough();
+  });
 
 export const audioSchema = z
   .object({
@@ -356,8 +335,7 @@ export const audioSchema = z
     trimStartMs: z.number().nonnegative().default(0),
     trimEndMs: z.number().nonnegative().nullable().default(null),
     gain: z.number().default(1),
-  })
-  .passthrough();
+  });
 
 export const exportSettingsSchema = z
   .object({
@@ -367,16 +345,14 @@ export const exportSettingsSchema = z
     fps: z.number().positive().default(DEFAULT_FRAME_RATE),
     videoBitrateKbps: z.number().positive().nullable().default(null),
     audioBitrateKbps: z.number().positive().nullable().default(null),
-  })
-  .passthrough();
+  });
 
 export const sourceMetadataSchema = z
   .object({
     legacyPresetId: z.string().nullable().default(null),
     legacyPresetVersion: z.string().nullable().default(null),
     legacyAspectRatioCode: z.number().nullable().default(null),
-  })
-  .passthrough();
+  });
 
 export const videoProjectSchema = z
   .object({
@@ -394,14 +370,12 @@ export const videoProjectSchema = z
       .object({
         style: textStyleSchema.default(createDefaultTextStyle),
         segments: z.array(lyricsSegmentSchema).default([]),
-      })
-      .passthrough(),
+      }),
     textLayers: z.array(textLayerSchema).default([]),
     overlays: overlaysSchema,
     export: exportSettingsSchema,
     source: sourceMetadataSchema.default(createDefaultSourceMetadata),
-  })
-  .passthrough();
+  });
 
 export type MediaReference = z.infer<typeof mediaReferenceSchema>;
 export type DriftSettings = z.infer<typeof driftSettingsSchema>;

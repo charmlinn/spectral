@@ -1,23 +1,29 @@
-import type { DbClient, JsonRecord } from "./shared";
+import type {
+  AudioAnalysisRecord,
+  AudioAnalysisRepository,
+  UpsertAudioAnalysisInput,
+} from "../contracts";
+import type { DbClient } from "./shared";
+import {
+  mapAudioAnalysisRecord,
+  toPrismaJsonRecord,
+  toPrismaNullableJsonValue,
+} from "./shared";
 
-export type UpsertAudioAnalysisInput = {
-  assetId: string;
-  analyzerVersion: string;
-  durationMs: number;
-  sampleRate?: number | null;
-  channelCount?: number | null;
-  sampleCount?: number | null;
-  waveformJson?: unknown;
-  spectrumJson?: unknown;
-  waveformStorageKey?: string | null;
-  spectrumStorageKey?: string | null;
-  metadata?: JsonRecord;
-};
-
-export function createAudioAnalysisRepository(db: DbClient) {
+export function createAudioAnalysisRepository(db: DbClient): AudioAnalysisRepository {
   return {
-    async getLatestByAssetId(assetId: string) {
-      return db.audioAnalysis.findFirst({
+    async getAnalysisById(analysisId: string): Promise<AudioAnalysisRecord | null> {
+      const analysis = await db.audioAnalysis.findUnique({
+        where: {
+          id: analysisId,
+        },
+      });
+
+      return analysis ? mapAudioAnalysisRecord(analysis) : null;
+    },
+
+    async getLatestByAssetId(assetId: string): Promise<AudioAnalysisRecord | null> {
+      const analysis = await db.audioAnalysis.findFirst({
         where: {
           assetId,
         },
@@ -25,10 +31,12 @@ export function createAudioAnalysisRepository(db: DbClient) {
           createdAt: "desc",
         },
       });
+
+      return analysis ? mapAudioAnalysisRecord(analysis) : null;
     },
 
-    async upsertAnalysis(input: UpsertAudioAnalysisInput) {
-      return db.audioAnalysis.upsert({
+    async upsertAnalysis(input: UpsertAudioAnalysisInput): Promise<AudioAnalysisRecord> {
+      const analysis = await db.audioAnalysis.upsert({
         where: {
           assetId_analyzerVersion: {
             assetId: input.assetId,
@@ -42,24 +50,26 @@ export function createAudioAnalysisRepository(db: DbClient) {
           sampleRate: input.sampleRate ?? null,
           channelCount: input.channelCount ?? null,
           sampleCount: input.sampleCount ?? null,
-          waveformJson: input.waveformJson ?? null,
-          spectrumJson: input.spectrumJson ?? null,
+          waveformJson: toPrismaNullableJsonValue(input.waveformJson),
+          spectrumJson: toPrismaNullableJsonValue(input.spectrumJson),
           waveformStorageKey: input.waveformStorageKey ?? null,
           spectrumStorageKey: input.spectrumStorageKey ?? null,
-          metadata: input.metadata ?? {},
+          metadata: toPrismaJsonRecord(input.metadata),
         },
         update: {
           durationMs: input.durationMs,
           sampleRate: input.sampleRate ?? null,
           channelCount: input.channelCount ?? null,
           sampleCount: input.sampleCount ?? null,
-          waveformJson: input.waveformJson ?? null,
-          spectrumJson: input.spectrumJson ?? null,
+          waveformJson: toPrismaNullableJsonValue(input.waveformJson),
+          spectrumJson: toPrismaNullableJsonValue(input.spectrumJson),
           waveformStorageKey: input.waveformStorageKey ?? null,
           spectrumStorageKey: input.spectrumStorageKey ?? null,
-          metadata: input.metadata ?? {},
+          metadata: toPrismaJsonRecord(input.metadata),
         },
       });
+
+      return mapAudioAnalysisRecord(analysis);
     },
   };
 }

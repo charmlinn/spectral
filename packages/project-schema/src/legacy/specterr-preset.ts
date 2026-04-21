@@ -99,10 +99,6 @@ function legacyMediaSourceToReference(
     kind,
     origin: url ? "legacy-url" : "unknown",
     mimeType: null,
-    mediaSourceType: mediaSource?.mediaSourceType ?? null,
-    mediaResourceType: mediaSource?.mediaResourceType ?? null,
-    isPremium: mediaSource?.isPremium ?? false,
-    isPreset: mediaSource?.isPreset ?? false,
   };
 }
 

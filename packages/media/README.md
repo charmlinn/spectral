@@ -1,10 +1,48 @@
 # @spectral/media
 
-Cloudflare R2 and media asset helpers for Spectral.
+Stable R2 and asset-resolution surface for server code.
 
-Responsibilities:
+## Entry points
 
-- define stable object key rules
-- sign browser uploads
-- resolve asset URLs for preview and export
-- wrap the S3-compatible R2 API behind a small adapter
+- `createR2StorageAdapterFromEnv`
+- `R2StorageAdapter`
+- `createProjectAssetUploadPlan`
+- `createAssetUploadSignature`
+- `R2AssetResolver`
+- `createRepositoryAssetLookup`
+- storage key builders from `keys.ts`
+
+## Upload flow
+
+```ts
+import { createProjectAssetUploadPlan, createR2StorageAdapterFromEnv } from "@spectral/media";
+
+const storage = createR2StorageAdapterFromEnv(process.env);
+const uploadPlan = await createProjectAssetUploadPlan(storage, {
+  projectId,
+  assetId,
+  originalFilename,
+  contentType,
+});
+```
+
+`uploadPlan.storageKey` should be written into `media_assets.storageKey`.
+
+## Asset resolver flow
+
+```ts
+import { R2AssetResolver, createR2StorageAdapterFromEnv, createRepositoryAssetLookup } from "@spectral/media";
+
+const storage = createR2StorageAdapterFromEnv(process.env);
+const lookup = createRepositoryAssetLookup({
+  assetRepository: dataLayer.assetRepository,
+  renderArtifactRepository: dataLayer.renderArtifactRepository,
+});
+
+const resolver = new R2AssetResolver({
+  adapter: storage,
+  lookup,
+});
+```
+
+Server code should resolve object URLs through `AssetResolver` instead of concatenating R2 paths by hand.

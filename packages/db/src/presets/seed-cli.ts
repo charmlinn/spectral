@@ -1,14 +1,14 @@
-import { disconnectPrismaClient, getPrismaClient } from "../client/index";
+import { disconnectDataLayer, getDataLayer } from "../client/index";
 import { importBundledLegacyPresets } from "./import-legacy-presets";
 
 async function main() {
-  const db = getPrismaClient();
-  await importBundledLegacyPresets(db);
-  await disconnectPrismaClient();
+  const dataLayer = getDataLayer();
+  await importBundledLegacyPresets(dataLayer.presetRepository);
+  await disconnectDataLayer();
 }
 
 main().catch(async (error) => {
   console.error(error);
-  await disconnectPrismaClient();
+  await disconnectDataLayer();
   process.exitCode = 1;
 });

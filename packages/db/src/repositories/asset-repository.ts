@@ -1,22 +1,17 @@
-import type { DbClient, JsonRecord } from "./shared";
+import type {
+  AssetRepository,
+  CompleteMediaAssetInput,
+  CreateMediaAssetInput,
+  JsonRecord,
+  MediaAssetRecord,
+} from "../contracts";
+import type { DbClient } from "./shared";
+import { mapMediaAssetRecord, toPrismaJsonRecord } from "./shared";
 
-export type CreateMediaAssetInput = {
-  id?: string;
-  projectId?: string | null;
-  kind: string;
-  storageKey: string;
-  bucket?: string | null;
-  originalFilename?: string | null;
-  mimeType?: string | null;
-  sha256?: string | null;
-  byteSize?: bigint | number | null;
-  metadata?: JsonRecord;
-};
-
-export function createAssetRepository(db: DbClient) {
+export function createAssetRepository(db: DbClient): AssetRepository {
   return {
-    async createPendingAsset(input: CreateMediaAssetInput) {
-      return db.mediaAsset.create({
+    async createPendingAsset(input: CreateMediaAssetInput): Promise<MediaAssetRecord> {
+      const asset = await db.mediaAsset.create({
         data: {
           ...(input.id ? { id: input.id } : {}),
           projectId: input.projectId ?? null,
@@ -31,25 +26,18 @@ export function createAssetRepository(db: DbClient) {
             input.byteSize === null || input.byteSize === undefined
               ? null
               : BigInt(input.byteSize),
-          metadata: input.metadata ?? {},
+          metadata: toPrismaJsonRecord(input.metadata),
         },
       });
+
+      return mapMediaAssetRecord(asset);
     },
 
     async completeAsset(
       assetId: string,
-      input: {
-        sha256?: string | null;
-        byteSize?: bigint | number | null;
-        width?: number | null;
-        height?: number | null;
-        durationMs?: number | null;
-        sampleRate?: number | null;
-        channels?: number | null;
-        metadata?: JsonRecord;
-      },
-    ) {
-      return db.mediaAsset.update({
+      input: CompleteMediaAssetInput,
+    ): Promise<MediaAssetRecord> {
+      const asset = await db.mediaAsset.update({
         where: {
           id: assetId,
         },
@@ -65,34 +53,51 @@ export function createAssetRepository(db: DbClient) {
           durationMs: input.durationMs ?? undefined,
           sampleRate: input.sampleRate ?? undefined,
           channels: input.channels ?? undefined,
-          metadata: input.metadata ?? undefined,
+          metadata:
+            input.metadata === undefined ? undefined : toPrismaJsonRecord(input.metadata),
           completedAt: new Date(),
         },
       });
+
+      return mapMediaAssetRecord(asset);
     },
 
-    async failAsset(assetId: string, metadata: JsonRecord = {}) {
-      return db.mediaAsset.update({
+    async failAsset(assetId: string, metadata: JsonRecord = {}): Promise<MediaAssetRecord> {
+      const asset = await db.mediaAsset.update({
         where: {
           id: assetId,
         },
         data: {
           status: "failed",
-          metadata,
+          metadata: toPrismaJsonRecord(metadata),
         },
       });
+
+      return mapMediaAssetRecord(asset);
     },
 
-    async getAssetById(assetId: string) {
-      return db.mediaAsset.findUnique({
+    async getAssetById(assetId: string): Promise<MediaAssetRecord | null> {
+      const asset = await db.mediaAsset.findUnique({
         where: {
           id: assetId,
         },
       });
+
+      return asset ? mapMediaAssetRecord(asset) : null;
     },
 
-    async findAssetBySha256(sha256: string) {
-      return db.mediaAsset.findFirst({
+    async getAssetByStorageKey(storageKey: string): Promise<MediaAssetRecord | null> {
+      const asset = await db.mediaAsset.findUnique({
+        where: {
+          storageKey,
+        },
+      });
+
+      return asset ? mapMediaAssetRecord(asset) : null;
+    },
+
+    async findAssetBySha256(sha256: string): Promise<MediaAssetRecord | null> {
+      const asset = await db.mediaAsset.findFirst({
         where: {
           sha256,
         },
@@ -100,6 +105,8 @@ export function createAssetRepository(db: DbClient) {
           createdAt: "desc",
         },
       });
+
+      return asset ? mapMediaAssetRecord(asset) : null;
     },
   };
 }

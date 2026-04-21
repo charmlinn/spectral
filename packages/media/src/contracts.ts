@@ -34,6 +34,12 @@ export type SignedUpload = {
   expiresInSeconds: number;
 };
 
+export type ProjectAssetUploadPlan = {
+  assetId: string;
+  storageKey: string;
+  upload: SignedUpload;
+};
+
 export type SignedReadInput = {
   key: string;
   expiresInSeconds?: number;

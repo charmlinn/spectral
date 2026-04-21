@@ -1,46 +1,57 @@
-import { PrismaPg } from "@prisma/adapter-pg";
-
-import { PrismaClient } from "../generated/client";
+import type { SpectralDataLayer, SpectralRepositories } from "../contracts";
+import type { DbClient } from "../repositories/index";
+import { createRepositories } from "../repositories/index";
+import type { DatabaseUrlInput } from "./prisma-client";
+import {
+  createPrismaClient,
+  disconnectPrismaClient,
+  getPrismaClient,
+} from "./prisma-client";
 
 const globalCache = globalThis as typeof globalThis & {
-  __spectralPrismaClient?: PrismaClient;
+  __spectralDataLayer?: SpectralDataLayer;
 };
 
-export type DatabaseUrlInput = {
-  connectionString?: string;
-};
+function buildDataLayer(
+  repositories: SpectralRepositories,
+  disconnect: () => Promise<void>,
+  transaction: SpectralDataLayer["transaction"],
+): SpectralDataLayer {
+  return {
+    ...repositories,
+    disconnect,
+    transaction,
+  };
+}
 
-export function getDatabaseUrl(input: DatabaseUrlInput = {}): string {
-  const connectionString = input.connectionString ?? process.env.DATABASE_URL;
+export function createDataLayer(input: DatabaseUrlInput = {}): SpectralDataLayer {
+  const prisma = createPrismaClient(input);
+  const repositories = createRepositories(prisma);
 
-  if (!connectionString) {
-    throw new Error("DATABASE_URL is required to create a Prisma client.");
+  return buildDataLayer(repositories, () => prisma.$disconnect(), (fn) =>
+    prisma.$transaction((tx: DbClient) => fn(createRepositories(tx))) as Promise<
+      Awaited<ReturnType<typeof fn>>
+    >,
+  );
+}
+
+export function getDataLayer(input: DatabaseUrlInput = {}): SpectralDataLayer {
+  if (!globalCache.__spectralDataLayer) {
+    const prisma = getPrismaClient(input);
+    const repositories = createRepositories(prisma);
+    globalCache.__spectralDataLayer = buildDataLayer(repositories, disconnectPrismaClient, (fn) =>
+      prisma.$transaction((tx: DbClient) => fn(createRepositories(tx))) as Promise<
+        Awaited<ReturnType<typeof fn>>
+      >,
+    );
   }
 
-  return connectionString;
+  return globalCache.__spectralDataLayer;
 }
 
-export function createPrismaClient(input: DatabaseUrlInput = {}): PrismaClient {
-  const adapter = new PrismaPg({
-    connectionString: getDatabaseUrl(input),
-  });
-
-  return new PrismaClient({
-    adapter,
-  });
+export async function disconnectDataLayer(): Promise<void> {
+  await disconnectPrismaClient();
+  delete globalCache.__spectralDataLayer;
 }
 
-export function getPrismaClient(input: DatabaseUrlInput = {}): PrismaClient {
-  if (!globalCache.__spectralPrismaClient) {
-    globalCache.__spectralPrismaClient = createPrismaClient(input);
-  }
-
-  return globalCache.__spectralPrismaClient;
-}
-
-export async function disconnectPrismaClient(): Promise<void> {
-  if (globalCache.__spectralPrismaClient) {
-    await globalCache.__spectralPrismaClient.$disconnect();
-    delete globalCache.__spectralPrismaClient;
-  }
-}
+export type { DatabaseUrlInput } from "./prisma-client";

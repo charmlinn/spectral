@@ -1,21 +1,38 @@
-import type { DbClient, JsonRecord } from "./shared";
+import type {
+  AppendExportJobEventInput,
+  CreateExportJobInput,
+  ExportEventCursorInput,
+  ExportJobDetailRecord,
+  ExportJobEventRecord,
+  ExportJobRecord,
+  ExportJobRepository,
+  UpdateExportJobStatusInput,
+} from "../contracts";
+import type { DbClient } from "./shared";
+import { mapExportJobEventRecord, mapExportJobRecord, toPrismaJsonRecord } from "./shared";
 
-export type CreateExportJobInput = {
-  id?: string;
-  projectId: string;
-  snapshotId: string;
-  format: "mp4" | "mov" | "webm";
-  width: number;
-  height: number;
-  fps: number;
-  durationMs?: number | null;
-  metadata?: JsonRecord;
-};
+function toTake(cursor?: ExportEventCursorInput): number {
+  return cursor?.limit ?? 100;
+}
 
-export function createExportJobRepository(db: DbClient) {
+function toJobEventWhere(jobId: string, cursor?: ExportEventCursorInput) {
   return {
-    async createQueuedJob(input: CreateExportJobInput) {
-      return db.exportJob.create({
+    jobId,
+    ...(cursor?.afterEventId !== undefined ? { id: { gt: cursor.afterEventId } } : {}),
+  };
+}
+
+function toProjectEventWhere(projectId: string, cursor?: ExportEventCursorInput) {
+  return {
+    projectId,
+    ...(cursor?.afterEventId !== undefined ? { id: { gt: cursor.afterEventId } } : {}),
+  };
+}
+
+export function createExportJobRepository(db: DbClient): ExportJobRepository {
+  return {
+    async createQueuedJob(input: CreateExportJobInput): Promise<ExportJobRecord> {
+      const job = await db.exportJob.create({
         data: {
           ...(input.id ? { id: input.id } : {}),
           projectId: input.projectId,
@@ -26,24 +43,19 @@ export function createExportJobRepository(db: DbClient) {
           height: input.height,
           fps: input.fps,
           durationMs: input.durationMs ?? null,
-          metadata: input.metadata ?? {},
+          metadata: toPrismaJsonRecord(input.metadata),
           queuedAt: new Date(),
         },
       });
+
+      return mapExportJobRecord(job);
     },
 
     async appendEvent(
       jobId: string,
-      input: {
-        projectId?: string | null;
-        level?: "info" | "warning" | "error";
-        type: string;
-        message?: string | null;
-        progress?: number | null;
-        payload?: JsonRecord;
-      },
-    ) {
-      return db.exportJobEvent.create({
+      input: AppendExportJobEventInput,
+    ): Promise<ExportJobEventRecord> {
+      const event = await db.exportJobEvent.create({
         data: {
           jobId,
           projectId: input.projectId ?? null,
@@ -51,27 +63,19 @@ export function createExportJobRepository(db: DbClient) {
           type: input.type,
           message: input.message ?? null,
           progress: input.progress ?? null,
-          payload: input.payload ?? {},
+          payload: toPrismaJsonRecord(input.payload),
         },
       });
+
+      return mapExportJobEventRecord(event);
     },
 
     async updateJobStatus(
       jobId: string,
-      input: {
-        status: "queued" | "running" | "completed" | "failed" | "cancelled";
-        progress?: number;
-        outputStorageKey?: string | null;
-        posterStorageKey?: string | null;
-        errorCode?: string | null;
-        errorMessage?: string | null;
-        attempts?: number;
-        metadata?: JsonRecord;
-      },
-    ) {
+      input: UpdateExportJobStatusInput,
+    ): Promise<ExportJobRecord> {
       const now = new Date();
-
-      return db.exportJob.update({
+      const job = await db.exportJob.update({
         where: {
           id: jobId,
         },
@@ -83,16 +87,19 @@ export function createExportJobRepository(db: DbClient) {
           errorCode: input.errorCode ?? undefined,
           errorMessage: input.errorMessage ?? undefined,
           attempts: input.attempts ?? undefined,
-          metadata: input.metadata ?? undefined,
+          metadata:
+            input.metadata === undefined ? undefined : toPrismaJsonRecord(input.metadata),
           ...(input.status === "running" ? { startedAt: now } : {}),
           ...(input.status === "completed" ? { completedAt: now } : {}),
           ...(input.status === "failed" ? { failedAt: now } : {}),
           ...(input.status === "cancelled" ? { cancelledAt: now } : {}),
         },
       });
+
+      return mapExportJobRecord(job);
     },
 
-    async getJobById(jobId: string) {
+    async getJobById(jobId: string): Promise<ExportJobDetailRecord | null> {
       const job = await db.exportJob.findUnique({
         where: {
           id: jobId,
@@ -113,13 +120,13 @@ export function createExportJobRepository(db: DbClient) {
       });
 
       return {
-        ...job,
-        events,
+        job: mapExportJobRecord(job),
+        events: events.map(mapExportJobEventRecord),
       };
     },
 
-    async listJobsByProjectId(projectId: string) {
-      return db.exportJob.findMany({
+    async listJobsByProjectId(projectId: string): Promise<ExportJobRecord[]> {
+      const jobs = await db.exportJob.findMany({
         where: {
           projectId,
         },
@@ -127,6 +134,38 @@ export function createExportJobRepository(db: DbClient) {
           createdAt: "desc",
         },
       });
+
+      return jobs.map(mapExportJobRecord);
+    },
+
+    async listEventsByJobId(
+      jobId: string,
+      cursor?: ExportEventCursorInput,
+    ): Promise<ExportJobEventRecord[]> {
+      const events = await db.exportJobEvent.findMany({
+        where: toJobEventWhere(jobId, cursor),
+        orderBy: {
+          id: "asc",
+        },
+        take: toTake(cursor),
+      });
+
+      return events.map(mapExportJobEventRecord);
+    },
+
+    async listEventsByProjectId(
+      projectId: string,
+      cursor?: ExportEventCursorInput,
+    ): Promise<ExportJobEventRecord[]> {
+      const events = await db.exportJobEvent.findMany({
+        where: toProjectEventWhere(projectId, cursor),
+        orderBy: {
+          id: "asc",
+        },
+        take: toTake(cursor),
+      });
+
+      return events.map(mapExportJobEventRecord);
     },
   };
 }

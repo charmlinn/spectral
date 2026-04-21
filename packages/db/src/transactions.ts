@@ -1,9 +1,8 @@
-import type { PrismaClient } from "./generated/client";
-import type { DbClient } from "./repositories/shared";
+import type { SpectralDataLayer, SpectralRepositories } from "./contracts";
 
 export async function withTransaction<T>(
-  db: PrismaClient,
-  fn: (tx: DbClient) => Promise<T>,
+  dataLayer: Pick<SpectralDataLayer, "transaction">,
+  fn: (repositories: SpectralRepositories) => Promise<T>,
 ): Promise<T> {
-  return db.$transaction((tx) => fn(tx)) as Promise<T>;
+  return dataLayer.transaction(fn);
 }

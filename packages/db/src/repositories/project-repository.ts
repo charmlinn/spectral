@@ -4,124 +4,135 @@ import {
   type VideoProject,
 } from "@spectral/project-schema";
 
-import type { DbClient, JsonRecord } from "./shared";
-import { toJsonRecord } from "./shared";
+import type {
+  CreateProjectInput,
+  ProjectDetailRecord,
+  ProjectRecord,
+  ProjectRepository,
+  ProjectSnapshotRecord,
+  SaveProjectSnapshotInput,
+  UpdateProjectMetadataInput,
+} from "../contracts";
+import type { DbClient } from "./shared";
+import {
+  mapProjectRecord,
+  mapProjectSnapshotRecord,
+  toPrismaJsonRecord,
+  toPrismaJsonValue,
+} from "./shared";
 
-export type CreateProjectInput = {
-  id?: string;
-  name: string;
-  description?: string | null;
-  presetId?: string | null;
-  metadata?: JsonRecord;
-};
+async function loadProjectDetail(
+  db: DbClient,
+  projectId: string,
+): Promise<ProjectDetailRecord | null> {
+  const project = await db.project.findUnique({
+    where: {
+      id: projectId,
+    },
+  });
 
-export type SaveProjectSnapshotInput = {
-  projectId: string;
-  projectData: VideoProject | Record<string, unknown>;
-  schemaVersion?: number;
-  source?: string;
-  reason?: string | null;
-};
-
-export function createProjectRepository(db: DbClient) {
-  async function saveSnapshotWithDb(targetDb: DbClient, input: SaveProjectSnapshotInput) {
-    const normalized = migrateVideoProjectDocument(input.projectData);
-    const current = await targetDb.projectSnapshot.findFirst({
-      where: {
-        projectId: input.projectId,
-      },
-      orderBy: {
-        snapshotIndex: "desc",
-      },
-      select: {
-        snapshotIndex: true,
-      },
-    });
-    const snapshot = await targetDb.projectSnapshot.create({
-      data: {
-        projectId: input.projectId,
-        schemaVersion: input.schemaVersion ?? VIDEO_PROJECT_SCHEMA_VERSION,
-        snapshotIndex: (current?.snapshotIndex ?? 0) + 1,
-        source: input.source ?? "editor",
-        reason: input.reason ?? null,
-        projectData: normalized,
-      },
-    });
-
-    await targetDb.project.update({
-      where: {
-        id: input.projectId,
-      },
-      data: {
-        activeSnapshotId: snapshot.id,
-      },
-    });
-
-    return snapshot;
+  if (!project) {
+    return null;
   }
 
+  const projectRecord = mapProjectRecord(project);
+  const activeSnapshot = project.activeSnapshotId
+    ? await db.projectSnapshot.findUnique({
+        where: {
+          id: project.activeSnapshotId,
+        },
+      })
+    : null;
+  const activeSnapshotRecord = activeSnapshot ? mapProjectSnapshotRecord(activeSnapshot) : null;
+
   return {
-    async createProject(input: CreateProjectInput) {
-      return db.project.create({
+    project: projectRecord,
+    activeSnapshot: activeSnapshotRecord,
+    activeProject: activeSnapshotRecord?.projectData ?? null,
+  };
+}
+
+async function saveSnapshotWithDb(
+  db: DbClient,
+  input: SaveProjectSnapshotInput,
+): Promise<ProjectSnapshotRecord> {
+  const current = await db.projectSnapshot.findFirst({
+    where: {
+      projectId: input.projectId,
+    },
+    orderBy: {
+      snapshotIndex: "desc",
+    },
+    select: {
+      snapshotIndex: true,
+    },
+  });
+  const snapshot = await db.projectSnapshot.create({
+    data: {
+      projectId: input.projectId,
+      schemaVersion: input.schemaVersion ?? VIDEO_PROJECT_SCHEMA_VERSION,
+      snapshotIndex: (current?.snapshotIndex ?? 0) + 1,
+      source: input.source ?? "editor",
+      reason: input.reason ?? null,
+      projectData: toPrismaJsonValue(migrateVideoProjectDocument(input.projectData)),
+    },
+  });
+
+  await db.project.update({
+    where: {
+      id: input.projectId,
+    },
+    data: {
+      activeSnapshotId: snapshot.id,
+    },
+  });
+
+  return mapProjectSnapshotRecord(snapshot);
+}
+
+export function createProjectRepository(db: DbClient): ProjectRepository {
+  return {
+    async createProject(input: CreateProjectInput): Promise<ProjectRecord> {
+      const project = await db.project.create({
         data: {
           ...(input.id ? { id: input.id } : {}),
           name: input.name,
           description: input.description ?? null,
           presetId: input.presetId ?? null,
-          metadata: input.metadata ?? {},
+          metadata: toPrismaJsonRecord(input.metadata),
         },
       });
+
+      return mapProjectRecord(project);
     },
 
-    async getProjectById(projectId: string) {
-      const project = await db.project.findUnique({
-        where: {
-          id: projectId,
-        },
-      });
-
-      if (!project) {
-        return null;
-      }
-
-      const activeSnapshot = project.activeSnapshotId
-        ? await db.projectSnapshot.findUnique({
-            where: {
-              id: project.activeSnapshotId,
-            },
-          })
-        : null;
-
-      return {
-        ...project,
-        activeSnapshot,
-      };
+    async getProjectById(projectId: string): Promise<ProjectDetailRecord | null> {
+      return loadProjectDetail(db, projectId);
     },
 
     async updateProjectMetadata(
       projectId: string,
-      input: {
-        name?: string;
-        description?: string | null;
-        metadata?: JsonRecord;
-        presetId?: string | null;
-      },
-    ) {
-      return db.project.update({
+      input: UpdateProjectMetadataInput,
+    ): Promise<ProjectRecord> {
+      const project = await db.project.update({
         where: {
           id: projectId,
         },
         data: {
           ...(input.name !== undefined ? { name: input.name } : {}),
           ...(input.description !== undefined ? { description: input.description } : {}),
-          ...(input.metadata !== undefined ? { metadata: input.metadata } : {}),
+          ...(input.metadata !== undefined
+            ? { metadata: toPrismaJsonRecord(input.metadata) }
+            : {}),
           ...(input.presetId !== undefined ? { presetId: input.presetId } : {}),
         },
       });
+
+      return mapProjectRecord(project);
     },
 
-    async listSnapshots(projectId: string) {
-      return db.projectSnapshot.findMany({
+    async listSnapshots(projectId: string): Promise<ProjectSnapshotRecord[]> {
+      const snapshots = await db.projectSnapshot.findMany({
         where: {
           projectId,
         },
@@ -129,67 +140,35 @@ export function createProjectRepository(db: DbClient) {
           snapshotIndex: "desc",
         },
       });
+
+      return snapshots.map(mapProjectSnapshotRecord);
     },
 
-    async saveSnapshot(input: SaveProjectSnapshotInput) {
+    async getSnapshotById(snapshotId: string): Promise<ProjectSnapshotRecord | null> {
+      const snapshot = await db.projectSnapshot.findUnique({
+        where: {
+          id: snapshotId,
+        },
+      });
+
+      return snapshot ? mapProjectSnapshotRecord(snapshot) : null;
+    },
+
+    async saveSnapshot(input: SaveProjectSnapshotInput): Promise<ProjectSnapshotRecord> {
       if ("$transaction" in db && typeof db.$transaction === "function") {
-        return db.$transaction((tx) => saveSnapshotWithDb(tx, input));
+        return db.$transaction((tx: DbClient) => saveSnapshotWithDb(tx, input));
       }
 
       return saveSnapshotWithDb(db, input);
     },
 
-    async getProjectWithActiveSnapshot(projectId: string) {
-      const project = await db.project.findUnique({
-        where: {
-          id: projectId,
-        },
-      });
-
-      if (!project) {
-        return null;
-      }
-
-      const activeSnapshot = project.activeSnapshotId
-        ? await db.projectSnapshot.findUnique({
-            where: {
-              id: project.activeSnapshotId,
-            },
-          })
-        : null;
-
-      return {
-        ...project,
-        activeSnapshot,
-        normalizedProject: activeSnapshot
-          ? (migrateVideoProjectDocument(activeSnapshot.projectData) as VideoProject)
-          : null,
-        metadata: toJsonRecord(project.metadata),
-      };
+    async getProjectWithActiveSnapshot(projectId: string): Promise<ProjectDetailRecord | null> {
+      return loadProjectDetail(db, projectId);
     },
 
     async getActiveProjectDocument(projectId: string): Promise<VideoProject | null> {
-      const project = await db.project.findUnique({
-        where: {
-          id: projectId,
-        },
-      });
-
-      if (!project?.activeSnapshotId) {
-        return null;
-      }
-
-      const activeSnapshot = await db.projectSnapshot.findUnique({
-        where: {
-          id: project.activeSnapshotId,
-        },
-      });
-
-      if (!activeSnapshot) {
-        return null;
-      }
-
-      return migrateVideoProjectDocument(activeSnapshot.projectData);
+      const detail = await loadProjectDetail(db, projectId);
+      return detail?.activeProject ?? null;
     },
   };
 }
