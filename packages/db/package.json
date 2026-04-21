@@ -14,8 +14,8 @@
   "scripts": {
     "lint": "eslint src --ext .ts",
     "typecheck": "tsc --project tsconfig.json --noEmit",
-    "prisma:generate": "prisma generate --config ../../prisma.config.ts",
-    "prisma:validate": "prisma validate --config ../../prisma.config.ts"
+    "prisma:generate": "prisma generate --config ./prisma.config.ts",
+    "prisma:validate": "prisma validate --config ./prisma.config.ts"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.0.0",

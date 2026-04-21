@@ -12,6 +12,8 @@ After cloning or after changing `prisma/schema.prisma`, regenerate the client wi
 pnpm --filter @spectral/db prisma:generate
 ```
 
+The Prisma config file now lives at `packages/db/prisma.config.ts`.
+
 ## Entry points
 
 - `getDataLayer()` / `createDataLayer()` from `@spectral/db`

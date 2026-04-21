@@ -123,7 +123,7 @@ WEB_BASE_URL=http://127.0.0.1:3000
 
 ## Prisma compatibility
 
-`packages/db` and `prisma.config.ts` already expect `DATABASE_URL`, and `prisma.config.ts` optionally reads `SHADOW_DATABASE_URL`.
+`packages/db/prisma.config.ts` already expects `DATABASE_URL`, and it optionally reads `SHADOW_DATABASE_URL`.
 
 The provided example keeps those names unchanged so it stays compatible with codex3's database layer.
 
