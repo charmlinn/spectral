@@ -1,0 +1,14 @@
+{
+  "extends": "../config/tsconfig/base.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "declaration": true,
+    "noEmit": true,
+    "paths": {
+      "@spectral/audio-analysis": ["../audio-analysis/src/index.ts"],
+      "@spectral/project-schema": ["../project-schema/src/index.ts"],
+      "@spectral/render-core": ["../render-core/src/index.ts"]
+    }
+  },
+  "include": ["src/**/*.ts"]
+}

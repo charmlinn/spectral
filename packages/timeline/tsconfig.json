@@ -1,0 +1,13 @@
+{
+  "extends": "../config/tsconfig/react-library.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "declaration": true,
+    "noEmit": true,
+    "paths": {
+      "@spectral/audio-analysis": ["../audio-analysis/src/index.ts"],
+      "@spectral/project-schema": ["../project-schema/src/index.ts"]
+    }
+  },
+  "include": ["src/**/*.ts", "src/**/*.tsx"]
+}

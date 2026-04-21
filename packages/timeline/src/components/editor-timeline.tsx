@@ -1,0 +1,142 @@
+import React, { useEffect, useMemo, useRef } from "react";
+
+import { useTimelinePlayhead } from "../hooks/use-timeline-playhead";
+import { useTimelineScroll } from "../hooks/use-timeline-scroll";
+import { useTimelineZoom } from "../hooks/use-timeline-zoom";
+import { getTimelineWidth } from "../lib/time";
+import type { EditorTimelineProps } from "../types";
+import { AudioWaveformTrack } from "./audio-waveform-track";
+import { LyricsTrack } from "./lyrics-track";
+import { MarkersTrack } from "./markers-track";
+import { TimelineControls } from "./timeline-controls";
+import { TimelineGrid } from "./timeline-grid";
+import { TimelinePlayhead } from "./timeline-playhead";
+import { TimelineRuler } from "./timeline-ruler";
+
+export function EditorTimeline({
+  durationMs,
+  currentTimeMs,
+  pxPerSecond,
+  scrollLeft = 0,
+  viewportWidth = "100%",
+  waveform,
+  segments,
+  markers = [],
+  selection,
+  minPxPerSecond = 40,
+  maxPxPerSecond = 400,
+  snapPointsMs = [],
+  snapThresholdMs = 80,
+  onSeek,
+  onZoomChange,
+  onScrollChange,
+  onSegmentSelect,
+  onSegmentChange,
+}: EditorTimelineProps) {
+  const viewportRef = useRef<HTMLDivElement | null>(null);
+  const timelineWidth = useMemo(
+    () => getTimelineWidth(durationMs, pxPerSecond),
+    [durationMs, pxPerSecond],
+  );
+  const handleWheelZoom = useTimelineZoom({
+    pxPerSecond,
+    minPxPerSecond,
+    maxPxPerSecond,
+    onZoomChange,
+  });
+  const handlePlayheadPointerDown = useTimelinePlayhead({
+    containerRef: viewportRef,
+    durationMs,
+    pxPerSecond,
+    scrollLeft,
+    onSeek,
+  });
+
+  useTimelineScroll(viewportRef, onScrollChange);
+
+  useEffect(() => {
+    const element = viewportRef.current;
+    if (!element) {
+      return;
+    }
+
+    if (Math.abs(element.scrollLeft - scrollLeft) > 1) {
+      element.scrollLeft = scrollLeft;
+    }
+  }, [scrollLeft]);
+
+  return (
+    <div
+      style={{
+        position: "relative",
+        width: viewportWidth,
+        borderRadius: 16,
+        overflow: "hidden",
+        background: "#0e1013",
+        border: "1px solid rgba(255,255,255,0.08)",
+      }}
+    >
+      <TimelineControls
+        pxPerSecond={pxPerSecond}
+        minPxPerSecond={minPxPerSecond}
+        maxPxPerSecond={maxPxPerSecond}
+        onZoomChange={onZoomChange}
+      />
+      <div
+        ref={viewportRef}
+        onWheel={handleWheelZoom}
+        onPointerDown={handlePlayheadPointerDown}
+        style={{
+          position: "relative",
+          overflowX: "auto",
+          overflowY: "hidden",
+          width: "100%",
+          background: "#0f1115",
+          cursor: "pointer",
+        }}
+      >
+        <div style={{ position: "relative", width: timelineWidth, minHeight: 216 }}>
+          <TimelineRuler durationMs={durationMs} pxPerSecond={pxPerSecond} />
+          <div style={{ position: "relative" }}>
+            <div
+              style={{
+                position: "absolute",
+                inset: 0,
+                pointerEvents: "none",
+              }}
+            >
+              <TimelineGrid durationMs={durationMs} pxPerSecond={pxPerSecond} height={188} />
+            </div>
+            <AudioWaveformTrack
+              durationMs={durationMs}
+              pxPerSecond={pxPerSecond}
+              waveform={waveform}
+            />
+            <LyricsTrack
+              durationMs={durationMs}
+              pxPerSecond={pxPerSecond}
+              segments={segments}
+              selectedSegmentIds={selection?.selectedSegmentIds}
+              snapPointsMs={snapPointsMs}
+              snapThresholdMs={snapThresholdMs}
+              onSegmentSelect={onSegmentSelect}
+              onSegmentChange={onSegmentChange}
+            />
+            {markers.length > 0 ? (
+              <MarkersTrack
+                durationMs={durationMs}
+                pxPerSecond={pxPerSecond}
+                markers={markers}
+              />
+            ) : null}
+          </div>
+        </div>
+        <TimelinePlayhead
+          currentTimeMs={currentTimeMs}
+          pxPerSecond={pxPerSecond}
+          scrollLeft={scrollLeft}
+        />
+      </div>
+    </div>
+  );
+}
