@@ -1,0 +1,10 @@
+{
+  "extends": "../config/tsconfig/react-library.json",
+  "compilerOptions": {
+    "baseUrl": "."
+  },
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.tsx"
+  ]
+}
