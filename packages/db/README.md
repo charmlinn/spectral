@@ -2,6 +2,16 @@
 
 Stable data-layer contract for the server side.
 
+## Prisma client generation
+
+`packages/db/src/generated/` is treated as generated output and should not be committed.
+
+After cloning or after changing `prisma/schema.prisma`, regenerate the client with:
+
+```bash
+pnpm --filter @spectral/db prisma:generate
+```
+
 ## Entry points
 
 - `getDataLayer()` / `createDataLayer()` from `@spectral/db`

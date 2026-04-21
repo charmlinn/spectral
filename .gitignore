@@ -6,3 +6,4 @@ coverage
 .DS_Store
 .vscode
 *.tsbuildinfo
+packages/db/src/generated/
