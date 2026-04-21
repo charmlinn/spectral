@@ -1,0 +1,14 @@
+{
+  "extends": "../../packages/config/tsconfig/base.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "declaration": true,
+    "noEmit": true,
+    "types": ["node"],
+    "paths": {
+      "@spectral/db": ["../../packages/db/src/index.ts"],
+      "@spectral/queue": ["../../packages/queue/src/index.ts"]
+    }
+  },
+  "include": ["src/**/*.ts"]
+}
