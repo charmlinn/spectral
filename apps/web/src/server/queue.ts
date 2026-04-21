@@ -1,27 +1,29 @@
 import {
-  assertTopology,
-  closeAmqpResources,
-  createConfirmChannel,
-  createConnection,
-  publishExportJob,
-  type ExportRenderMessage,
+  closeQueueResources,
+  createExportJobQueue,
+  createQueueConnection,
+  enqueueExportJob,
+  type ExportRenderJobData,
 } from "@spectral/queue";
 
 import { getServerEnv } from "./env";
 
-export async function publishExportRenderMessage(message: ExportRenderMessage): Promise<void> {
+export async function enqueueExportRenderJob(message: ExportRenderJobData): Promise<void> {
   const env = getServerEnv();
-  const connection = await createConnection(env.amqpUrl);
-  const channel = await createConfirmChannel(connection);
+  const connection = createQueueConnection(env.redisUrl);
+  const queue = createExportJobQueue({
+    connection,
+    prefix: env.redisQueuePrefix,
+  });
 
   try {
-    await assertTopology(channel, {
-      retryDelayMs: env.amqpRetryDelayMs,
+    await enqueueExportJob(queue, message, {
+      attempts: env.exportMaxAttempts,
+      backoffMs: env.exportRetryDelayMs,
     });
-    await publishExportJob(channel, message);
   } finally {
-    await closeAmqpResources({
-      channel,
+    await closeQueueResources({
+      queue,
       connection,
     });
   }

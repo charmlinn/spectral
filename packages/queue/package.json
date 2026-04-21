@@ -13,10 +13,10 @@
     "typecheck": "tsc --project tsconfig.json --noEmit"
   },
   "dependencies": {
-    "amqplib": "^0.10.9"
+    "bullmq": "^5.61.0",
+    "ioredis": "^5.7.0"
   },
   "devDependencies": {
-    "@types/amqplib": "^0.10.7",
     "@types/node": "^22.14.1"
   }
 }

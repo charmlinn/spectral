@@ -1,79 +1,40 @@
-import type { ConfirmChannel } from "amqplib";
+import { Queue } from "bullmq";
 
-import { DEFAULT_EXPORT_QUEUE_TOPOLOGY, type ExportRenderMessage, type PublishExportJobOptions } from "./types";
+import type { QueueRedisConnection } from "./connection";
+import {
+  EXPORT_RENDER_JOB_NAME,
+  EXPORT_RENDER_QUEUE_NAME,
+  type ExportRenderJobData,
+} from "./types";
 
-function toMessageBuffer(message: ExportRenderMessage) {
-  return Buffer.from(JSON.stringify(message), "utf8");
+export type ExportJobQueue = Queue<ExportRenderJobData, void, string>;
+
+export function createExportJobQueue(input: {
+  connection: QueueRedisConnection;
+  prefix?: string;
+}): ExportJobQueue {
+  return new Queue<ExportRenderJobData, void, string>(EXPORT_RENDER_QUEUE_NAME, {
+    connection: input.connection,
+    prefix: input.prefix,
+  });
 }
 
-export async function publishExportJob(
-  channel: ConfirmChannel,
-  message: ExportRenderMessage,
-  options: PublishExportJobOptions = {},
+export async function enqueueExportJob(
+  queue: ExportJobQueue,
+  message: ExportRenderJobData,
+  options?: {
+    attempts?: number;
+    backoffMs?: number;
+  },
 ): Promise<void> {
-  channel.publish(
-    DEFAULT_EXPORT_QUEUE_TOPOLOGY.exchange,
-    DEFAULT_EXPORT_QUEUE_TOPOLOGY.requestRoutingKey,
-    toMessageBuffer(message),
-    {
-      contentType: "application/json",
-      contentEncoding: "utf-8",
-      deliveryMode: options.persistent === false ? 1 : 2,
-      messageId: message.exportJobId,
-      timestamp: Date.now(),
-      headers: {
-        "x-retry-count": options.retryCount ?? 0,
-      },
+  await queue.add(EXPORT_RENDER_JOB_NAME, message, {
+    attempts: Math.max(1, options?.attempts ?? 1),
+    backoff: {
+      type: "fixed",
+      delay: Math.max(0, options?.backoffMs ?? 0),
     },
-  );
-
-  await channel.waitForConfirms();
-}
-
-export async function publishRetryExportJob(
-  channel: ConfirmChannel,
-  message: ExportRenderMessage,
-  options: PublishExportJobOptions = {},
-): Promise<void> {
-  channel.publish(
-    DEFAULT_EXPORT_QUEUE_TOPOLOGY.exchange,
-    DEFAULT_EXPORT_QUEUE_TOPOLOGY.retryRoutingKey,
-    toMessageBuffer(message),
-    {
-      contentType: "application/json",
-      contentEncoding: "utf-8",
-      deliveryMode: options.persistent === false ? 1 : 2,
-      messageId: message.exportJobId,
-      timestamp: Date.now(),
-      headers: {
-        "x-retry-count": options.retryCount ?? 1,
-      },
-    },
-  );
-
-  await channel.waitForConfirms();
-}
-
-export async function publishDeadExportJob(
-  channel: ConfirmChannel,
-  message: ExportRenderMessage,
-  options: PublishExportJobOptions = {},
-): Promise<void> {
-  channel.publish(
-    DEFAULT_EXPORT_QUEUE_TOPOLOGY.exchange,
-    DEFAULT_EXPORT_QUEUE_TOPOLOGY.deadRoutingKey,
-    toMessageBuffer(message),
-    {
-      contentType: "application/json",
-      contentEncoding: "utf-8",
-      deliveryMode: options.persistent === false ? 1 : 2,
-      messageId: message.exportJobId,
-      timestamp: Date.now(),
-      headers: {
-        "x-retry-count": options.retryCount ?? 0,
-      },
-    },
-  );
-
-  await channel.waitForConfirms();
+    jobId: message.exportJobId,
+    removeOnComplete: true,
+    removeOnFail: false,
+  });
 }

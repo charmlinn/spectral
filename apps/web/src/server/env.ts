@@ -1,10 +1,10 @@
 import { badRequest } from "./errors";
 
 type ServerEnv = {
-  amqpUrl: string;
-  amqpRetryDelayMs: number;
-  amqpPrefetch: number;
+  redisUrl: string;
+  redisQueuePrefix?: string;
   exportMaxAttempts: number;
+  exportRetryDelayMs: number;
   r2AccountId?: string;
   r2Bucket: string;
   r2Region?: string;
@@ -50,10 +50,10 @@ export function getServerEnv(): ServerEnv {
   }
 
   cachedEnv = {
-    amqpUrl: readRequired("AMQP_URL"),
-    amqpRetryDelayMs: readNumber("AMQP_RETRY_DELAY_MS", 30_000),
-    amqpPrefetch: readNumber("AMQP_PREFETCH", 1),
+    redisUrl: readRequired("REDIS_URL"),
+    redisQueuePrefix: process.env.REDIS_QUEUE_PREFIX,
     exportMaxAttempts: readNumber("EXPORT_MAX_ATTEMPTS", 3),
+    exportRetryDelayMs: readNumber("EXPORT_RETRY_DELAY_MS", 30_000),
     r2AccountId: process.env.R2_ACCOUNT_ID,
     r2Bucket: readRequired("R2_BUCKET"),
     r2Region: process.env.R2_REGION,

@@ -5,13 +5,13 @@ This directory provides the local infrastructure needed by `@spectral/web`, `@sp
 It starts only:
 
 - PostgreSQL 16
-- RabbitMQ 3 with the management UI
+- Redis 7
 
 It does not provide object storage. `Cloudflare R2` should continue using real remote credentials.
 
 ## Files
 
-- `compose.local.yml`: local Docker Compose for Postgres and RabbitMQ
+- `compose.local.yml`: local Docker Compose for Postgres and Redis
 - `.env.example`: example variables for Docker and app processes
 
 ## Default local services
@@ -27,21 +27,15 @@ It does not provide object storage. `Cloudflare R2` should continue using real r
 - Persistent volume: `spectral-postgres-data`
 - Health check: `pg_isready`
 
-### RabbitMQ
+### Redis
 
-- Container name: `spectral-rabbitmq-local`
-- Image: `rabbitmq:3.13-management-alpine`
-- Host AMQP port: `5672`
-- Host management UI port: `15672`
-- Default user: `spectral`
+- Container name: `spectral-redis-local`
+- Image: `redis:7-alpine`
+- Host port: `6379`
 - Default password: `spectral`
-- Default vhost: `spectral`
-- Persistent volume: `spectral-rabbitmq-data`
-- Health check: `rabbitmq-diagnostics ping`
-
-Management UI:
-
-- URL: `http://127.0.0.1:15672`
+- Persistent volume: `spectral-redis-data`
+- Health check: `redis-cli -a $REDIS_PASSWORD ping`
+- Persistence mode: `appendonly yes`
 
 ## Quick start
 
@@ -83,11 +77,12 @@ The app processes should use the same env names already consumed by the repo:
 
 - `DATABASE_URL`
 - `SHADOW_DATABASE_URL`
-- `AMQP_URL`
+- `REDIS_URL`
+- `REDIS_QUEUE_PREFIX`
 - `WEB_BASE_URL`
-- `AMQP_PREFETCH`
-- `AMQP_RETRY_DELAY_MS`
 - `EXPORT_MAX_ATTEMPTS`
+- `EXPORT_RETRY_DELAY_MS`
+- `EXPORT_WORKER_CONCURRENCY`
 - `SSE_POLL_INTERVAL_MS`
 - `SSE_HEARTBEAT_INTERVAL_MS`
 - `R2_BUCKET`
@@ -106,7 +101,8 @@ The app processes should use the same env names already consumed by the repo:
 
 ```env
 DATABASE_URL=postgresql://spectral:spectral@127.0.0.1:5432/spectral?schema=public
-AMQP_URL=amqp://spectral:spectral@127.0.0.1:5672/spectral
+REDIS_URL=redis://:spectral@127.0.0.1:6379/0
+REDIS_QUEUE_PREFIX=spectral
 ```
 
 It also needs the real `R2_*` values because local compose does not provide object storage.
@@ -117,8 +113,10 @@ It also needs the real `R2_*` values because local compose does not provide obje
 
 ```env
 DATABASE_URL=postgresql://spectral:spectral@127.0.0.1:5432/spectral?schema=public
-AMQP_URL=amqp://spectral:spectral@127.0.0.1:5672/spectral
+REDIS_URL=redis://:spectral@127.0.0.1:6379/0
+REDIS_QUEUE_PREFIX=spectral
 WEB_BASE_URL=http://127.0.0.1:3000
+EXPORT_WORKER_CONCURRENCY=1
 ```
 
 ## Prisma compatibility

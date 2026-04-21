@@ -13,7 +13,7 @@ import type { VideoProject } from "@spectral/project-schema";
 import { badRequest, notFound, serviceUnavailable } from "../errors";
 import { getAssetResolver, resolveAssetRecordUrl } from "../media";
 import { getServerRepositories } from "../repositories";
-import { publishExportRenderMessage } from "../queue";
+import { enqueueExportRenderJob } from "../queue";
 
 export type RenderPageSurface = {
   width: number;
@@ -320,7 +320,7 @@ export async function createExportJob(input: {
   });
 
   try {
-    await publishExportRenderMessage({
+    await enqueueExportRenderJob({
       exportJobId: job.id,
       requestedAt: new Date().toISOString(),
     });
@@ -328,14 +328,14 @@ export async function createExportJob(input: {
     await repositories.exportJobRepository.appendEvent(job.id, {
       projectId: input.projectId,
       level: "error",
-      type: "publish_failed",
-      message: "Export job was created but queue publish failed.",
+      type: "enqueue_failed",
+      message: "Export job was created but queue enqueue failed.",
       payload: {
         snapshotId: exportTarget.snapshot.id,
       },
     });
 
-    throw serviceUnavailable("Export job created, but queue publish failed.", {
+    throw serviceUnavailable("Export job created, but queue enqueue failed.", {
       exportJobId: job.id,
       cause: error instanceof Error ? error.message : String(error),
     });

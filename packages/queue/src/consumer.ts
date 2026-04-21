@@ -1,96 +1,51 @@
-import type { ChannelModel, ConfirmChannel, ConsumeMessage } from "amqplib";
+import { UnrecoverableError, Worker, type Job } from "bullmq";
 
-import { createConfirmChannel } from "./connection";
-import { assertTopology } from "./topology";
+import type { QueueRedisConnection } from "./connection";
 import {
-  publishDeadExportJob,
-  publishRetryExportJob,
-} from "./publisher";
-import {
-  DEFAULT_EXPORT_QUEUE_TOPOLOGY,
-  type ExportJobConsumeResult,
-  type ExportRenderMessage,
+  EXPORT_RENDER_JOB_NAME,
+  EXPORT_RENDER_QUEUE_NAME,
+  type ExportRenderJobData,
 } from "./types";
 
-function parseExportRenderMessage(message: ConsumeMessage): ExportRenderMessage {
-  const payload = JSON.parse(message.content.toString("utf8")) as Partial<ExportRenderMessage>;
+export type ExportJobQueueJob = Job<ExportRenderJobData, void, string>;
+export type ExportJobWorker = Worker<ExportRenderJobData, void, string>;
 
-  if (!payload.exportJobId || !payload.requestedAt) {
-    throw new Error("Invalid export render message payload.");
-  }
-
-  return {
-    exportJobId: payload.exportJobId,
-    requestedAt: payload.requestedAt,
-  };
+export function createUnrecoverableQueueError(error: Error | string): UnrecoverableError {
+  return new UnrecoverableError(typeof error === "string" ? error : error.message);
 }
 
-function getRetryCount(message: ConsumeMessage): number {
-  const rawValue = message.properties.headers?.["x-retry-count"];
-  return typeof rawValue === "number" ? rawValue : 0;
+export function createExportJobWorker(input: {
+  connection: QueueRedisConnection;
+  prefix?: string;
+  concurrency?: number;
+  onJob: (input: {
+    job: ExportJobQueueJob;
+    message: ExportRenderJobData;
+    attemptNumber: number;
+    maxAttempts: number;
+  }) => Promise<void>;
+}): ExportJobWorker {
+  return new Worker<ExportRenderJobData, void, string>(
+    EXPORT_RENDER_QUEUE_NAME,
+    async (job) => {
+      const maxAttempts =
+        typeof job.opts.attempts === "number" ? Math.max(1, job.opts.attempts) : 1;
+
+      await input.onJob({
+        job,
+        message: job.data,
+        attemptNumber: job.attemptsMade + 1,
+        maxAttempts,
+      });
+    },
+    {
+      connection: input.connection,
+      concurrency: Math.max(1, input.concurrency ?? 1),
+      prefix: input.prefix,
+    },
+  );
 }
 
-export async function consumeExportJobs(
-  connection: ChannelModel,
-  options: {
-    prefetch?: number;
-    retryDelayMs?: number;
-    onMessage: (input: {
-      message: ExportRenderMessage;
-      retryCount: number;
-    }) => Promise<ExportJobConsumeResult>;
-  },
-): Promise<ConfirmChannel> {
-  const channel = await createConfirmChannel(connection);
-
-  await assertTopology(channel, {
-    retryDelayMs: options.retryDelayMs,
-  });
-
-  await channel.prefetch(options.prefetch ?? 1);
-
-  await channel.consume(DEFAULT_EXPORT_QUEUE_TOPOLOGY.renderQueue, async (delivery) => {
-    if (!delivery) {
-      return;
-    }
-
-    let parsedMessage: ExportRenderMessage;
-    const retryCount = getRetryCount(delivery);
-
-    try {
-      parsedMessage = parseExportRenderMessage(delivery);
-    } catch {
-      channel.nack(delivery, false, false);
-      return;
-    }
-
-    try {
-      const result = await options.onMessage({
-        message: parsedMessage,
-        retryCount,
-      });
-
-      if (result.action === "ack") {
-        channel.ack(delivery);
-        return;
-      }
-
-      if (result.action === "retry") {
-        await publishRetryExportJob(channel, parsedMessage, {
-          retryCount: result.retryCount ?? retryCount + 1,
-        });
-        channel.ack(delivery);
-        return;
-      }
-
-      await publishDeadExportJob(channel, parsedMessage, {
-        retryCount: result.retryCount ?? retryCount,
-      });
-      channel.ack(delivery);
-    } catch {
-      channel.nack(delivery, false, true);
-    }
-  });
-
-  return channel;
+export function isExportRenderJob(job: ExportJobQueueJob): boolean {
+  return job.name === EXPORT_RENDER_JOB_NAME;
 }

@@ -25,11 +25,10 @@ function readNumber(name: string, fallback: number): number {
 }
 
 let cachedEnv: {
-  amqpUrl: string;
-  amqpPrefetch: number;
-  amqpRetryDelayMs: number;
+  redisUrl: string;
+  redisQueuePrefix?: string;
+  exportWorkerConcurrency: number;
   databaseUrl: string;
-  exportMaxAttempts: number;
   webBaseUrl: string;
 } | null = null;
 
@@ -39,11 +38,10 @@ export function getWorkerEnv() {
   }
 
   cachedEnv = {
-    amqpUrl: readRequired("AMQP_URL"),
-    amqpPrefetch: readNumber("AMQP_PREFETCH", 1),
-    amqpRetryDelayMs: readNumber("AMQP_RETRY_DELAY_MS", 30_000),
+    redisUrl: readRequired("REDIS_URL"),
+    redisQueuePrefix: process.env.REDIS_QUEUE_PREFIX,
+    exportWorkerConcurrency: readNumber("EXPORT_WORKER_CONCURRENCY", 1),
     databaseUrl: readRequired("DATABASE_URL"),
-    exportMaxAttempts: readNumber("EXPORT_MAX_ATTEMPTS", 3),
     webBaseUrl: readRequired("WEB_BASE_URL"),
   };
 

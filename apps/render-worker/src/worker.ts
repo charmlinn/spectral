@@ -3,10 +3,11 @@ import {
   getDataLayer,
 } from "@spectral/db";
 import {
-  closeAmqpResources,
-  consumeExportJobs,
-  createConnection,
-  type ExportJobConsumeResult,
+  closeQueueResources,
+  createExportJobWorker,
+  createQueueConnection,
+  createUnrecoverableQueueError,
+  isExportRenderJob,
 } from "@spectral/queue";
 
 import { NonRetryableWorkerError, RetryableWorkerError } from "./errors";
@@ -45,32 +46,28 @@ function toErrorDetails(error: unknown) {
 async function handleExportJobMessage(
   input: {
     exportJobId: string;
-    retryCount: number;
+    attemptNumber: number;
+    maxAttempts: number;
   },
   dependencies: {
     executor: RenderExecutor;
-    exportMaxAttempts: number;
     webBaseUrl: string;
   },
-): Promise<ExportJobConsumeResult> {
+): Promise<void> {
   const dataLayer = getDataLayer();
   const jobDetail = await dataLayer.exportJobRepository.getJobById(input.exportJobId);
 
   if (!jobDetail) {
-    return {
-      action: "ack",
-    };
+    return;
   }
 
   const job = jobDetail.job;
 
   if (job.status === "completed" || job.status === "cancelled") {
-    return {
-      action: "ack",
-    };
+    return;
   }
 
-  if (job.attempts >= dependencies.exportMaxAttempts) {
+  if (job.attempts >= input.maxAttempts) {
     await dataLayer.exportJobRepository.updateJobStatus(job.id, {
       status: "failed",
       attempts: job.attempts,
@@ -85,18 +82,15 @@ async function handleExportJobMessage(
       progress: job.progress,
     });
 
-    return {
-      action: "dead",
-      retryCount: input.retryCount,
-    };
+    return;
   }
 
-  const nextAttempts = job.attempts + 1;
+  const currentAttempt = Math.max(job.attempts + 1, input.attemptNumber);
 
   await dataLayer.exportJobRepository.updateJobStatus(job.id, {
     status: "running",
     progress: 5,
-    attempts: nextAttempts,
+    attempts: currentAttempt,
   });
   await dataLayer.exportJobRepository.appendEvent(job.id, {
     projectId: job.projectId,
@@ -104,8 +98,8 @@ async function handleExportJobMessage(
     message: "Render worker started processing export job.",
     progress: 5,
     payload: {
-      attempt: nextAttempts,
-      retryCount: input.retryCount,
+      attempt: currentAttempt,
+      maxAttempts: input.maxAttempts,
     },
   });
 
@@ -119,7 +113,7 @@ async function handleExportJobMessage(
     await dataLayer.exportJobRepository.updateJobStatus(job.id, {
       status: "completed",
       progress: 100,
-      attempts: nextAttempts,
+      attempts: currentAttempt,
       outputStorageKey: result.outputStorageKey ?? null,
       posterStorageKey: result.posterStorageKey ?? null,
       metadata: result.metadata,
@@ -131,21 +125,17 @@ async function handleExportJobMessage(
       progress: 100,
       payload: result.metadata,
     });
-
-    return {
-      action: "ack",
-    };
   } catch (error) {
     const details = toErrorDetails(error);
     const canRetry =
       error instanceof RetryableWorkerError &&
-      nextAttempts < dependencies.exportMaxAttempts;
+      currentAttempt < input.maxAttempts;
 
     if (canRetry) {
       await dataLayer.exportJobRepository.updateJobStatus(job.id, {
         status: "queued",
         progress: 0,
-        attempts: nextAttempts,
+        attempts: currentAttempt,
         errorCode: details.code,
         errorMessage: details.message,
       });
@@ -156,22 +146,19 @@ async function handleExportJobMessage(
         message: details.message,
         progress: job.progress,
         payload: {
-          attempt: nextAttempts,
-          retryCount: input.retryCount + 1,
+          attempt: currentAttempt,
+          maxAttempts: input.maxAttempts,
           errorCode: details.code,
         },
       });
 
-      return {
-        action: "retry",
-        retryCount: input.retryCount + 1,
-      };
+      throw error;
     }
 
     await dataLayer.exportJobRepository.updateJobStatus(job.id, {
       status: "failed",
       progress: job.progress,
-      attempts: nextAttempts,
+      attempts: currentAttempt,
       errorCode: details.code,
       errorMessage: details.message,
     });
@@ -182,16 +169,13 @@ async function handleExportJobMessage(
       message: details.message,
       progress: job.progress,
       payload: {
-        attempt: nextAttempts,
-        retryCount: input.retryCount,
+        attempt: currentAttempt,
+        maxAttempts: input.maxAttempts,
         errorCode: details.code,
       },
     });
 
-    return {
-      action: "dead",
-      retryCount: input.retryCount,
-    };
+    throw createUnrecoverableQueueError(`${details.code}: ${details.message}`);
   }
 }
 
@@ -199,29 +183,52 @@ export async function startRenderWorker(
   executor: RenderExecutor = new HttpRenderExecutor(),
 ) {
   const env = getWorkerEnv();
-  const connection = await createConnection(env.amqpUrl);
-  const channel = await consumeExportJobs(connection, {
-    prefetch: env.amqpPrefetch,
-    retryDelayMs: env.amqpRetryDelayMs,
-    onMessage: ({ message, retryCount }) =>
-      handleExportJobMessage(
+  const connection = createQueueConnection(env.redisUrl);
+  const worker = createExportJobWorker({
+    connection,
+    prefix: env.redisQueuePrefix,
+    concurrency: env.exportWorkerConcurrency,
+    onJob: async ({ job, message, attemptNumber, maxAttempts }) => {
+      if (!isExportRenderJob(job)) {
+        throw createUnrecoverableQueueError(`Unsupported queue job name: ${job.name}`);
+      }
+
+      await handleExportJobMessage(
         {
           exportJobId: message.exportJobId,
-          retryCount,
+          attemptNumber,
+          maxAttempts,
         },
         {
           executor,
-          exportMaxAttempts: env.exportMaxAttempts,
           webBaseUrl: env.webBaseUrl,
         },
-      ),
+      );
+    },
+  });
+
+  worker.on("error", (error) => {
+    console.error("Render worker queue error.", error);
+  });
+
+  worker.on("failed", (job, error) => {
+    console.error(
+      "Render job attempt failed.",
+      {
+        exportJobId: job?.data.exportJobId ?? null,
+        attemptsMade: job?.attemptsMade ?? null,
+      },
+      error,
+    );
   });
 
   console.log("Render worker is consuming export jobs.");
 
+  await worker.waitUntilReady();
+
   const shutdown = async () => {
-    await closeAmqpResources({
-      channel,
+    await closeQueueResources({
+      worker,
       connection,
     });
     await disconnectDataLayer();

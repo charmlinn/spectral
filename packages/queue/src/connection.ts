@@ -1,18 +1,45 @@
-import { connect } from "amqplib";
-import type { ChannelModel, ConfirmChannel } from "amqplib";
+import IORedis from "ioredis";
 
-export async function createConnection(amqpUrl: string): Promise<ChannelModel> {
-  return connect(amqpUrl);
+export type QueueRedisConnection = IORedis;
+
+type Closable = {
+  close: () => Promise<void>;
+};
+
+export function createQueueConnection(redisUrl: string): QueueRedisConnection {
+  return new IORedis(redisUrl, {
+    maxRetriesPerRequest: null,
+  });
 }
 
-export async function createConfirmChannel(connection: ChannelModel): Promise<ConfirmChannel> {
-  return connection.createConfirmChannel();
+async function closeClosable(resource?: Closable | null) {
+  if (!resource) {
+    return;
+  }
+
+  await resource.close();
 }
 
-export async function closeAmqpResources(resources: {
-  channel?: ConfirmChannel | null;
-  connection?: ChannelModel | null;
+async function closeConnection(connection?: QueueRedisConnection | null) {
+  if (!connection) {
+    return;
+  }
+
+  try {
+    await connection.quit();
+  } catch {
+    connection.disconnect();
+  }
+}
+
+export async function closeQueueResources(resources: {
+  queue?: Closable | null;
+  worker?: Closable | null;
+  connection?: QueueRedisConnection | null;
 }): Promise<void> {
-  await resources.channel?.close().catch(() => undefined);
-  await resources.connection?.close().catch(() => undefined);
+  await Promise.allSettled([
+    closeClosable(resources.queue),
+    closeClosable(resources.worker),
+    closeConnection(resources.connection),
+  ]);
 }

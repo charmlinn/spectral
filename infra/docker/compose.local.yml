@@ -24,21 +24,28 @@ services:
       retries: 10
       start_period: 10s
 
-  rabbitmq:
-    image: rabbitmq:3.13-management-alpine
-    container_name: spectral-rabbitmq-local
+  redis:
+    image: redis:7-alpine
+    container_name: spectral-redis-local
     restart: unless-stopped
-    environment:
-      RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER}
-      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS}
-      RABBITMQ_DEFAULT_VHOST: ${RABBITMQ_DEFAULT_VHOST}
+    command:
+      [
+        "redis-server",
+        "--appendonly",
+        "yes",
+        "--requirepass",
+        "${REDIS_PASSWORD}",
+      ]
     ports:
-      - "${RABBITMQ_PORT:-5672}:5672"
-      - "${RABBITMQ_MANAGEMENT_PORT:-15672}:15672"
+      - "${REDIS_PORT:-6379}:6379"
     volumes:
-      - spectral-rabbitmq-data:/var/lib/rabbitmq
+      - spectral-redis-data:/data
     healthcheck:
-      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      test:
+        [
+          "CMD-SHELL",
+          "redis-cli -a ${REDIS_PASSWORD} ping | grep PONG",
+        ]
       interval: 10s
       timeout: 5s
       retries: 10
@@ -47,5 +54,5 @@ services:
 volumes:
   spectral-postgres-data:
     name: spectral-postgres-data
-  spectral-rabbitmq-data:
-    name: spectral-rabbitmq-data
+  spectral-redis-data:
+    name: spectral-redis-data
