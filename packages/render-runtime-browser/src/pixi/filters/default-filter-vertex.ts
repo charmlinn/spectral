@@ -1,6 +1,6 @@
 export const defaultFilterVertex = `
-in vec2 aPosition;
-out vec2 vTextureCoord;
+attribute vec2 aPosition;
+varying vec2 vTextureCoord;
 
 uniform vec4 uInputSize;
 uniform vec4 uOutputFrame;
