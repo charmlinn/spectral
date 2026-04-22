@@ -5,6 +5,17 @@ function isWhitePlaceholderColor(value: string | null | undefined) {
   return normalized === "#ffffff" || normalized === "0xffffff";
 }
 
+function usesPlaceholderBackdropReflection(
+  projectData: VideoProject,
+  presetProjectData: VideoProject,
+) {
+  return (
+    projectData.backdrop.reflection.type === "none" &&
+    projectData.backdrop.reflection.direction === "right" &&
+    presetProjectData.backdrop.reflection.type !== "none"
+  );
+}
+
 function isPresetDerivedProject(projectData: VideoProject) {
   return (
     projectData.meta.source === "preset" ||
@@ -74,6 +85,17 @@ export function repairPresetDerivedProjectData(
     changed = true;
   }
 
+  const repairedBackdropReflection = usesPlaceholderBackdropReflection(
+    projectData,
+    presetProjectData,
+  )
+    ? presetProjectData.backdrop.reflection
+    : projectData.backdrop.reflection;
+
+  if (repairedBackdropReflection !== projectData.backdrop.reflection) {
+    changed = true;
+  }
+
   if (!changed) {
     return projectData;
   }
@@ -83,6 +105,10 @@ export function repairPresetDerivedProjectData(
     visualizer: {
       ...projectData.visualizer,
       waveCircles: repairedWaveCircles,
+    },
+    backdrop: {
+      ...projectData.backdrop,
+      reflection: repairedBackdropReflection,
     },
     overlays: {
       ...projectData.overlays,

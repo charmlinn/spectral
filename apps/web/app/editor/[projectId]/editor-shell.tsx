@@ -394,7 +394,7 @@ export function EditorShell({
       </div>
 
       <div className="grid flex-1 gap-4 xl:grid-cols-[20rem_minmax(0,1fr)_20rem]">
-        <EditorSidebar />
+        <EditorSidebar projectId={projectId} />
 
         <div className="flex min-h-0 flex-col gap-4">
           <PreviewStage

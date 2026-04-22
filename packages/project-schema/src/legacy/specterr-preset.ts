@@ -223,20 +223,36 @@ function sanitizeBackdropSettings(
     | Record<string, unknown>
     | undefined;
   const drift = settings?.background?.drift as Record<string, unknown> | undefined;
+  const reflectionType =
+    typeof reflection?.type === "number"
+      ? reflection.type === 2
+        ? "four-way"
+        : reflection.type === 1
+          ? "two-way"
+          : defaults.reflection.type
+      : typeof reflection?.type === "string"
+        ? reflection.type
+        : defaults.reflection.type;
+  const reflectionDirection =
+    typeof reflection?.direction === "number"
+      ? reflection.direction === 3
+        ? "left"
+        : reflection.direction === 2
+          ? "up"
+          : reflection.direction === 1
+            ? "right"
+            : "down"
+      : typeof reflection?.direction === "string"
+        ? reflection.direction
+        : defaults.reflection.direction;
 
   return {
     ...defaults,
     ...backgroundRest,
     reflection: {
       ...defaults.reflection,
-      type:
-        reflection && typeof reflection.type === "string"
-          ? reflection.type
-          : defaults.reflection.type,
-      direction:
-        reflection && typeof reflection.direction === "string"
-          ? reflection.direction
-          : defaults.reflection.direction,
+      type: reflectionType,
+      direction: reflectionDirection,
     },
     hlsAdjustment: {
       ...defaults.hlsAdjustment,

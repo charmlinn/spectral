@@ -2,6 +2,7 @@ import {
   createDefaultVideoProject,
   getAspectRatioDimensions,
   normalizeVideoProject,
+  type VisualizerWaveCircle,
   type SupportedAspectRatio,
   type VideoProject,
 } from "@spectral/project-schema";
@@ -11,6 +12,14 @@ import { subscribeWithSelector } from "zustand/middleware";
 import { cloneValue, deepMerge, setValueAtPath } from "../shared/object";
 
 const HISTORY_LIMIT = 100;
+
+type ProjectStoreSet = (
+  partial:
+    | Partial<ProjectStoreState>
+    | ((state: ProjectStoreState) => Partial<ProjectStoreState>),
+) => void;
+
+type ProjectStoreGet = () => ProjectStoreState;
 
 export type ProjectPatch =
   | Partial<VideoProject>
@@ -26,6 +35,16 @@ export type ProjectStoreState = {
   applyPatch(patch: ProjectPatch): void;
   setAspectRatio(aspectRatio: SupportedAspectRatio): void;
   updateAtPath(path: string | string[], value: unknown): void;
+  addVisualizerWaveLayer(): void;
+  updateVisualizerWaveLayer(index: number, patch: Partial<VideoProject["visualizer"]["waveCircles"][number]>): void;
+  updateVisualizerWaveLayerCustomOptions(index: number, patch: Record<string, unknown>): void;
+  updateVisualizerWaveLayerSpinSettings(
+    index: number,
+    patch: Partial<VideoProject["visualizer"]["waveCircles"][number]["spinSettings"]>,
+  ): void;
+  removeVisualizerWaveLayer(index?: number): void;
+  duplicateVisualizerWaveLayer(index: number): void;
+  moveVisualizerWaveLayer(fromIndex: number, toIndex: number): void;
   markSaved(snapshotVersion?: string | null): void;
   reset(project?: VideoProject): void;
   undo(): void;
@@ -49,6 +68,68 @@ function resolveProjectPatch(
   }
 
   return normalizeVideoProject(deepMerge(project, patch));
+}
+
+function commitProjectChange(
+  set: ProjectStoreSet,
+  get: ProjectStoreGet,
+  transform: (project: VideoProject) => VideoProject,
+) {
+  const current = get().project;
+  const nextProject = normalizeVideoProject(transform(cloneValue(current)));
+
+  set((state) => ({
+    project: nextProject,
+    dirty: true,
+    history: pushHistory(state.history, current),
+    future: [],
+  }));
+}
+
+function createDefaultWaveLayer(): VideoProject["visualizer"]["waveCircles"][number] {
+  const hexColor = Math.floor(Math.random() * 0xffffff)
+    .toString(16)
+    .padStart(6, "0");
+
+  return {
+    fillColor: `0x${hexColor}`,
+    secondaryFillColor: null,
+    lineColor: "0x000000",
+    secondaryLineColor: null,
+    fillAlpha: 1,
+    secondaryFillAlpha: 1,
+    lineWidth: 0,
+    lineAlpha: 1,
+    secondaryLineAlpha: 1,
+    visible: true,
+    spinSettings: {
+      enabled: false,
+      speed: 0,
+      acceleration: 0,
+      logoLocked: false,
+    },
+    customOptions: {
+      rotation: 0,
+      waveType: "bass spectrum",
+      reflectionType: "vertical",
+      enabled: false,
+      smoothed: true,
+      inverted: false,
+      waveStyle: "solid",
+      waveScaleFactor: 1.2,
+      barCount: 200,
+      barWidth: 0.75,
+      pointRadius: 1,
+    },
+  };
+}
+
+function canRemoveWaveLayer(waveCircles: VisualizerWaveCircle[]) {
+  return waveCircles.length > 1;
+}
+
+function canAddWaveLayer(waveCircles: VisualizerWaveCircle[]) {
+  return waveCircles.length < 7;
 }
 
 export const useProjectStore = create<ProjectStoreState>()(
@@ -115,6 +196,152 @@ export const useProjectStore = create<ProjectStoreState>()(
         history: pushHistory(state.history, current),
         future: [],
       }));
+    },
+    addVisualizerWaveLayer() {
+      if (!canAddWaveLayer(get().project.visualizer.waveCircles)) {
+        return;
+      }
+
+      commitProjectChange(set, get, (project) => ({
+        ...project,
+        visualizer: {
+          ...project.visualizer,
+          waveCircles: [
+            createDefaultWaveLayer(),
+            ...project.visualizer.waveCircles,
+          ],
+        },
+      }));
+    },
+    updateVisualizerWaveLayer(index, patch) {
+      commitProjectChange(set, get, (project) => ({
+        ...project,
+        visualizer: {
+          ...project.visualizer,
+          waveCircles: project.visualizer.waveCircles.map((layer, layerIndex) =>
+            layerIndex === index
+              ? {
+                  ...layer,
+                  ...patch,
+                }
+              : layer,
+          ),
+        },
+      }));
+    },
+    updateVisualizerWaveLayerCustomOptions(index, patch) {
+      commitProjectChange(set, get, (project) => ({
+        ...project,
+        visualizer: {
+          ...project.visualizer,
+          waveCircles: project.visualizer.waveCircles.map((layer, layerIndex) =>
+            layerIndex === index
+              ? {
+                  ...layer,
+                  customOptions: {
+                    ...layer.customOptions,
+                    ...patch,
+                  },
+                }
+              : layer,
+          ),
+        },
+      }));
+    },
+    updateVisualizerWaveLayerSpinSettings(index, patch) {
+      commitProjectChange(set, get, (project) => ({
+        ...project,
+        visualizer: {
+          ...project.visualizer,
+          waveCircles: project.visualizer.waveCircles.map((layer, layerIndex) =>
+            layerIndex === index
+              ? {
+                  ...layer,
+                  spinSettings: {
+                    ...layer.spinSettings,
+                    ...patch,
+                  },
+                }
+              : layer,
+          ),
+        },
+      }));
+    },
+    removeVisualizerWaveLayer(index) {
+      if (!canRemoveWaveLayer(get().project.visualizer.waveCircles)) {
+        return;
+      }
+
+      commitProjectChange(set, get, (project) => {
+        const nextWaveCircles = [...project.visualizer.waveCircles];
+        nextWaveCircles.splice(index ?? 0, 1);
+
+        return {
+          ...project,
+          visualizer: {
+            ...project.visualizer,
+            waveCircles: nextWaveCircles,
+          },
+        };
+      });
+    },
+    duplicateVisualizerWaveLayer(index) {
+      const currentWaveCircles = get().project.visualizer.waveCircles;
+
+      if (!canAddWaveLayer(currentWaveCircles) || !currentWaveCircles[index]) {
+        return;
+      }
+
+      commitProjectChange(set, get, (project) => {
+        const nextWaveCircles = [...project.visualizer.waveCircles];
+        const source = nextWaveCircles[index];
+
+        if (!source) {
+          return project;
+        }
+
+        nextWaveCircles.splice(index, 0, cloneValue(source));
+
+        return {
+          ...project,
+          visualizer: {
+            ...project.visualizer,
+            waveCircles: nextWaveCircles,
+          },
+        };
+      });
+    },
+    moveVisualizerWaveLayer(fromIndex, toIndex) {
+      const currentWaveCircles = get().project.visualizer.waveCircles;
+
+      if (
+        !currentWaveCircles[fromIndex] ||
+        toIndex < 0 ||
+        toIndex >= currentWaveCircles.length ||
+        fromIndex === toIndex
+      ) {
+        return;
+      }
+
+      commitProjectChange(set, get, (project) => {
+        const nextWaveCircles = [...project.visualizer.waveCircles];
+        const source = nextWaveCircles[fromIndex];
+
+        if (!source) {
+          return project;
+        }
+
+        nextWaveCircles[fromIndex] = cloneValue(nextWaveCircles[toIndex]!);
+        nextWaveCircles[toIndex] = cloneValue(source);
+
+        return {
+          ...project,
+          visualizer: {
+            ...project.visualizer,
+            waveCircles: nextWaveCircles,
+          },
+        };
+      });
     },
     markSaved(snapshotVersion = get().snapshotVersion) {
       set({

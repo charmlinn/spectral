@@ -18,6 +18,7 @@ import { Switch } from "@spectral/ui/components/switch";
 import { Textarea } from "@spectral/ui/components/textarea";
 
 import { AudioUploadPanel } from "./audio-upload-panel";
+import { VisualizerSidebar } from "./visualizer-sidebar";
 
 const sections = [
   { id: "general", label: "General" },
@@ -34,7 +35,7 @@ function toNumber(value: string) {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
-export function EditorSidebar() {
+export function EditorSidebar({ projectId }: { projectId: string }) {
   const currentTab = useEditorUiStore((state) => state.currentTab);
   const setCurrentTab = useEditorUiStore((state) => state.setCurrentTab);
   const project = useProjectStore((state) => state.project);
@@ -200,45 +201,7 @@ export function EditorSidebar() {
           ) : null}
 
           {currentTab === "visualizer" ? (
-            <div className="grid gap-3">
-              <div className="flex items-center justify-between gap-3 rounded-[20px] border border-border/70 p-3">
-                <div>
-                  <Label htmlFor="visualizer-enabled">Visualizer enabled</Label>
-                  <p className="text-xs text-muted-foreground">
-                    Directly patches `visualizer.enabled`.
-                  </p>
-                </div>
-                <Switch
-                  checked={project.visualizer.enabled}
-                  id="visualizer-enabled"
-                  onCheckedChange={(checked) =>
-                    updateAtPath(["visualizer", "enabled"], checked)
-                  }
-                />
-              </div>
-              <label className="grid gap-2">
-                <span className="text-sm font-medium">Pipeline</span>
-                <Input
-                  value={project.visualizer.pipeline}
-                  onChange={(event) =>
-                    updateAtPath(["visualizer", "pipeline"], event.target.value)
-                  }
-                />
-              </label>
-              <label className="grid gap-2">
-                <span className="text-sm font-medium">Bar count</span>
-                <Input
-                  type="number"
-                  value={String(project.visualizer.barCount)}
-                  onChange={(event) => {
-                    const nextValue = toNumber(event.target.value);
-                    if (nextValue !== null && nextValue > 0) {
-                      updateAtPath(["visualizer", "barCount"], nextValue);
-                    }
-                  }}
-                />
-              </label>
-            </div>
+            <VisualizerSidebar projectId={projectId} />
           ) : null}
 
           {currentTab === "backdrop" ? (
