@@ -41,4 +41,8 @@ export type VisualizerBufferStore = {
   composite: HTMLCanvasElement | null;
   glow: HTMLCanvasElement | null;
   main: HTMLCanvasElement | null;
+  shakeOffset: {
+    x: number;
+    y: number;
+  };
 };

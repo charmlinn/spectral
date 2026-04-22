@@ -43,6 +43,7 @@ export function createBrowserRenderRuntime(
     const visibleLayers = resolveVisibleLayers(sceneGraph.layers, frameContext);
     const input = {
       analysisProvider,
+      animationTimeMs: performance.now(),
       historyProvider,
       sceneGraph,
       visibleLayers,

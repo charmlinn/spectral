@@ -57,6 +57,18 @@ function toAspectRatioValue(aspectRatio: SupportedAspectRatio) {
   return "1 / 1";
 }
 
+function getPreviewResolutionScale(renderQuality: "draft" | "balanced" | "high") {
+  if (renderQuality === "draft") {
+    return 0.75;
+  }
+
+  if (renderQuality === "balanced") {
+    return 1;
+  }
+
+  return 1.5;
+}
+
 export function PreviewStage({
   analysisError,
   analysisLoading,
@@ -78,6 +90,7 @@ export function PreviewStage({
   const previewAspectRatio = usePreviewStore((state) => state.aspectRatio);
   const renderQuality = usePreviewStore((state) => state.renderQuality);
   const runtimeHealth = usePreviewStore((state) => state.runtimeHealth);
+  const deviceDpr = usePreviewStore((state) => state.dpr);
   const setSurface = usePreviewStore((state) => state.setSurface);
   const setRenderQuality = usePreviewStore((state) => state.setRenderQuality);
   const setRuntimeHealth = usePreviewStore((state) => state.setRuntimeHealth);
@@ -95,6 +108,8 @@ export function PreviewStage({
   const assetResolverRef = useRef(createProjectAssetResolver());
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [runtimeError, setRuntimeError] = useState<string | null>(null);
+  const surfaceScale = getPreviewResolutionScale(renderQuality);
+  const effectiveDpr = Math.max(0.75, Math.min(deviceDpr * surfaceScale, 2));
 
   useEffect(() => {
     manualClockRef.current = createManualRenderClock({
@@ -218,7 +233,7 @@ export function PreviewStage({
           surface: {
             width: surfaceWidth,
             height: surfaceHeight,
-            dpr: window.devicePixelRatio || 1,
+            dpr: effectiveDpr,
           },
           clock:
             audioUrl && audioRef.current
@@ -269,6 +284,7 @@ export function PreviewStage({
     analysisError,
     analysisProvider,
     audioUrl,
+    effectiveDpr,
     surfaceHeight,
     project.projectId,
     project.timing.fps,
@@ -336,9 +352,9 @@ export function PreviewStage({
     void runtimeRef.current.setSurface({
       width: surfaceWidth,
       height: surfaceHeight,
-      dpr: window.devicePixelRatio || 1,
+      dpr: effectiveDpr,
     });
-  }, [surfaceHeight, surfaceWidth]);
+  }, [effectiveDpr, surfaceHeight, surfaceWidth]);
 
   useEffect(() => {
     const audioElement = audioRef.current;

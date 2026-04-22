@@ -1,10 +1,9 @@
-import { processSpectrum } from "@spectral/audio-analysis";
+import { getSpectrumMagnitude, processSpectrum } from "@spectral/audio-analysis";
 import type { VisualizerWaveCircle } from "@spectral/project-schema";
 
 import type { BrowserRenderAdapterRenderInput } from "../../contracts/runtime";
 import {
   clamp,
-  average,
   SPECTERR_BASS_BOUNCE_SCALE,
   SPECTERR_BASS_SHAKE_FACTOR_LITTLE,
   SPECTERR_BASS_SHAKE_FACTOR_LOT,
@@ -42,24 +41,19 @@ export function averageSpectrumMagnitude(values: number[]) {
     return 0;
   }
 
-  return average(values);
+  return getSpectrumMagnitude(values);
 }
 
-function sampleDeterministicNoise(frame: number, lane: number) {
-  const value = Math.sin(frame * 12.9898 + lane * 78.233) * 43758.5453;
-  return value - Math.floor(value);
-}
-
-export function computeVisualizerShakeOffset(
-  frame: number,
+export function advanceVisualizerShakeOffset(
+  previousOffset: { x: number; y: number },
   amplitude: number,
   strength: number,
 ) {
   const factor = clamp(amplitude / 255, 0, 1);
 
   return {
-    x: (sampleDeterministicNoise(frame, 1) - 0.5) * strength * factor,
-    y: (sampleDeterministicNoise(frame, 2) - 0.5) * strength * factor,
+    x: (previousOffset.x + (Math.random() - 0.5) * strength) * factor,
+    y: (previousOffset.y + (Math.random() - 0.5) * strength) * factor,
   };
 }
 

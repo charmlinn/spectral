@@ -24,7 +24,7 @@ import {
 } from "../specterr-visualizer-options";
 import {
   averageSpectrumMagnitude,
-  computeVisualizerShakeOffset,
+  advanceVisualizerShakeOffset,
   getGlobalVisualizerSpinRotation,
   getRingRotation,
   getSpectrumForVisualizer,
@@ -53,6 +53,7 @@ export function createVisualizerBufferStore(): VisualizerBufferStore {
     composite: null,
     glow: null,
     main: null,
+    shakeOffset: { x: 0, y: 0 },
   };
 }
 
@@ -767,11 +768,11 @@ export async function drawVisualizerLayer(
   );
   const shake =
     !drift && shakeStrength > 0
-      ? computeVisualizerShakeOffset(
-          input.frameContext.frame,
+      ? (buffers.shakeOffset = advanceVisualizerShakeOffset(
+          buffers.shakeOffset,
           lastVisibleSpectrumMagnitude,
           shakeStrength,
-        )
+        ))
       : { x: 0, y: 0 };
   const globalSpinRotation = drift
     ? 0

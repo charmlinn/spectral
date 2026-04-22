@@ -7,6 +7,7 @@ import {
   WRAP_MODES,
   type Container,
 } from "pixi.js";
+import chroma from "chroma-js";
 import { AdvancedBloomFilter, DropShadowFilter } from "pixi-filters";
 import type { VisualizerWaveCircle } from "@spectral/project-schema";
 
@@ -14,6 +15,20 @@ import { clamp } from "../../adapters/canvas-utils";
 
 export const SPECTERR_FIRE_TEXTURE_URL =
   "https://specterr.b-cdn.net/fire-texture.jpg";
+
+function normalizeMixColorInput(input: string | null | undefined) {
+  const normalized = input?.trim().toLowerCase();
+
+  if (
+    normalized === "0x000000" ||
+    normalized === "#000000" ||
+    normalized === "#000"
+  ) {
+    return "0x010101";
+  }
+
+  return input;
+}
 
 function toRgbTuple(input: string | null | undefined) {
   if (!input) {
@@ -70,15 +85,18 @@ export function mixPixiColor(
     return toPixiColor(primary);
   }
 
-  const from = toRgbTuple(primary);
-  const to = toRgbTuple(secondary);
   const mix = clamp(mixPercent, 0, 1);
+  const mixedColor = chroma
+    .mix(
+      normalizeMixColorInput(primary)?.replace("0x", "#") ?? "#ffffff",
+      normalizeMixColorInput(secondary)?.replace("0x", "#") ?? "#ffffff",
+      mix,
+      "lch",
+    )
+    .hex()
+    .replace("#", "");
 
-  return (
-    (Math.round(from.red + (to.red - from.red) * mix) << 16) |
-    (Math.round(from.green + (to.green - from.green) * mix) << 8) |
-    Math.round(from.blue + (to.blue - from.blue) * mix)
-  );
+  return Number.parseInt(mixedColor, 16);
 }
 
 export function resolveRingStyle(
@@ -190,11 +208,11 @@ export function createVisualizerDisplacementFilter(
   };
 
   if (textureSource.style) {
-    textureSource.style.addressMode = "repeat";
-    textureSource.style.addressModeU = "repeat";
-    textureSource.style.addressModeV = "repeat";
+    textureSource.style.addressMode = "mirror-repeat";
+    textureSource.style.addressModeU = "mirror-repeat";
+    textureSource.style.addressModeV = "mirror-repeat";
   } else if ("wrapMode" in textureSource) {
-    textureSource.wrapMode = WRAP_MODES.REPEAT as unknown as string;
+    textureSource.wrapMode = WRAP_MODES.MIRRORED_REPEAT as unknown as string;
   }
 
   displacementSprite.x -= 500;

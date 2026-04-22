@@ -94,16 +94,3 @@ export function getFontFamilyChain(fontFamily: string | null | undefined) {
     (value): value is string => Boolean(value),
   );
 }
-
-export function primeFont(style: ProjectTextStyle, multiplier: number) {
-  if (typeof document === "undefined" || !("fonts" in document)) {
-    return;
-  }
-
-  const weight = style.bold ? "700" : "400";
-  const size = Math.max(1, style.fontSize * multiplier * 2);
-
-  void document.fonts
-    .load(`${weight} ${size}px "${style.font}"`)
-    .catch(() => undefined);
-}

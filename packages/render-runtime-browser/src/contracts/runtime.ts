@@ -14,6 +14,7 @@ export type BrowserRenderAdapterMountTarget = HTMLElement | HTMLCanvasElement;
 
 export type BrowserRenderAdapterRenderInput = {
   analysisProvider?: AudioAnalysisProvider | null;
+  animationTimeMs?: number;
   historyProvider?: AudioAnalysisProvider | null;
   sceneGraph: RenderSceneGraph;
   visibleLayers: RenderLayer[];

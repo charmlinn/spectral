@@ -12,7 +12,7 @@ import {
 } from "../../adapters/canvas-utils";
 import {
   averageSpectrumMagnitude,
-  computeVisualizerShakeOffset,
+  advanceVisualizerShakeOffset,
   getSpectrumForVisualizer,
   getVisualizerRingStyle,
   getVisualizerShakeFactor,
@@ -55,6 +55,7 @@ export class FlatWaveRenderer {
   );
   private waveGraphics: Graphics[] = [];
   private glowGraphics: Graphics[] = [];
+  private shakeOffset = { x: 0, y: 0 };
 
   constructor() {
     this.container.zIndex = 3;
@@ -293,11 +294,11 @@ export class FlatWaveRenderer {
     );
     const shake =
       !drift && shakeStrength > 0
-        ? computeVisualizerShakeOffset(
-            input.frameContext.frame,
+        ? (this.shakeOffset = advanceVisualizerShakeOffset(
+            this.shakeOffset,
             lastVisibleSpectrumMagnitude,
             shakeStrength,
-          )
+          ))
         : { x: 0, y: 0 };
 
     this.container.x =

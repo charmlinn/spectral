@@ -20,9 +20,7 @@ import {
 } from "../../adapters/canvas-utils";
 import {
   averageSpectrumMagnitude,
-  computeVisualizerShakeOffset,
-  getGlobalVisualizerSpinRotation,
-  getRingRotation,
+  advanceVisualizerShakeOffset,
   getSpectrumForVisualizer,
   getVisualizerBounceScale,
   getVisualizerRingStyle,
@@ -73,6 +71,10 @@ export class WaveCircleRenderer {
   private glowGraphics: Graphics[] = [];
   private currentLogoKey: string | null = null;
   private currentLogoTexture: Texture | null = null;
+  private globalSpinRotation = 0;
+  private ringSpinRotations: number[] = [];
+  private lastAnimationTimeMs: number | null = null;
+  private shakeOffset = { x: 0, y: 0 };
 
   constructor(
     private readonly assetResolver: RenderAssetResolver | null | undefined,
@@ -113,6 +115,7 @@ export class WaveCircleRenderer {
       this.glowContainer.addChild(glowGraphic);
       this.waveGraphics.push(waveGraphic);
       this.glowGraphics.push(glowGraphic);
+      this.ringSpinRotations.push(0);
     }
 
     while (this.waveGraphics.length > count) {
@@ -121,7 +124,40 @@ export class WaveCircleRenderer {
 
       waveGraphic?.destroy();
       glowGraphic?.destroy();
+      this.ringSpinRotations.pop();
     }
+  }
+
+  private getAnimationDelta(timeMs: number) {
+    const lastTimeMs = this.lastAnimationTimeMs;
+    this.lastAnimationTimeMs = timeMs;
+
+    if (lastTimeMs === null) {
+      return 0;
+    }
+
+    const deltaMs = timeMs - lastTimeMs;
+
+    if (deltaMs <= 0 || deltaMs > 250) {
+      return 0;
+    }
+
+    return deltaMs;
+  }
+
+  private getSpinDelta(
+    speed: number,
+    acceleration: number,
+    bassAmplitude: number,
+    deltaMs: number,
+  ) {
+    let radiansRotation = ((speed * ((Math.PI * 2) / 60)) * deltaMs) / 1000;
+    const radiansAcceleration =
+      ((acceleration * ((Math.PI * 2) / 60)) * deltaMs) / 1000;
+
+    radiansRotation += radiansAcceleration * (bassAmplitude / 2);
+
+    return radiansRotation;
   }
 
   private updateCenterCutoutMask(centerCutoutFactor: number) {
@@ -381,22 +417,31 @@ export class WaveCircleRenderer {
       width: SPECTERR_VISUALIZER_BASE_HEIGHT * scaleAmount,
       height: SPECTERR_VISUALIZER_BASE_HEIGHT * scaleAmount,
     });
+    const shakeStrength = getVisualizerShakeFactor(
+      config.shakeAmount,
+      dominantWaveType,
+    );
     const shake =
-      !drift && config.shakeAmount.toLowerCase() !== "none"
-        ? computeVisualizerShakeOffset(
-            input.frameContext.frame,
+      !drift && shakeStrength > 0
+        ? (this.shakeOffset = advanceVisualizerShakeOffset(
+            this.shakeOffset,
             lastVisibleSpectrumMagnitude,
-            getVisualizerShakeFactor(config.shakeAmount, dominantWaveType),
-          )
+            shakeStrength,
+          ))
         : { x: 0, y: 0 };
+    const animationDeltaMs = this.getAnimationDelta(
+      input.animationTimeMs ?? performance.now(),
+    );
 
-    const spinRotation = drift
-      ? 0
-      : getGlobalVisualizerSpinRotation(
-          input.frameContext.timeMs,
-          layer.props.bassAmplitude,
-          config.spinSettings,
-        );
+    if (!drift && config.spinSettings.enabled && animationDeltaMs > 0) {
+      this.globalSpinRotation += this.getSpinDelta(
+        config.spinSettings.speed,
+        config.spinSettings.acceleration,
+        layer.props.bassAmplitude,
+        animationDeltaMs,
+      );
+    }
+    const visibleGlobalSpinRotation = drift ? 0 : this.globalSpinRotation;
 
     const positionX =
       input.surface.width / 2 +
@@ -414,13 +459,14 @@ export class WaveCircleRenderer {
     this.visualsContainer.x = positionX;
     this.visualsContainer.y = positionY;
     this.visualsContainer.scale.set(finalScale, finalScale);
-    this.visualsContainer.rotation = finalRotation + spinRotation;
+    this.visualsContainer.rotation = finalRotation + visibleGlobalSpinRotation;
 
     this.logoContainer.x = positionX;
     this.logoContainer.y = positionY;
     this.logoContainer.scale.set(finalScale, finalScale);
     this.logoContainer.rotation =
-      finalRotation + (config.spinSettings.logoLocked ? 0 : spinRotation);
+      finalRotation +
+      (config.spinSettings.logoLocked ? 0 : visibleGlobalSpinRotation);
 
     for (let ringIndex = 0; ringIndex < ringCount; ringIndex += 1) {
       const ring = getVisualizerRingStyle(layer, ringIndex);
@@ -446,15 +492,20 @@ export class WaveCircleRenderer {
         renderConfig.waveType,
       );
       const targetMax = getVisualizerTargetMax(renderConfig.waveType);
-      const ringRotation = getRingRotation(
-        input.frameContext.timeMs,
-        ringIndex,
-        0,
-        layer.props.bassAmplitude,
-        ring.spinSettings,
-      );
+      if (ring.spinSettings.enabled && animationDeltaMs > 0) {
+        this.ringSpinRotations[ringIndex] =
+          (this.ringSpinRotations[ringIndex] ?? 0) +
+          this.getSpinDelta(
+            ring.spinSettings.speed,
+            ring.spinSettings.acceleration,
+            layer.props.bassAmplitude,
+            animationDeltaMs,
+          );
+      }
+
       const graphicRotation =
-        renderConfig.rotationRad + (ring.spinSettings.enabled ? ringRotation : 0);
+        renderConfig.rotationRad +
+        (ring.spinSettings.enabled ? (this.ringSpinRotations[ringIndex] ?? 0) : 0);
 
       waveGraphic.scale.set(waveCircleOption.scale, waveCircleOption.scale);
       glowGraphic.scale.set(waveCircleOption.scale, waveCircleOption.scale);

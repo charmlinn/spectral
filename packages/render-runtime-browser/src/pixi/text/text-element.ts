@@ -1,4 +1,5 @@
 import { Text, TextStyle as PixiTextStyle } from "pixi.js";
+import FontFaceObserver from "fontfaceobserver";
 import { computeDriftTransform } from "@spectral/render-core";
 import type { TextLayer as ProjectTextLayer, TextStyle as ProjectTextStyle } from "@spectral/project-schema";
 import type { RenderSurface } from "@spectral/render-core";
@@ -8,7 +9,6 @@ import {
   getTextAlign,
   getTextAnchor,
   getTextDropShadow,
-  primeFont,
   toPixiColor,
 } from "../shared";
 
@@ -40,6 +40,33 @@ export class PixiTextElement {
       fontWeight: "400",
       padding: 0,
     });
+  }
+
+  private loadFont(fontFamily: string, fontWeight: string) {
+    const fontKey = `${fontFamily}-${fontWeight}`;
+
+    if (this.currentFontKey === fontKey) {
+      return;
+    }
+
+    this.currentFontKey = fontKey;
+
+    void new FontFaceObserver(fontFamily, { weight: fontWeight })
+      .load(null, 20_000)
+      .then(() => {
+        const text = this.text as Text & {
+          _autoResolution?: unknown;
+          dirty?: boolean;
+          updateText?: (respectDirty?: boolean) => void;
+        };
+
+        if (text._autoResolution !== undefined) {
+          text.dirty = true;
+        } else {
+          text.updateText?.(true);
+        }
+      })
+      .catch(() => undefined);
   }
 
   update(
@@ -112,36 +139,7 @@ export class PixiTextElement {
     ) {
       style.fontFamily = nextFontFamily;
       style.fontWeight = nextFontWeight;
-
-      const fontKey = `${config.font}-${nextFontWeight}`;
-      if (this.currentFontKey !== fontKey) {
-        this.currentFontKey = fontKey;
-        primeFont(
-          {
-            anchorPoint: config.anchorPoint,
-            bold: config.bold,
-            color: config.color,
-            drift: config.drift ?? {
-              acceleration: 0,
-              amplitudeX: 0,
-              amplitudeY: 0,
-              customMode: false,
-              enabled: false,
-              intensity: 0,
-              octaves: 1,
-              rotation: 0,
-              scale: 1,
-              speed: 0,
-            },
-            font: config.font,
-            fontSize: config.fontSize,
-            position: config.position,
-            shadow: config.shadow,
-            text: config.text,
-          },
-          multiplier,
-        );
-      }
+      this.loadFont(config.font, nextFontWeight);
     }
 
     if (style.fontSize !== fontSize) {
