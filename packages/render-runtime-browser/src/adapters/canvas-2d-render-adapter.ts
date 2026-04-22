@@ -517,6 +517,35 @@ function drawMediaCover(
   );
 }
 
+function drawBackdropVignette(
+  context: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  strength: number,
+) {
+  if (strength <= 0) {
+    return;
+  }
+
+  const gradient = context.createRadialGradient(
+    width / 2,
+    height / 2,
+    Math.min(width, height) * 0.18,
+    width / 2,
+    height / 2,
+    Math.max(width, height) * 0.75,
+  );
+
+  gradient.addColorStop(0, "rgba(0, 0, 0, 0)");
+  gradient.addColorStop(0.55, `rgba(0, 0, 0, ${strength * 0.35})`);
+  gradient.addColorStop(1, `rgba(0, 0, 0, ${strength})`);
+
+  context.save();
+  context.fillStyle = gradient;
+  context.fillRect(0, 0, width, height);
+  context.restore();
+}
+
 async function drawBackdropLayer(
   context: CanvasRenderingContext2D,
   layer: Extract<RenderLayer, { kind: "backdrop" }>,
@@ -550,14 +579,31 @@ async function drawBackdropLayer(
     width: input.surface.width,
     height: input.surface.height,
   });
+  const normalizedBassAmplitude = normalizeAmplitude(layer.props.bassAmplitude);
+  const paddingScale = Math.max(1, layer.props.paddingFactor);
+  const bounceScale = layer.props.bounceEnabled
+    ? 1 + normalizedBassAmplitude * Math.max(0, layer.props.bounceScale)
+    : 1;
   const shake =
     !drift && layer.props.shakeEnabled
       ? computeShakeOffset(
           input.frameContext.timeMs,
           layer.props.bassAmplitude,
-          18,
+          Math.max(0, layer.props.shakeFactor),
         )
       : { x: 0, y: 0 };
+  const contrast = layer.props.contrastEnabled
+    ? Math.min(
+        Math.max(1, layer.props.maxContrast),
+        1 + normalizedBassAmplitude * Math.max(0, layer.props.contrastFactor),
+      )
+    : 1;
+  const zoomBlurStrength = layer.props.zoomBlurEnabled
+    ? Math.min(
+        Math.max(0, layer.props.maxZoomBlur),
+        normalizedBassAmplitude * Math.max(0, layer.props.zoomBlurFactor),
+      )
+    : 0;
   const hue =
     layer.props.filterEnabled || layer.props.hlsAdjustment.enabled
       ? layer.props.hlsAdjustment.hue
@@ -571,9 +617,7 @@ async function drawBackdropLayer(
       ? layer.props.hlsAdjustment.lightness
       : 0;
   const baseRotation = toRadians(layer.props.rotation);
-  const mediaScale =
-    (drift?.scale ?? 1) *
-    (1 + normalizeAmplitude(layer.props.bassAmplitude) * 0.08);
+  const mediaScale = (drift?.scale ?? 1) * paddingScale * bounceScale;
   const reflectionAngles =
     layer.props.reflection.type === "none"
       ? [0]
@@ -582,12 +626,11 @@ async function drawBackdropLayer(
     `hue-rotate(${hue}deg)`,
     `saturate(${100 + saturation}%)`,
     `brightness(${100 + lightness}%)`,
+    `contrast(${contrast * 100}%)`,
   ];
 
   for (const [index, reflectionAngle] of reflectionAngles.entries()) {
     context.save();
-    context.filter = filterParts.join(" ");
-    context.globalAlpha = index === 0 ? 1 : 0.4;
     context.translate(
       input.surface.width / 2 + (drift?.translateX ?? 0) + shake.x,
       input.surface.height / 2 + (drift?.translateY ?? 0) + shake.y,
@@ -599,6 +642,25 @@ async function drawBackdropLayer(
       context.scale(mirror.x, mirror.y);
     }
 
+    if (zoomBlurStrength > 0) {
+      const blurSteps = 4;
+
+      for (let step = 1; step <= blurSteps; step += 1) {
+        const blurMix = step / blurSteps;
+        context.save();
+        context.filter = `${filterParts.join(" ")} blur(${(zoomBlurStrength * 22 * blurMix).toFixed(2)}px)`;
+        context.globalAlpha = (index === 0 ? 0.12 : 0.06) * blurMix;
+        context.scale(
+          mediaScale * (1 + zoomBlurStrength * 0.09 * step),
+          mediaScale * (1 + zoomBlurStrength * 0.09 * step),
+        );
+        drawMediaCover(context, media, input.surface.width, input.surface.height);
+        context.restore();
+      }
+    }
+
+    context.filter = filterParts.join(" ");
+    context.globalAlpha = index === 0 ? 1 : 0.4;
     context.scale(mediaScale, mediaScale);
     drawMediaCover(context, media, input.surface.width, input.surface.height);
     context.restore();
@@ -614,6 +676,20 @@ async function drawBackdropLayer(
     context.fillStyle = `hsla(${hue}, 85%, 55%, ${clamp(layer.props.hlsAdjustment.alpha, 0, 1)})`;
     context.fillRect(0, 0, input.surface.width, input.surface.height);
     context.restore();
+  }
+
+  if (layer.props.vignetteEnabled) {
+    const vignetteStrength = Math.min(
+      Math.max(0, layer.props.maxVignette),
+      normalizedBassAmplitude * Math.max(0, layer.props.vignetteFactor),
+    );
+
+    drawBackdropVignette(
+      context,
+      input.surface.width,
+      input.surface.height,
+      vignetteStrength,
+    );
   }
 }
 

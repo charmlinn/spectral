@@ -283,6 +283,204 @@ export function EditorSidebar() {
                   }
                 />
               </div>
+              <label className="grid gap-2">
+                <span className="text-sm font-medium">Padding factor</span>
+                <Input
+                  id="backdrop-padding-factor"
+                  type="number"
+                  value={String(project.backdrop.paddingFactor)}
+                  onChange={(event) => {
+                    const value = toNumber(event.target.value);
+
+                    if (value !== null) {
+                      updateAtPath(["backdrop", "paddingFactor"], value);
+                    }
+                  }}
+                />
+              </label>
+              <label className="grid gap-2">
+                <span className="text-sm font-medium">Shake factor</span>
+                <Input
+                  id="backdrop-shake-factor"
+                  type="number"
+                  value={String(project.backdrop.shakeFactor)}
+                  onChange={(event) => {
+                    const value = toNumber(event.target.value);
+
+                    if (value !== null) {
+                      updateAtPath(["backdrop", "shakeFactor"], value);
+                    }
+                  }}
+                />
+              </label>
+              <div className="grid gap-3 rounded-[20px] border border-border/70 p-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <Label htmlFor="backdrop-bounce">Bounce enabled</Label>
+                    <p className="text-xs text-muted-foreground">
+                      Audio-reactive scaling copied from Specterr backdrop media.
+                    </p>
+                  </div>
+                  <Switch
+                    checked={project.backdrop.bounceEnabled}
+                    id="backdrop-bounce"
+                    onCheckedChange={(checked) =>
+                      updateAtPath(["backdrop", "bounceEnabled"], checked)
+                    }
+                  />
+                </div>
+                <label className="grid gap-2">
+                  <span className="text-sm font-medium">Bounce scale</span>
+                  <Input
+                    type="number"
+                    value={String(project.backdrop.bounceScale)}
+                    onChange={(event) => {
+                      const value = toNumber(event.target.value);
+
+                      if (value !== null) {
+                        updateAtPath(["backdrop", "bounceScale"], value);
+                      }
+                    }}
+                  />
+                </label>
+              </div>
+              <div className="grid gap-3 rounded-[20px] border border-border/70 p-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <Label htmlFor="backdrop-vignette">Vignette enabled</Label>
+                    <p className="text-xs text-muted-foreground">
+                      Darkens the frame edges based on audio level.
+                    </p>
+                  </div>
+                  <Switch
+                    checked={project.backdrop.vignetteEnabled}
+                    id="backdrop-vignette"
+                    onCheckedChange={(checked) =>
+                      updateAtPath(["backdrop", "vignetteEnabled"], checked)
+                    }
+                  />
+                </div>
+                <label className="grid gap-2">
+                  <span className="text-sm font-medium">Vignette factor</span>
+                  <Input
+                    type="number"
+                    value={String(project.backdrop.vignetteFactor)}
+                    onChange={(event) => {
+                      const value = toNumber(event.target.value);
+
+                      if (value !== null) {
+                        updateAtPath(["backdrop", "vignetteFactor"], value);
+                      }
+                    }}
+                  />
+                </label>
+                <label className="grid gap-2">
+                  <span className="text-sm font-medium">Max vignette</span>
+                  <Input
+                    type="number"
+                    value={String(project.backdrop.maxVignette)}
+                    onChange={(event) => {
+                      const value = toNumber(event.target.value);
+
+                      if (value !== null) {
+                        updateAtPath(["backdrop", "maxVignette"], value);
+                      }
+                    }}
+                  />
+                </label>
+              </div>
+              <div className="grid gap-3 rounded-[20px] border border-border/70 p-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <Label htmlFor="backdrop-contrast">Contrast enabled</Label>
+                    <p className="text-xs text-muted-foreground">
+                      Audio-reactive contrast boost for backdrop media.
+                    </p>
+                  </div>
+                  <Switch
+                    checked={project.backdrop.contrastEnabled}
+                    id="backdrop-contrast"
+                    onCheckedChange={(checked) =>
+                      updateAtPath(["backdrop", "contrastEnabled"], checked)
+                    }
+                  />
+                </div>
+                <label className="grid gap-2">
+                  <span className="text-sm font-medium">Contrast factor</span>
+                  <Input
+                    type="number"
+                    value={String(project.backdrop.contrastFactor)}
+                    onChange={(event) => {
+                      const value = toNumber(event.target.value);
+
+                      if (value !== null) {
+                        updateAtPath(["backdrop", "contrastFactor"], value);
+                      }
+                    }}
+                  />
+                </label>
+                <label className="grid gap-2">
+                  <span className="text-sm font-medium">Max contrast</span>
+                  <Input
+                    type="number"
+                    value={String(project.backdrop.maxContrast)}
+                    onChange={(event) => {
+                      const value = toNumber(event.target.value);
+
+                      if (value !== null) {
+                        updateAtPath(["backdrop", "maxContrast"], value);
+                      }
+                    }}
+                  />
+                </label>
+              </div>
+              <div className="grid gap-3 rounded-[20px] border border-border/70 p-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <Label htmlFor="backdrop-zoom-blur">
+                      Zoom blur enabled
+                    </Label>
+                    <p className="text-xs text-muted-foreground">
+                      Adds audio-reactive radial blur passes on the backdrop.
+                    </p>
+                  </div>
+                  <Switch
+                    checked={project.backdrop.zoomBlurEnabled}
+                    id="backdrop-zoom-blur"
+                    onCheckedChange={(checked) =>
+                      updateAtPath(["backdrop", "zoomBlurEnabled"], checked)
+                    }
+                  />
+                </div>
+                <label className="grid gap-2">
+                  <span className="text-sm font-medium">Zoom blur factor</span>
+                  <Input
+                    type="number"
+                    value={String(project.backdrop.zoomBlurFactor)}
+                    onChange={(event) => {
+                      const value = toNumber(event.target.value);
+
+                      if (value !== null) {
+                        updateAtPath(["backdrop", "zoomBlurFactor"], value);
+                      }
+                    }}
+                  />
+                </label>
+                <label className="grid gap-2">
+                  <span className="text-sm font-medium">Max zoom blur</span>
+                  <Input
+                    type="number"
+                    value={String(project.backdrop.maxZoomBlur)}
+                    onChange={(event) => {
+                      const value = toNumber(event.target.value);
+
+                      if (value !== null) {
+                        updateAtPath(["backdrop", "maxZoomBlur"], value);
+                      }
+                    }}
+                  />
+                </label>
+              </div>
             </div>
           ) : null}
 

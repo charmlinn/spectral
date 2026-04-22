@@ -219,6 +219,10 @@ function sanitizeBackdropSettings(
         direction?: unknown;
       }
     | undefined;
+  const hlsAdjustment = settings?.background?.hlsAdjustment as
+    | Record<string, unknown>
+    | undefined;
+  const drift = settings?.background?.drift as Record<string, unknown> | undefined;
 
   return {
     ...defaults,
@@ -233,6 +237,14 @@ function sanitizeBackdropSettings(
         reflection && typeof reflection.direction === "string"
           ? reflection.direction
           : defaults.reflection.direction,
+    },
+    hlsAdjustment: {
+      ...defaults.hlsAdjustment,
+      ...(hlsAdjustment ?? {}),
+    },
+    drift: {
+      ...defaults.drift,
+      ...(drift ?? {}),
     },
   };
 }
