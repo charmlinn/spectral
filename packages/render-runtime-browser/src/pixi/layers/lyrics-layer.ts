@@ -1,5 +1,5 @@
 import { Container, Text, TextStyle as PixiTextStyle } from "pixi.js";
-import { computeDriftTransform, type RenderLayer } from "@spectral/render-core";
+import type { RenderLayer } from "@spectral/render-core";
 
 import type { BrowserRenderAdapterRenderInput } from "../../contracts/runtime";
 import {
@@ -26,20 +26,13 @@ export class PixiLyricsLayer {
   render(layer: LyricsLayer | null, input: BrowserRenderAdapterRenderInput) {
     if (!layer?.props.activeSegment) {
       this.textNode.visible = false;
+      this.textNode.text = "";
       return;
     }
 
     const style = layer.props.style;
     const multiplier = getSurfaceMultiplier(input.surface);
     const fontSize = Math.max(1, style.fontSize * multiplier);
-    const drift = computeDriftTransform({
-      drift: style.drift,
-      kind: "text",
-      timeMs: input.frameContext.timeMs,
-      spectrumMagnitude: layer.props.amplitude,
-      width: input.surface.width * 0.8,
-      height: input.surface.height * 0.2,
-    });
 
     primeFont(style, multiplier);
     this.textNode.visible = true;
@@ -55,19 +48,14 @@ export class PixiLyricsLayer {
       padding: fontSize / 3,
     });
     this.textNode.position.set(
-      input.surface.width / 2 +
-        style.position.x * multiplier +
-        (drift?.translateX ?? 0),
-      input.surface.height / 2 +
-        style.position.y * multiplier +
-        (drift?.translateY ?? 0),
+      input.surface.width / 2 + style.position.x * multiplier,
+      input.surface.height / 2 + style.position.y * multiplier,
     );
-    this.textNode.rotation = drift?.rotationRad ?? 0;
-    this.textNode.scale.set(0.5 * (drift?.scale ?? 1));
+    this.textNode.rotation = 0;
+    this.textNode.scale.set(0.5);
   }
 
   destroy() {
     this.container.destroy({ children: true });
   }
 }
-

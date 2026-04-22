@@ -1,52 +1,63 @@
-import type { RenderAssetResolver } from "@spectral/render-core";
-import type { RenderLayer } from "@spectral/render-core";
+import type { RenderAssetResolver, RenderLayer } from "@spectral/render-core";
 
 import type { BrowserRenderAdapterRenderInput } from "../../contracts/runtime";
-import { createMediaCache } from "../../adapters/canvas-media";
-import { createVisualizerBufferStore, drawVisualizerLayer } from "../../adapters/visualizer/render";
-import { CanvasSpriteLayer } from "./canvas-sprite-layer";
+import { FlatWaveRenderer } from "../visualizers/flat-wave";
+import { WaveCircleRenderer } from "../visualizers/wave-circle";
 
 type VisualizerLayer = Extract<RenderLayer, { kind: "visualizer" }>;
 
+type VisualizerRenderer = FlatWaveRenderer | WaveCircleRenderer;
+
 export class PixiVisualizerLayer {
-  private readonly spriteLayer = new CanvasSpriteLayer(10);
-  private readonly mediaCache = createMediaCache();
-  private readonly buffers = createVisualizerBufferStore();
+  private renderer: VisualizerRenderer;
+  private rendererShape: "circle" | "flat";
 
   constructor(
     private readonly assetResolver: RenderAssetResolver | null | undefined,
-  ) {}
-
-  get container() {
-    return this.spriteLayer.container;
+  ) {
+    this.renderer = new WaveCircleRenderer(assetResolver);
+    this.rendererShape = "circle";
   }
 
-  async render(layer: VisualizerLayer | null, input: BrowserRenderAdapterRenderInput) {
-    this.spriteLayer.resize(input);
-    this.container.visible = Boolean(layer);
+  get container() {
+    return this.renderer.container;
+  }
 
-    if (!layer) {
-      this.spriteLayer.clear();
-      this.spriteLayer.renderComplete();
+  private ensureRenderer(layer: VisualizerLayer | null) {
+    const shape = layer?.props.config.shape === "flat" ? "flat" : "circle";
+
+    if (this.rendererShape === shape) {
       return;
     }
 
-    const context = this.spriteLayer.clear();
+    const currentContainer = this.renderer.container;
+    const parent = currentContainer.parent;
+    const index = parent ? parent.getChildIndex(currentContainer) : -1;
 
-    await drawVisualizerLayer(
-      context,
-      layer,
-      input,
-      this.mediaCache,
-      this.buffers,
-      this.assetResolver,
-    );
+    this.renderer.destroy();
+    this.renderer =
+      shape === "flat"
+        ? new FlatWaveRenderer()
+        : new WaveCircleRenderer(this.assetResolver);
+    this.rendererShape = shape;
 
-    this.spriteLayer.renderComplete();
+    if (parent && index >= 0) {
+      parent.addChildAt(this.renderer.container, index);
+    }
+  }
+
+  async render(layer: VisualizerLayer | null, input: BrowserRenderAdapterRenderInput) {
+    this.ensureRenderer(layer);
+    this.renderer.container.visible = Boolean(layer);
+
+    if (!layer) {
+      return;
+    }
+
+    await this.renderer.render(layer, input);
   }
 
   destroy() {
-    this.spriteLayer.destroy();
+    this.renderer.destroy();
   }
 }
-

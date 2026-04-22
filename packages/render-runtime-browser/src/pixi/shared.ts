@@ -7,10 +7,15 @@ export const SPECTERR_BASE_HEIGHT = 500;
 
 const DEFAULT_FALLBACK_FONTS = [
   "Arial",
+  "Noto Sans",
+  "Noto Sans CJK SC",
+  "Noto Sans CJK TC",
+  "Microsoft YaHei",
+  "SimHei",
+  "Noto Sans Sinhala",
   "Helvetica",
   "PingFang SC",
   "Hiragino Sans GB",
-  "Noto Sans SC",
   "Microsoft YaHei",
   "sans-serif",
 ];
@@ -40,11 +45,13 @@ export function toPixiColor(input: string | null | undefined) {
 }
 
 export function getTextAnchor(anchorPoint: string | null | undefined) {
-  if (anchorPoint === "left") {
+  const normalized = anchorPoint?.trim().toLowerCase();
+
+  if (normalized === "left") {
     return 0;
   }
 
-  if (anchorPoint === "right") {
+  if (normalized === "right") {
     return 1;
   }
 
@@ -52,11 +59,13 @@ export function getTextAnchor(anchorPoint: string | null | undefined) {
 }
 
 export function getTextAlign(anchorPoint: string | null | undefined) {
-  if (anchorPoint === "left") {
+  const normalized = anchorPoint?.trim().toLowerCase();
+
+  if (normalized === "left") {
     return "left";
   }
 
-  if (anchorPoint === "right") {
+  if (normalized === "right") {
     return "right";
   }
 
@@ -98,4 +107,3 @@ export function primeFont(style: ProjectTextStyle, multiplier: number) {
     .load(`${weight} ${size}px "${style.font}"`)
     .catch(() => undefined);
 }
-

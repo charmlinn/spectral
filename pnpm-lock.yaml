@@ -221,6 +221,9 @@ importers:
       '@spectral/render-core':
         specifier: workspace:*
         version: link:../render-core
+      pixi-filters:
+        specifier: ^6.1.5
+        version: 6.1.5(pixi.js@8.18.1)
       pixi.js:
         specifier: ^8.18.1
         version: 8.18.1
@@ -2281,6 +2284,9 @@ packages:
   '@types/estree@1.0.8':
     resolution: {integrity: sha512-dWHzHa2WqEXI/O1E9OjrocMTKJl2mSrEolh1Iomrv6U+JuNwaHXsXx9bLu5gG7BUWFIN0skIQJQ/L1rIex4X6w==}
 
+  '@types/gradient-parser@0.1.5':
+    resolution: {integrity: sha512-r7K3NkJz3A95WkVVmjs0NcchhHstC2C/VIYNX4JC6tieviUNo774FFeOHjThr3Vw/WCeMP9kAT77MKbIRlO/4w==}
+
   '@types/json-schema@7.0.15':
     resolution: {integrity: sha512-5+fP8P8MFNC+AyZCDxrB2pkZFPGzqQWUzpSeuuVLvm8VMcorNYavBqoFcxK8bQz4Qsbn4oUEEem4wDLfcysGHA==}
 
@@ -3717,6 +3723,11 @@ packages:
   picomatch@4.0.4:
     resolution: {integrity: sha512-QP88BAKvMam/3NxH6vj2o21R6MjxZUAd6nlwAS/pnGvN9IVLocLHxGYIzFhg6fUQ+5th6P4dv4eW9jX3DSIj7A==}
     engines: {node: '>=12'}
+
+  pixi-filters@6.1.5:
+    resolution: {integrity: sha512-Ewb/J+kxAbaNN+0/ATJbglAJG+skGJfh7BIDP3ILIDdD6wWk1p0pGa25pVf1T8hGBOQSUNVAmwwJBwkj+cyLLA==}
+    peerDependencies:
+      pixi.js: '>=8.0.0-0'
 
   pixi.js@8.18.1:
     resolution: {integrity: sha512-6LUPWYgulZhp/w4kam2XHXB0QedISZIqrJbRdHLLQ3csn5a38uzKxAp6B5j6s89QFYaIJbg95kvgTRcbgpO1ow==}
@@ -6767,6 +6778,8 @@ snapshots:
 
   '@types/estree@1.0.8': {}
 
+  '@types/gradient-parser@0.1.5': {}
+
   '@types/json-schema@7.0.15': {}
 
   '@types/node@22.19.17':
@@ -8175,6 +8188,11 @@ snapshots:
   picomatch@2.3.2: {}
 
   picomatch@4.0.4: {}
+
+  pixi-filters@6.1.5(pixi.js@8.18.1):
+    dependencies:
+      '@types/gradient-parser': 0.1.5
+      pixi.js: 8.18.1
 
   pixi.js@8.18.1:
     dependencies:

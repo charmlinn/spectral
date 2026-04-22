@@ -16,6 +16,7 @@
     "@spectral/audio-analysis": "workspace:*",
     "@spectral/project-schema": "workspace:*",
     "@spectral/render-core": "workspace:*",
+    "pixi-filters": "^6.1.5",
     "pixi.js": "^8.18.1"
   }
 }
