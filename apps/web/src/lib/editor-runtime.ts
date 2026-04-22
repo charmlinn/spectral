@@ -1,5 +1,6 @@
 import {
   createArrayAudioAnalysisProvider,
+  type AudioAnalysisMagnitudes,
   type AudioAnalysisProvider,
   type AudioAnalysisSnapshot,
   type SpectrumFrame,
@@ -21,6 +22,31 @@ type SpectrumFrameDto = {
   timeMs: number;
   values: number[];
 };
+
+function toAudioAnalysisMagnitudes(value: unknown): AudioAnalysisMagnitudes {
+  if (typeof value !== "object" || value === null) {
+    return {
+      bass: 250,
+      wide: 250,
+    };
+  }
+
+  const candidate = value as {
+    bassMaxMagnitude?: unknown;
+    wideMaxMagnitude?: unknown;
+  };
+
+  return {
+    bass:
+      typeof candidate.bassMaxMagnitude === "number"
+        ? candidate.bassMaxMagnitude
+        : 250,
+    wide:
+      typeof candidate.wideMaxMagnitude === "number"
+        ? candidate.wideMaxMagnitude
+        : 250,
+  };
+}
 
 function isWaveformOverview(value: unknown): value is WaveformOverview {
   if (typeof value !== "object" || value === null) {
@@ -57,7 +83,10 @@ function toWaveformPoints(points: unknown): WaveformPointDto[] {
       max?: unknown;
     };
 
-    if (typeof candidate.min !== "number" || typeof candidate.max !== "number") {
+    if (
+      typeof candidate.min !== "number" ||
+      typeof candidate.max !== "number"
+    ) {
       return [];
     }
 
@@ -95,7 +124,9 @@ function toSpectrumFrames(value: unknown): SpectrumFrame[] {
         frame: candidate.frame,
         timeMs: candidate.timeMs,
         values: new Float32Array(
-          candidate.values.filter((entry): entry is number => typeof entry === "number"),
+          candidate.values.filter(
+            (entry): entry is number => typeof entry === "number",
+          ),
         ),
       },
     ];
@@ -105,6 +136,14 @@ function toSpectrumFrames(value: unknown): SpectrumFrame[] {
 export function createAudioAnalysisProviderFromDto(
   analysis: AudioAnalysisDto,
 ): AudioAnalysisProvider {
+  return createArrayAudioAnalysisProvider(
+    createAudioAnalysisSnapshotFromDto(analysis),
+  );
+}
+
+export function createAudioAnalysisSnapshotFromDto(
+  analysis: AudioAnalysisDto,
+): AudioAnalysisSnapshot {
   if (!isWaveformOverview(analysis.waveformJson)) {
     throw new Error("Audio analysis waveform payload is invalid.");
   }
@@ -121,9 +160,10 @@ export function createAudioAnalysisProviderFromDto(
     fps: 30,
     waveform,
     spectrumFrames: toSpectrumFrames(analysis.spectrumJson),
+    magnitudes: toAudioAnalysisMagnitudes(analysis.metadata),
   };
 
-  return createArrayAudioAnalysisProvider(snapshot);
+  return snapshot;
 }
 
 async function resolveAssetUrl(assetId: string): Promise<string> {
@@ -147,7 +187,9 @@ export function createProjectAssetResolver() {
   });
 }
 
-export function serializeAudioAnalysisSnapshot(snapshot: AudioAnalysisSnapshot) {
+export function serializeAudioAnalysisSnapshot(
+  snapshot: AudioAnalysisSnapshot,
+) {
   return {
     createdAt: snapshot.createdAt,
     fps: snapshot.fps,
@@ -157,6 +199,7 @@ export function serializeAudioAnalysisSnapshot(snapshot: AudioAnalysisSnapshot) 
       timeMs: frame.timeMs,
       values: Array.from(frame.values),
     })),
+    magnitudes: snapshot.magnitudes,
   };
 }
 

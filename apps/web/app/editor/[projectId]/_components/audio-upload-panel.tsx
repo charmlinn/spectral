@@ -21,7 +21,14 @@ type AudioUploadPanelProps = {
   projectId: string;
 };
 
-type UploadPhase = "idle" | "preparing" | "uploading" | "completing" | "analyzing" | "ready" | "error";
+type UploadPhase =
+  | "idle"
+  | "preparing"
+  | "uploading"
+  | "completing"
+  | "analyzing"
+  | "ready"
+  | "error";
 
 async function computeSha256Hex(buffer: ArrayBuffer): Promise<string> {
   const hashBuffer = await crypto.subtle.digest("SHA-256", buffer);
@@ -40,7 +47,9 @@ async function decodeAudioFile(file: File): Promise<{
   const audioContext = new AudioContext();
 
   try {
-    const audioBuffer = await audioContext.decodeAudioData(arrayBuffer.slice(0));
+    const audioBuffer = await audioContext.decodeAudioData(
+      arrayBuffer.slice(0),
+    );
 
     return {
       arrayBuffer,
@@ -78,7 +87,11 @@ export function AudioUploadPanel({ projectId }: AudioUploadPanelProps) {
   const [error, setError] = useState<string | null>(null);
   const [lastFilename, setLastFilename] = useState<string | null>(null);
 
-  const busy = phase === "preparing" || phase === "uploading" || phase === "completing" || phase === "analyzing";
+  const busy =
+    phase === "preparing" ||
+    phase === "uploading" ||
+    phase === "completing" ||
+    phase === "analyzing";
 
   async function handleFileSelection(file: File) {
     setError(null);
@@ -129,6 +142,8 @@ export function AudioUploadPanel({ projectId }: AudioUploadPanelProps) {
         metadata: {
           generatedBy: "editor-audio-panel",
           originalFilename: file.name,
+          bassMaxMagnitude: snapshot.magnitudes.bass,
+          wideMaxMagnitude: snapshot.magnitudes.wide,
         },
       });
 
@@ -157,7 +172,9 @@ export function AudioUploadPanel({ projectId }: AudioUploadPanelProps) {
       setPhase("ready");
     } catch (nextError) {
       setPhase("error");
-      setError(nextError instanceof Error ? nextError.message : "Audio upload failed.");
+      setError(
+        nextError instanceof Error ? nextError.message : "Audio upload failed.",
+      );
     }
   }
 
@@ -166,8 +183,8 @@ export function AudioUploadPanel({ projectId }: AudioUploadPanelProps) {
       <div className="space-y-1">
         <Label htmlFor="project-audio-upload">Upload audio</Label>
         <p className="text-xs text-muted-foreground">
-          The file is uploaded to object storage, completed as a media asset, analyzed in the browser, and written
-          back into the project document.
+          The file is uploaded to object storage, completed as a media asset,
+          analyzed in the browser, and written back into the project document.
         </p>
       </div>
 
@@ -189,14 +206,27 @@ export function AudioUploadPanel({ projectId }: AudioUploadPanelProps) {
       />
 
       <div className="flex items-center gap-2 text-sm">
-        {busy ? <Loader2 className="size-4 animate-spin" /> : <Upload className="size-4" />}
+        {busy ? (
+          <Loader2 className="size-4 animate-spin" />
+        ) : (
+          <Upload className="size-4" />
+        )}
         <span>{getPhaseLabel(phase)}</span>
       </div>
 
-      {lastFilename ? <p className="text-xs text-muted-foreground">Last file: {lastFilename}</p> : null}
+      {lastFilename ? (
+        <p className="text-xs text-muted-foreground">
+          Last file: {lastFilename}
+        </p>
+      ) : null}
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
 
-      <Button disabled={busy} type="button" variant="outline" onClick={() => document.getElementById("project-audio-upload")?.click()}>
+      <Button
+        disabled={busy}
+        type="button"
+        variant="outline"
+        onClick={() => document.getElementById("project-audio-upload")?.click()}
+      >
         Choose audio file
       </Button>
     </div>

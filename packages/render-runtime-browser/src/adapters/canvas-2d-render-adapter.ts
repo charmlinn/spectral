@@ -6,8 +6,16 @@ import {
   type RenderLayer,
   type RenderSurface,
 } from "@spectral/render-core";
-import type { MediaReference, TextStyle, VisualizerWaveCircle } from "@spectral/project-schema";
+import type {
+  MediaReference,
+  TextStyle,
+  VisualizerWaveCircle,
+} from "@spectral/project-schema";
 
+import {
+  createSpecterrWaveCircleOptions,
+  type SpecterrWaveCircleRenderOptions,
+} from "./specterr-visualizer-options";
 import type {
   BrowserRenderAdapter,
   BrowserRenderAdapterMountTarget,
@@ -34,8 +42,11 @@ type LoadedMedia =
     };
 
 const DEFAULT_TEXT_COLOR = "#ffffff";
+const SPECTERR_HISTORY_LIMIT = 7;
 
-function isCanvasElement(target: BrowserRenderAdapterMountTarget): target is HTMLCanvasElement {
+function isCanvasElement(
+  target: BrowserRenderAdapterMountTarget,
+): target is HTMLCanvasElement {
   return target instanceof HTMLCanvasElement;
 }
 
@@ -72,7 +83,9 @@ function toColorString(input: string | null | undefined, alpha = 1): string {
     }
   }
 
-  const hexValue = normalized.startsWith("0x") ? normalized.slice(2) : normalized;
+  const hexValue = normalized.startsWith("0x")
+    ? normalized.slice(2)
+    : normalized;
   const parsed = Number.parseInt(hexValue, 16);
 
   if (Number.isFinite(parsed)) {
@@ -82,7 +95,77 @@ function toColorString(input: string | null | undefined, alpha = 1): string {
   return input;
 }
 
-function computeShakeOffset(timeMs: number, amplitude: number, strength: number) {
+function toRgbTuple(input: string | null | undefined) {
+  if (!input) {
+    return { red: 255, green: 255, blue: 255 };
+  }
+
+  const normalized = input.trim().toLowerCase();
+
+  if (normalized.startsWith("#")) {
+    if (normalized.length === 4) {
+      return {
+        red: Number.parseInt(normalized[1]! + normalized[1]!, 16),
+        green: Number.parseInt(normalized[2]! + normalized[2]!, 16),
+        blue: Number.parseInt(normalized[3]! + normalized[3]!, 16),
+      };
+    }
+
+    if (normalized.length === 7) {
+      return {
+        red: Number.parseInt(normalized.slice(1, 3), 16),
+        green: Number.parseInt(normalized.slice(3, 5), 16),
+        blue: Number.parseInt(normalized.slice(5, 7), 16),
+      };
+    }
+  }
+
+  const hexValue = normalized.startsWith("0x")
+    ? normalized.slice(2)
+    : normalized;
+  const parsed = Number.parseInt(hexValue, 16);
+
+  if (Number.isFinite(parsed)) {
+    return {
+      red: (parsed >> 16) & 255,
+      green: (parsed >> 8) & 255,
+      blue: parsed & 255,
+    };
+  }
+
+  return { red: 255, green: 255, blue: 255 };
+}
+
+function mixColor(
+  primary: string | null | undefined,
+  secondary: string | null | undefined,
+  mixPercent: number,
+  alpha: number,
+) {
+  if (!secondary) {
+    return toColorString(primary, alpha);
+  }
+
+  const from = toRgbTuple(primary);
+  const to = toRgbTuple(secondary);
+  const mix = clamp(mixPercent, 0, 1);
+
+  return `rgba(${Math.round(from.red + (to.red - from.red) * mix)}, ${Math.round(from.green + (to.green - from.green) * mix)}, ${Math.round(from.blue + (to.blue - from.blue) * mix)}, ${alpha})`;
+}
+
+function average(values: number[]) {
+  if (values.length === 0) {
+    return 0;
+  }
+
+  return values.reduce((sum, value) => sum + value, 0) / values.length;
+}
+
+function computeShakeOffset(
+  timeMs: number,
+  amplitude: number,
+  strength: number,
+) {
   const normalized = normalizeAmplitude(amplitude);
 
   return {
@@ -141,7 +224,11 @@ function getReflectionAngles(type: string | null | undefined): number[] {
     return [0, Math.PI / 4];
   }
 
-  if (normalized.includes("vertical") || normalized.includes("2 side") || normalized.includes("1 side")) {
+  if (
+    normalized.includes("vertical") ||
+    normalized.includes("2 side") ||
+    normalized.includes("1 side")
+  ) {
     return [0, Math.PI];
   }
 
@@ -158,21 +245,6 @@ function getBackdropMirrorAxes(direction: string | null | undefined) {
   return { x: 1, y: -1 };
 }
 
-function getRingScale(layoutType: string, separationFactor: number, index: number, ringCount: number) {
-  const separation = Math.max(0.2, separationFactor);
-  const distanceFactor = ringCount <= 1 ? 0 : index / Math.max(1, ringCount - 1);
-
-  if (layoutType === "target") {
-    return 1 + distanceFactor * 0.5 * separation;
-  }
-
-  if (layoutType === "stacked" || layoutType === "layered") {
-    return 0.35 + distanceFactor * 1.35 * separation;
-  }
-
-  return 1 + distanceFactor * 0.28 * separation;
-}
-
 function getRingRotation(
   timeMs: number,
   index: number,
@@ -185,25 +257,98 @@ function getRingRotation(
 
   const turnsPerMs = spinSettings.speed / 60000;
 
-  return baseRotation + (timeMs * turnsPerMs * Math.PI * 2 * (index % 2 === 0 ? 1 : -1));
+  return (
+    baseRotation +
+    timeMs * turnsPerMs * Math.PI * 2 * (index % 2 === 0 ? 1 : -1)
+  );
+}
+
+function getBassSpectrumSlice(spectrum: Float32Array) {
+  return spectrum.slice(0, Math.max(12, Math.floor(spectrum.length * 0.18)));
+}
+
+function getSpectrumHistory(
+  input: BrowserRenderAdapterRenderInput,
+  waveType: string,
+): number[][] {
+  const historyProvider = (input.historyProvider ?? input.analysisProvider) as
+    | ((typeof input.historyProvider | typeof input.analysisProvider) & {
+        getHistoricalBassFrequencies?(includeNextFrame?: boolean): number[][];
+        getHistoricalWideFrequencies?(includeNextFrame?: boolean): number[][];
+      })
+    | null
+    | undefined;
+  const fallbackProvider = input.analysisProvider ?? input.historyProvider;
+  const normalizedWaveType = waveType.toLowerCase();
+
+  if (normalizedWaveType.includes("bass")) {
+    try {
+      if (historyProvider?.getHistoricalBassFrequencies) {
+        return historyProvider.getHistoricalBassFrequencies(true);
+      }
+    } catch {
+      // Fall back to frame-based history when realtime history is unavailable.
+    }
+
+    const history: number[][] = [];
+
+    for (
+      let frameDelay = 0;
+      frameDelay < SPECTERR_HISTORY_LIMIT;
+      frameDelay += 1
+    ) {
+      const frame = Math.max(0, input.frameContext.frame - frameDelay);
+      const spectrum = fallbackProvider?.getSpectrumAtFrame(frame);
+      history.push(
+        Array.from(getBassSpectrumSlice(spectrum ?? new Float32Array())),
+      );
+    }
+
+    return history;
+  }
+
+  try {
+    if (historyProvider?.getHistoricalWideFrequencies) {
+      return historyProvider.getHistoricalWideFrequencies(true);
+    }
+  } catch {
+    // Fall back to frame-based history when realtime history is unavailable.
+  }
+
+  const history: number[][] = [];
+
+  for (
+    let frameDelay = 0;
+    frameDelay < SPECTERR_HISTORY_LIMIT;
+    frameDelay += 1
+  ) {
+    const frame = Math.max(0, input.frameContext.frame - frameDelay);
+    const spectrum = fallbackProvider?.getSpectrumAtFrame(frame);
+    history.push(Array.from(spectrum ?? new Float32Array()));
+  }
+
+  return history;
 }
 
 function getSpectrumForVisualizer(
   layer: Extract<RenderLayer, { kind: "visualizer" }>,
-  ringIndex: number,
+  input: BrowserRenderAdapterRenderInput,
+  ringOptions: SpecterrWaveCircleRenderOptions,
 ) {
-  const waveType = layer.props.config.waveType.toLowerCase();
-  const rawSpectrum = waveType.includes("bass") ? layer.props.bassSpectrum : layer.props.spectrum;
-  const barCount = clamp(Math.round(layer.props.config.barCount), 4, Math.max(4, rawSpectrum.length || 4));
+  const spectrumHistory = getSpectrumHistory(
+    input,
+    layer.props.config.waveType,
+  );
+  const targetSpectrum =
+    spectrumHistory[ringOptions.frameDelay] ??
+    spectrumHistory[0] ??
+    Array.from(
+      layer.props.config.waveType.toLowerCase().includes("bass")
+        ? layer.props.bassSpectrum
+        : layer.props.spectrum,
+    );
 
-  return processSpectrum(Array.from(rawSpectrum), {
-    smoothingPoints: waveType.includes("wide") ? 5 : 5,
-    smoothingPasses: layer.props.config.smoothed ? 4 + Math.floor(ringIndex * Math.max(0.25, layer.props.config.seperationFactor)) : 0,
-    maxShiftPasses: 0,
-    barCount,
-    smoothed: layer.props.config.smoothed,
-    loop: layer.props.config.shape === "circle",
-  });
+  return processSpectrum(targetSpectrum, ringOptions.spectrumOptions);
 }
 
 function getVisualizerRingStyle(
@@ -252,7 +397,8 @@ async function loadImageFromUrl(
     const image = new Image();
     image.crossOrigin = "anonymous";
     image.onload = () => resolve(image);
-    image.onerror = () => reject(new Error(`Failed to load image source ${key}.`));
+    image.onerror = () =>
+      reject(new Error(`Failed to load image source ${key}.`));
     image.src = url;
   });
 
@@ -279,7 +425,8 @@ async function loadVideoFromUrl(
     video.preload = "auto";
     video.crossOrigin = "anonymous";
     video.onloadeddata = () => resolve(video);
-    video.onerror = () => reject(new Error(`Failed to load video source ${key}.`));
+    video.onerror = () =>
+      reject(new Error(`Failed to load video source ${key}.`));
     video.src = url;
   });
 
@@ -354,9 +501,20 @@ function drawMediaCover(
   height: number,
 ) {
   const dimensions = getMediaDimensions(media);
-  const cover = getCoverDimensions(dimensions.width, dimensions.height, width, height);
+  const cover = getCoverDimensions(
+    dimensions.width,
+    dimensions.height,
+    width,
+    height,
+  );
 
-  context.drawImage(media.element, -cover.width / 2, -cover.height / 2, cover.width, cover.height);
+  context.drawImage(
+    media.element,
+    -cover.width / 2,
+    -cover.height / 2,
+    cover.width,
+    cover.height,
+  );
 }
 
 async function drawBackdropLayer(
@@ -370,7 +528,11 @@ async function drawBackdropLayer(
     return;
   }
 
-  const media = await resolveLoadedMedia(layer.props.source, assetResolver, cache);
+  const media = await resolveLoadedMedia(
+    layer.props.source,
+    assetResolver,
+    cache,
+  );
 
   if (!media) {
     return;
@@ -388,15 +550,34 @@ async function drawBackdropLayer(
     width: input.surface.width,
     height: input.surface.height,
   });
-  const shake = !drift && layer.props.shakeEnabled
-    ? computeShakeOffset(input.frameContext.timeMs, layer.props.bassAmplitude, 18)
-    : { x: 0, y: 0 };
-  const hue = layer.props.filterEnabled || layer.props.hlsAdjustment.enabled ? layer.props.hlsAdjustment.hue : 0;
-  const saturation = layer.props.filterEnabled || layer.props.hlsAdjustment.enabled ? layer.props.hlsAdjustment.saturation : 0;
-  const lightness = layer.props.filterEnabled || layer.props.hlsAdjustment.enabled ? layer.props.hlsAdjustment.lightness : 0;
+  const shake =
+    !drift && layer.props.shakeEnabled
+      ? computeShakeOffset(
+          input.frameContext.timeMs,
+          layer.props.bassAmplitude,
+          18,
+        )
+      : { x: 0, y: 0 };
+  const hue =
+    layer.props.filterEnabled || layer.props.hlsAdjustment.enabled
+      ? layer.props.hlsAdjustment.hue
+      : 0;
+  const saturation =
+    layer.props.filterEnabled || layer.props.hlsAdjustment.enabled
+      ? layer.props.hlsAdjustment.saturation
+      : 0;
+  const lightness =
+    layer.props.filterEnabled || layer.props.hlsAdjustment.enabled
+      ? layer.props.hlsAdjustment.lightness
+      : 0;
   const baseRotation = toRadians(layer.props.rotation);
-  const mediaScale = (drift?.scale ?? 1) * (1 + normalizeAmplitude(layer.props.bassAmplitude) * 0.08);
-  const reflectionAngles = layer.props.reflection.type === "none" ? [0] : [0, ...getReflectionAngles(layer.props.reflection.type).slice(1)];
+  const mediaScale =
+    (drift?.scale ?? 1) *
+    (1 + normalizeAmplitude(layer.props.bassAmplitude) * 0.08);
+  const reflectionAngles =
+    layer.props.reflection.type === "none"
+      ? [0]
+      : [0, ...getReflectionAngles(layer.props.reflection.type).slice(1)];
   const filterParts = [
     `hue-rotate(${hue}deg)`,
     `saturate(${100 + saturation}%)`,
@@ -423,7 +604,11 @@ async function drawBackdropLayer(
     context.restore();
   }
 
-  if (layer.props.hlsAdjustment.enabled && layer.props.hlsAdjustment.colorize && layer.props.hlsAdjustment.alpha > 0) {
+  if (
+    layer.props.hlsAdjustment.enabled &&
+    layer.props.hlsAdjustment.colorize &&
+    layer.props.hlsAdjustment.alpha > 0
+  ) {
     context.save();
     context.globalCompositeOperation = "overlay";
     context.fillStyle = `hsla(${hue}, 85%, 55%, ${clamp(layer.props.hlsAdjustment.alpha, 0, 1)})`;
@@ -436,8 +621,10 @@ function drawCircleWave(
   context: CanvasRenderingContext2D,
   spectrum: number[],
   radius: number,
-  config: Extract<RenderLayer, { kind: "visualizer" }>["props"]["config"],
+  waveScale: number,
+  centerCutoutFactor: number,
   ring: VisualizerWaveCircle,
+  showFill: boolean,
 ) {
   const points = spectrum.length;
 
@@ -445,15 +632,18 @@ function drawCircleWave(
     return;
   }
 
-  const waveScale = config.waveScaleFactor * radius * 0.28;
-  const centerCutout = clamp(config.centerCutoutFactor / 100, 0, 0.95);
+  const scaledWaveRadius = waveScale * radius * 0.28;
+  const centerCutout = clamp(centerCutoutFactor / 100, 0, 0.95);
+  const magnitudePercents: number[] = [];
 
   context.beginPath();
 
   for (let index = 0; index < points; index += 1) {
     const angle = (index / points) * Math.PI * 2;
     const value = clamp(spectrum[index] ?? 0, 0, 255) / 255;
-    const dynamicRadius = radius * (1 - centerCutout) + value * waveScale;
+    magnitudePercents.push(value);
+    const dynamicRadius =
+      radius * (1 - centerCutout) + value * scaledWaveRadius;
     const x = Math.cos(angle) * dynamicRadius;
     const y = Math.sin(angle) * dynamicRadius;
 
@@ -465,11 +655,30 @@ function drawCircleWave(
   }
 
   context.closePath();
-  context.fillStyle = toColorString(ring.fillColor, clamp(ring.fillAlpha, 0, 1));
-  context.strokeStyle = toColorString(ring.lineColor, clamp(ring.lineAlpha, 0, 1));
+  const mixPercent = clamp(average(magnitudePercents) * 5, 0, 1);
+  context.fillStyle = mixColor(
+    ring.fillColor,
+    ring.secondaryFillColor,
+    mixPercent,
+    clamp(
+      ring.fillAlpha * (1 - mixPercent) + ring.secondaryFillAlpha * mixPercent,
+      0,
+      1,
+    ),
+  );
+  context.strokeStyle = mixColor(
+    ring.lineColor,
+    ring.secondaryLineColor,
+    mixPercent,
+    clamp(
+      ring.lineAlpha * (1 - mixPercent) + ring.secondaryLineAlpha * mixPercent,
+      0,
+      1,
+    ),
+  );
   context.lineWidth = Math.max(1, ring.lineWidth);
 
-  if (config.waveStyle === "solid" || ring.fillAlpha > 0) {
+  if (showFill || ring.fillAlpha > 0 || ring.secondaryFillAlpha > 0) {
     context.fill();
   }
 
@@ -480,22 +689,38 @@ function drawBarCircle(
   context: CanvasRenderingContext2D,
   spectrum: number[],
   radius: number,
-  config: Extract<RenderLayer, { kind: "visualizer" }>["props"]["config"],
+  waveScale: number,
+  barWidth: number,
   ring: VisualizerWaveCircle,
 ) {
   const bars = spectrum.length;
-  const barLength = radius * 0.55 * Math.max(0.4, config.waveScaleFactor);
-  context.strokeStyle = toColorString(ring.lineColor, clamp(ring.lineAlpha, 0, 1));
-  context.lineWidth = Math.max(1, config.barWidth * 2);
+  const barLength = radius * 0.55 * Math.max(0.4, waveScale);
+  context.lineWidth = Math.max(1, barWidth * 2);
 
   for (let index = 0; index < bars; index += 1) {
     const angle = (index / bars) * Math.PI * 2;
     const value = clamp(spectrum[index] ?? 0, 0, 255) / 255;
+    context.strokeStyle = mixColor(
+      ring.lineColor,
+      ring.secondaryLineColor,
+      value,
+      clamp(
+        ring.lineAlpha * (1 - value) + ring.secondaryLineAlpha * value,
+        0,
+        1,
+      ),
+    );
     const innerRadius = radius;
     const outerRadius = radius + value * barLength;
     context.beginPath();
-    context.moveTo(Math.cos(angle) * innerRadius, Math.sin(angle) * innerRadius);
-    context.lineTo(Math.cos(angle) * outerRadius, Math.sin(angle) * outerRadius);
+    context.moveTo(
+      Math.cos(angle) * innerRadius,
+      Math.sin(angle) * innerRadius,
+    );
+    context.lineTo(
+      Math.cos(angle) * outerRadius,
+      Math.sin(angle) * outerRadius,
+    );
     context.stroke();
   }
 }
@@ -504,20 +729,48 @@ function drawPointCircle(
   context: CanvasRenderingContext2D,
   spectrum: number[],
   radius: number,
-  config: Extract<RenderLayer, { kind: "visualizer" }>["props"]["config"],
+  waveScale: number,
+  pointRadius: number,
   ring: VisualizerWaveCircle,
 ) {
   const points = spectrum.length;
-  const pointRadius = Math.max(1, config.pointRadius * 1.5);
-  context.fillStyle = toColorString(ring.lineColor, clamp(ring.lineAlpha, 0, 1));
+  const computedPointRadius = Math.max(1, pointRadius * 1.5);
 
   for (let index = 0; index < points; index += 1) {
     const angle = (index / points) * Math.PI * 2;
     const value = clamp(spectrum[index] ?? 0, 0, 255) / 255;
-    const distance = radius + value * radius * 0.4 * config.waveScaleFactor;
+    context.fillStyle = mixColor(
+      ring.fillColor,
+      ring.secondaryFillColor,
+      value,
+      clamp(
+        ring.fillAlpha * (1 - value) + ring.secondaryFillAlpha * value,
+        0,
+        1,
+      ),
+    );
+    context.strokeStyle = mixColor(
+      ring.lineColor,
+      ring.secondaryLineColor,
+      value,
+      clamp(
+        ring.lineAlpha * (1 - value) + ring.secondaryLineAlpha * value,
+        0,
+        1,
+      ),
+    );
+    context.lineWidth = Math.max(1, ring.lineWidth);
+    const distance = radius + value * radius * 0.4 * waveScale;
     context.beginPath();
-    context.arc(Math.cos(angle) * distance, Math.sin(angle) * distance, pointRadius, 0, Math.PI * 2);
+    context.arc(
+      Math.cos(angle) * distance,
+      Math.sin(angle) * distance,
+      computedPointRadius,
+      0,
+      Math.PI * 2,
+    );
     context.fill();
+    context.stroke();
   }
 }
 
@@ -526,10 +779,14 @@ function drawFlatWave(
   spectrum: number[],
   width: number,
   baseHeight: number,
-  config: Extract<RenderLayer, { kind: "visualizer" }>["props"]["config"],
+  waveStyle: string,
+  waveScale: number,
+  barCount: number,
+  barWidth: number,
+  pointRadius: number,
   ring: VisualizerWaveCircle,
 ) {
-  if (config.waveStyle === "bar") {
+  if (waveStyle === "bar") {
     const bars = createVisualizerBars({
       spectrum: new Float32Array(spectrum),
       surface: {
@@ -537,25 +794,42 @@ function drawFlatWave(
         height: baseHeight,
         dpr: 1,
       },
-      maxBars: Math.max(12, Math.min(config.barCount, spectrum.length)),
-      baselineHeightRatio: 0.8 * Math.max(0.4, config.waveScaleFactor / 2),
+      maxBars: Math.max(12, Math.min(barCount, spectrum.length)),
+      baselineHeightRatio: 0.8 * Math.max(0.4, waveScale / 2),
     });
 
-    context.fillStyle = toColorString(ring.lineColor, clamp(ring.lineAlpha, 0, 1));
-
     for (const bar of bars) {
-      context.fillRect(bar.x - width / 2, baseHeight / 2 - bar.height / 2, Math.max(1, config.barWidth * 3), bar.height);
+      const mixPercent = clamp(bar.value / 255, 0, 1);
+      context.fillStyle = mixColor(
+        ring.fillColor,
+        ring.secondaryFillColor,
+        mixPercent,
+        clamp(
+          ring.fillAlpha * (1 - mixPercent) +
+            ring.secondaryFillAlpha * mixPercent,
+          0,
+          1,
+        ),
+      );
+      context.fillRect(
+        bar.x - width / 2,
+        baseHeight / 2 - bar.height / 2,
+        Math.max(1, barWidth * 3),
+        bar.height,
+      );
     }
 
     return;
   }
 
   context.beginPath();
+  const magnitudePercents: number[] = [];
 
   for (let index = 0; index < spectrum.length; index += 1) {
     const value = clamp(spectrum[index] ?? 0, 0, 255) / 255;
+    magnitudePercents.push(value);
     const x = -width / 2 + (index / Math.max(1, spectrum.length - 1)) * width;
-    const y = (value - 0.5) * baseHeight * 0.65 * config.waveScaleFactor;
+    const y = (value - 0.5) * baseHeight * 0.65 * waveScale;
 
     if (index === 0) {
       context.moveTo(x, y);
@@ -564,19 +838,37 @@ function drawFlatWave(
     }
   }
 
-  context.strokeStyle = toColorString(ring.lineColor, clamp(ring.lineAlpha, 0, 1));
-  context.lineWidth = Math.max(1, config.barWidth * 2);
+  const mixPercent = clamp(average(magnitudePercents) * 5, 0, 1);
+  context.strokeStyle = mixColor(
+    ring.lineColor,
+    ring.secondaryLineColor,
+    mixPercent,
+    clamp(
+      ring.lineAlpha * (1 - mixPercent) + ring.secondaryLineAlpha * mixPercent,
+      0,
+      1,
+    ),
+  );
+  context.lineWidth = Math.max(1, barWidth * 2);
   context.stroke();
 
-  if (config.waveStyle === "point") {
-    context.fillStyle = toColorString(ring.fillColor, clamp(ring.fillAlpha, 0, 1));
-
+  if (waveStyle === "point") {
     for (let index = 0; index < spectrum.length; index += 3) {
       const value = clamp(spectrum[index] ?? 0, 0, 255) / 255;
       const x = -width / 2 + (index / Math.max(1, spectrum.length - 1)) * width;
-      const y = (value - 0.5) * baseHeight * 0.65 * config.waveScaleFactor;
+      const y = (value - 0.5) * baseHeight * 0.65 * waveScale;
+      context.fillStyle = mixColor(
+        ring.fillColor,
+        ring.secondaryFillColor,
+        value,
+        clamp(
+          ring.fillAlpha * (1 - value) + ring.secondaryFillAlpha * value,
+          0,
+          1,
+        ),
+      );
       context.beginPath();
-      context.arc(x, y, Math.max(1, config.pointRadius), 0, Math.PI * 2);
+      context.arc(x, y, Math.max(1, pointRadius), 0, Math.PI * 2);
       context.fill();
     }
   }
@@ -590,7 +882,8 @@ async function drawVisualizerMedia(
   cache: MediaCache,
   assetResolver: RenderAssetResolver | null | undefined,
 ) {
-  const source = layer.props.config.logoSource ?? layer.props.config.mediaSource;
+  const source =
+    layer.props.config.logoSource ?? layer.props.config.mediaSource;
 
   if (!source || !layer.props.config.logoVisible) {
     return;
@@ -607,7 +900,11 @@ async function drawVisualizerMedia(
   }
 
   const logoRadius = radius * Math.max(0.2, layer.props.config.logoSizeFactor);
-  const scale = 1 + normalizeAmplitude(layer.props.bassAmplitude) * 0.18 * layer.props.config.bounceFactor;
+  const scale =
+    1 +
+    normalizeAmplitude(layer.props.bassAmplitude) *
+      0.18 *
+      layer.props.config.bounceFactor;
 
   context.save();
   context.beginPath();
@@ -642,23 +939,53 @@ async function drawVisualizerLayer(
       : config.shakeAmount === "little"
         ? 10
         : 0;
-  const shake = !drift && shakeStrength > 0
-    ? computeShakeOffset(input.frameContext.timeMs, layer.props.bassAmplitude, shakeStrength)
-    : { x: 0, y: 0 };
+  const shake =
+    !drift && shakeStrength > 0
+      ? computeShakeOffset(
+          input.frameContext.timeMs,
+          layer.props.bassAmplitude,
+          shakeStrength,
+        )
+      : { x: 0, y: 0 };
   const baseRadius =
     Math.min(input.surface.width, input.surface.height) *
     (0.16 + clamp(config.radiusFactor / 1000, 0, 0.25));
   const reflectionAngles = getReflectionAngles(config.reflectionType);
   const baseRotation = toRadians(config.rotation);
   const bounceScale = 1 + normalizedAmplitude * 0.14 * config.bounceFactor;
+  const waveCircleOptions = createSpecterrWaveCircleOptions({
+    barCount: config.barCount,
+    customSettings: config.waveCircles.map(
+      (waveCircle) => waveCircle.customOptions,
+    ),
+    delayed: config.delayed,
+    layoutType: config.layoutType,
+    reflectionType: config.reflectionType,
+    ringCount,
+    separation: config.seperationFactor,
+    shape: config.shape,
+    smoothed: config.smoothed,
+    waveScale: config.waveScaleFactor,
+    waveStyle: config.waveStyle,
+    waveType: config.waveType,
+  });
 
   context.save();
   context.translate(
-    input.surface.width / 2 + config.position.x + (drift?.translateX ?? 0) + shake.x,
-    input.surface.height / 2 + config.position.y + (drift?.translateY ?? 0) + shake.y,
+    input.surface.width / 2 +
+      config.position.x +
+      (drift?.translateX ?? 0) +
+      shake.x,
+    input.surface.height / 2 +
+      config.position.y +
+      (drift?.translateY ?? 0) +
+      shake.y,
   );
   context.rotate(baseRotation + (drift?.rotationRad ?? 0));
-  context.scale((drift?.scale ?? 1) * bounceScale, (drift?.scale ?? 1) * bounceScale);
+  context.scale(
+    (drift?.scale ?? 1) * bounceScale,
+    (drift?.scale ?? 1) * bounceScale,
+  );
 
   for (let ringIndex = 0; ringIndex < ringCount; ringIndex += 1) {
     const ring = getVisualizerRingStyle(layer, ringIndex);
@@ -667,9 +994,14 @@ async function drawVisualizerLayer(
       continue;
     }
 
-    const ringScale = getRingScale(config.layoutType, config.seperationFactor, ringIndex, ringCount);
-    const radius = baseRadius * ringScale;
-    const processedSpectrum = getSpectrumForVisualizer(layer, ringIndex);
+    const waveCircleOption =
+      waveCircleOptions[ringIndex] ?? waveCircleOptions[0]!;
+    const radius = baseRadius * waveCircleOption.scale;
+    const processedSpectrum = getSpectrumForVisualizer(
+      layer,
+      input,
+      waveCircleOption,
+    );
     const ringRotation = getRingRotation(
       input.frameContext.timeMs,
       ringIndex,
@@ -696,30 +1028,73 @@ async function drawVisualizerLayer(
         drawFlatWave(
           context,
           processedSpectrum,
-          Math.min(input.surface.width * 0.78, Math.max(180, config.width || input.surface.width * 0.78)),
-          Math.max(80, config.baseHeight || input.surface.height * 0.14),
-          config,
+          Math.min(
+            input.surface.width * 0.78,
+            Math.max(180, config.width || input.surface.width * 0.78),
+          ),
+          Math.max(
+            80,
+            (config.baseHeight || input.surface.height * 0.14) +
+              waveCircleOption.heightAdjust,
+          ),
+          config.waveStyle,
+          waveCircleOption.waveScale,
+          waveCircleOption.spectrumOptions.barCount,
+          config.barWidth,
+          config.pointRadius,
           ring,
         );
       } else if (config.waveStyle === "bar") {
-        drawBarCircle(context, processedSpectrum, radius, config, ring);
+        drawBarCircle(
+          context,
+          processedSpectrum,
+          radius,
+          waveCircleOption.waveScale,
+          config.barWidth,
+          ring,
+        );
       } else if (config.waveStyle === "point") {
-        drawPointCircle(context, processedSpectrum, radius, config, ring);
+        drawPointCircle(
+          context,
+          processedSpectrum,
+          radius,
+          waveCircleOption.waveScale,
+          config.pointRadius,
+          ring,
+        );
       } else {
-        drawCircleWave(context, processedSpectrum, radius, config, ring);
+        drawCircleWave(
+          context,
+          processedSpectrum,
+          radius,
+          waveCircleOption.waveScale,
+          config.centerCutoutFactor,
+          ring,
+          config.waveStyle === "solid",
+        );
       }
 
       context.restore();
     }
   }
 
-  await drawVisualizerMedia(context, layer, baseRadius * Math.max(0.8, config.logoSizeFactor), input.frameContext.timeMs, cache, assetResolver);
+  await drawVisualizerMedia(
+    context,
+    layer,
+    baseRadius * Math.max(0.8, config.logoSizeFactor),
+    input.frameContext.timeMs,
+    cache,
+    assetResolver,
+  );
   context.restore();
 }
 
 function applyTextShadow(context: CanvasRenderingContext2D, style: TextStyle) {
   if (style.shadow.enabled) {
-    context.shadowColor = toColorString(style.shadow.color, clamp(style.shadow.opacity, 0, 1));
+    context.shadowColor = toColorString(
+      style.shadow.color,
+      clamp(style.shadow.opacity, 0, 1),
+    );
     context.shadowBlur = style.shadow.blur;
     return;
   }
@@ -752,7 +1127,12 @@ function drawTextLayer(
   context.scale(drift?.scale ?? 1, drift?.scale ?? 1);
   context.font = `${style.bold ? "700" : "400"} ${style.fontSize}px ${style.font}, sans-serif`;
   context.fillStyle = toColorString(style.color ?? DEFAULT_TEXT_COLOR, 1);
-  context.textAlign = style.anchorPoint === "left" ? "left" : style.anchorPoint === "right" ? "right" : "center";
+  context.textAlign =
+    style.anchorPoint === "left"
+      ? "left"
+      : style.anchorPoint === "right"
+        ? "right"
+        : "center";
   context.textBaseline = "middle";
   applyTextShadow(context, style);
   context.fillText(style.text, 0, 0, input.surface.width * 0.9);
@@ -790,17 +1170,32 @@ function drawLyricsLayer(
   context.fillStyle = toColorString(style.color ?? DEFAULT_TEXT_COLOR, 1);
   context.font = `${style.bold ? "700" : "500"} ${style.fontSize}px ${style.font}, sans-serif`;
   applyTextShadow(context, style);
-  context.fillText(layer.props.activeSegment.text, 0, 0, input.surface.width * 0.84);
+  context.fillText(
+    layer.props.activeSegment.text,
+    0,
+    0,
+    input.surface.width * 0.84,
+  );
 
   context.fillStyle = toColorString(style.color ?? DEFAULT_TEXT_COLOR, 0.35);
   context.font = `${style.bold ? "600" : "400"} ${Math.max(18, style.fontSize * 0.62)}px ${style.font}, sans-serif`;
 
   if (layer.props.previousSegment) {
-    context.fillText(layer.props.previousSegment.text, 0, -style.fontSize * 1.15, input.surface.width * 0.78);
+    context.fillText(
+      layer.props.previousSegment.text,
+      0,
+      -style.fontSize * 1.15,
+      input.surface.width * 0.78,
+    );
   }
 
   if (layer.props.nextSegment) {
-    context.fillText(layer.props.nextSegment.text, 0, style.fontSize * 1.1, input.surface.width * 0.78);
+    context.fillText(
+      layer.props.nextSegment.text,
+      0,
+      style.fontSize * 1.1,
+      input.surface.width * 0.78,
+    );
   }
 
   context.restore();
@@ -855,34 +1250,54 @@ function drawParticlesLayer(
   const baseSize = Math.min(input.surface.width, input.surface.height) * 0.04;
 
   context.save();
-  context.fillStyle = toColorString(config.color, clamp(config.maxOpacity, 0.05, 1));
+  context.fillStyle = toColorString(
+    config.color,
+    clamp(config.maxOpacity, 0.05, 1),
+  );
 
   for (let index = 0; index < count; index += 1) {
     const seed = index * 917.37;
-    const progress = ((input.frameContext.timeMs / 1000) * (0.08 + speedMultiplier * 0.12) + seed) % 1;
+    const progress =
+      ((input.frameContext.timeMs / 1000) * (0.08 + speedMultiplier * 0.12) +
+        seed) %
+      1;
     const alt = ((seed * 1.73) % 1) - 0.5;
-    const size = baseSize * clamp((config.minSize + (config.maxSize - config.minSize) * (((seed * 0.37) % 1) || 0.5)) * 0.5, 0.08, 2);
-    const opacity = clamp(config.minOpacity + (config.maxOpacity - config.minOpacity) * ((((seed * 0.53) % 1) || 0.5)), 0.05, 1);
+    const size =
+      baseSize *
+      clamp(
+        (config.minSize +
+          (config.maxSize - config.minSize) * ((seed * 0.37) % 1 || 0.5)) *
+          0.5,
+        0.08,
+        2,
+      );
+    const opacity = clamp(
+      config.minOpacity +
+        (config.maxOpacity - config.minOpacity) * ((seed * 0.53) % 1 || 0.5),
+      0.05,
+      1,
+    );
 
     let x = input.surface.width / 2;
     let y = input.surface.height / 2;
 
     if (config.direction.toLowerCase() === "out") {
       const angle = ((seed * 7) % 1) * Math.PI * 2;
-      const distance = progress * Math.max(input.surface.width, input.surface.height) * 0.65;
+      const distance =
+        progress * Math.max(input.surface.width, input.surface.height) * 0.65;
       x += Math.cos(angle) * distance;
       y += Math.sin(angle) * distance;
     } else if (config.direction.toLowerCase() === "left") {
       x = input.surface.width * (1 - progress);
-      y = input.surface.height * (0.1 + ((alt + 0.5) * 0.8));
+      y = input.surface.height * (0.1 + (alt + 0.5) * 0.8);
     } else if (config.direction.toLowerCase() === "right") {
       x = input.surface.width * progress;
-      y = input.surface.height * (0.1 + ((alt + 0.5) * 0.8));
+      y = input.surface.height * (0.1 + (alt + 0.5) * 0.8);
     } else if (config.direction.toLowerCase() === "down") {
-      x = input.surface.width * (0.1 + ((alt + 0.5) * 0.8));
+      x = input.surface.width * (0.1 + (alt + 0.5) * 0.8);
       y = input.surface.height * progress;
     } else {
-      x = input.surface.width * (0.1 + ((alt + 0.5) * 0.8));
+      x = input.surface.width * (0.1 + (alt + 0.5) * 0.8);
       y = input.surface.height * (1 - progress);
     }
 
@@ -926,7 +1341,9 @@ export function createCanvas2dRenderAdapter(
   return {
     mount(target, surface) {
       mountedTarget = target;
-      canvas = isCanvasElement(target) ? target : document.createElement("canvas");
+      canvas = isCanvasElement(target)
+        ? target
+        : document.createElement("canvas");
 
       if (!isCanvasElement(target)) {
         target.replaceChildren(canvas);
@@ -948,16 +1365,29 @@ export function createCanvas2dRenderAdapter(
       currentContext.setTransform(1, 0, 0, 1, 0, 0);
       currentContext.clearRect(0, 0, canvas?.width ?? 0, canvas?.height ?? 0);
       currentContext.scale(input.surface.dpr, input.surface.dpr);
-      currentContext.fillStyle = input.sceneGraph.project.viewport.backgroundColor;
+      currentContext.fillStyle =
+        input.sceneGraph.project.viewport.backgroundColor;
       currentContext.fillRect(0, 0, input.surface.width, input.surface.height);
 
       for (const layer of input.visibleLayers) {
         if (layer.kind === "backdrop") {
-          await drawBackdropLayer(currentContext, layer, input, cache, options.assetResolver);
+          await drawBackdropLayer(
+            currentContext,
+            layer,
+            input,
+            cache,
+            options.assetResolver,
+          );
         }
 
         if (layer.kind === "visualizer") {
-          await drawVisualizerLayer(currentContext, layer, input, cache, options.assetResolver);
+          await drawVisualizerLayer(
+            currentContext,
+            layer,
+            input,
+            cache,
+            options.assetResolver,
+          );
         }
 
         if (layer.kind === "particles") {

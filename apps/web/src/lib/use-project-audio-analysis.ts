@@ -5,12 +5,13 @@ import { useEffect, useState } from "react";
 import {
   analyzeAudioBuffer,
   createArrayAudioAnalysisProvider,
+  type AudioAnalysisSnapshot,
   type AudioAnalysisProvider,
 } from "@spectral/audio-analysis";
 
 import { createAudioAnalysis, getAudioAnalysis } from "./editor-api";
 import {
-  createAudioAnalysisProviderFromDto,
+  createAudioAnalysisSnapshotFromDto,
   resolveProjectAudioUrl,
   serializeAudioAnalysisSnapshot,
 } from "./editor-runtime";
@@ -19,12 +20,14 @@ import type { VideoProject } from "@spectral/project-schema";
 
 type AnalysisState = {
   provider: AudioAnalysisProvider | null;
+  snapshot: AudioAnalysisSnapshot | null;
   loading: boolean;
   error: string | null;
 };
 
 const emptyState: AnalysisState = {
   provider: null,
+  snapshot: null,
   loading: false,
   error: null,
 };
@@ -55,7 +58,10 @@ async function decodeAudioFromUrl(url: string): Promise<AudioBuffer> {
   }
 }
 
-export function useProjectAudioAnalysis({ analysisId, project }: UseProjectAudioAnalysisInput) {
+export function useProjectAudioAnalysis({
+  analysisId,
+  project,
+}: UseProjectAudioAnalysisInput) {
   const [state, setState] = useState<AnalysisState>(emptyState);
   const updateAtPath = useProjectStore((store) => store.updateAtPath);
   const assetId = project.audio.assetId;
@@ -72,6 +78,7 @@ export function useProjectAudioAnalysis({ analysisId, project }: UseProjectAudio
 
     setState({
       provider: null,
+      snapshot: null,
       loading: true,
       error: null,
     });
@@ -106,6 +113,8 @@ export function useProjectAudioAnalysis({ analysisId, project }: UseProjectAudio
           spectrumJson: serializeAudioAnalysisSnapshot(snapshot).spectrumFrames,
           metadata: {
             generatedBy: "editor-preview",
+            bassMaxMagnitude: snapshot.magnitudes.bass,
+            wideMaxMagnitude: snapshot.magnitudes.wide,
           },
         });
 
@@ -116,6 +125,7 @@ export function useProjectAudioAnalysis({ analysisId, project }: UseProjectAudio
         updateAtPath(["audio", "analysisId"], persisted.analysis.id);
         setState({
           provider: createArrayAudioAnalysisProvider(snapshot),
+          snapshot,
           loading: false,
           error: null,
         });
@@ -130,8 +140,10 @@ export function useProjectAudioAnalysis({ analysisId, project }: UseProjectAudio
               return;
             }
 
+            const snapshot = createAudioAnalysisSnapshotFromDto(analysis);
             setState({
-              provider: createAudioAnalysisProviderFromDto(analysis),
+              provider: createArrayAudioAnalysisProvider(snapshot),
+              snapshot,
               loading: false,
               error: null,
             });
@@ -151,8 +163,12 @@ export function useProjectAudioAnalysis({ analysisId, project }: UseProjectAudio
 
         setState({
           provider: null,
+          snapshot: null,
           loading: false,
-          error: error instanceof Error ? error.message : "Failed to load audio analysis.",
+          error:
+            error instanceof Error
+              ? error.message
+              : "Failed to load audio analysis.",
         });
       }
     };

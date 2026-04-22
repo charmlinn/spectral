@@ -1,4 +1,8 @@
-import { buildSceneGraph, createFrameContext, resolveVisibleLayers } from "@spectral/render-core";
+import {
+  buildSceneGraph,
+  createFrameContext,
+  resolveVisibleLayers,
+} from "@spectral/render-core";
 
 import type {
   BrowserRenderAdapterRenderInput,
@@ -14,13 +18,16 @@ export function createBrowserRenderRuntime(
   let surface = options.surface;
   let clock = options.clock ?? null;
   let analysisProvider = options.analysisProvider ?? null;
+  let historyProvider = options.historyProvider ?? null;
   let assetResolver = options.assetResolver ?? null;
   let rafId: number | null = null;
   let running = false;
 
   const buildScene = options.buildSceneGraph ?? buildSceneGraph;
 
-  async function renderFrameAt(timeMs: number): Promise<BrowserRenderAdapterRenderInput> {
+  async function renderFrameAt(
+    timeMs: number,
+  ): Promise<BrowserRenderAdapterRenderInput> {
     const frameContext = createFrameContext(
       timeMs,
       project.timing.fps,
@@ -34,6 +41,8 @@ export function createBrowserRenderRuntime(
     });
     const visibleLayers = resolveVisibleLayers(sceneGraph.layers, frameContext);
     const input = {
+      analysisProvider,
+      historyProvider,
       sceneGraph,
       visibleLayers,
       frameContext,
@@ -93,6 +102,9 @@ export function createBrowserRenderRuntime(
     },
     setAudioAnalysisProvider(provider) {
       analysisProvider = provider;
+    },
+    setHistoryProvider(provider) {
+      historyProvider = provider;
     },
     setAssetResolver(nextAssetResolver) {
       assetResolver = nextAssetResolver;

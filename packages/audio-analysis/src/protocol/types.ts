@@ -16,15 +16,25 @@ export type SpectrumFrame = {
   values: Float32Array;
 };
 
+export type AudioAnalysisMagnitudes = {
+  bass: number;
+  wide: number;
+};
+
 export type AudioAnalysisSnapshot = {
   createdAt: string;
   fps: number;
   waveform: WaveformOverview;
   spectrumFrames: SpectrumFrame[];
+  magnitudes: AudioAnalysisMagnitudes;
 };
 
 export type AudioAnalysisProvider = {
-  getWaveformSlice(startMs: number, endMs: number, targetPoints?: number): WaveformOverview;
+  getWaveformSlice(
+    startMs: number,
+    endMs: number,
+    targetPoints?: number,
+  ): WaveformOverview;
   getSpectrumAtFrame(frame: number): Float32Array;
   getSpectrumAtTimeMs(timeMs: number): Float32Array;
 };

@@ -13,6 +13,8 @@ import type { VideoProject } from "@spectral/project-schema";
 export type BrowserRenderAdapterMountTarget = HTMLElement | HTMLCanvasElement;
 
 export type BrowserRenderAdapterRenderInput = {
+  analysisProvider?: AudioAnalysisProvider | null;
+  historyProvider?: AudioAnalysisProvider | null;
   sceneGraph: RenderSceneGraph;
   visibleLayers: RenderLayer[];
   frameContext: RenderFrameContext;
@@ -20,7 +22,10 @@ export type BrowserRenderAdapterRenderInput = {
 };
 
 export type BrowserRenderAdapter = {
-  mount(target: BrowserRenderAdapterMountTarget, surface: RenderSurface): void | Promise<void>;
+  mount(
+    target: BrowserRenderAdapterMountTarget,
+    surface: RenderSurface,
+  ): void | Promise<void>;
   resize(surface: RenderSurface): void | Promise<void>;
   render(input: BrowserRenderAdapterRenderInput): void | Promise<void>;
   destroy(): void | Promise<void>;
@@ -32,6 +37,7 @@ export type BrowserRenderRuntimeOptions = {
   surface: RenderSurface;
   clock?: RenderClock | null;
   analysisProvider?: AudioAnalysisProvider | null;
+  historyProvider?: AudioAnalysisProvider | null;
   assetResolver?: RenderAssetResolver | null;
   autoStart?: boolean;
   onFrame?: (input: BrowserRenderAdapterRenderInput) => void;
@@ -45,6 +51,7 @@ export type BrowserRenderRuntime = {
   setClock(clock: RenderClock | null): void;
   setSurface(surface: RenderSurface): Promise<void>;
   setAudioAnalysisProvider(provider: AudioAnalysisProvider | null): void;
+  setHistoryProvider(provider: AudioAnalysisProvider | null): void;
   setAssetResolver(assetResolver: RenderAssetResolver | null): void;
   start(): void;
   stop(): void;

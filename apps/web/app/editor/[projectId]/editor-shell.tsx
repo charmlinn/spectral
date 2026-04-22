@@ -394,6 +394,7 @@ export function EditorShell({
             analysisError={analysis.error}
             analysisLoading={analysis.loading}
             analysisProvider={analysis.provider}
+            analysisSnapshot={analysis.snapshot}
           />
           <TimelinePanel
             analysisError={analysis.error}

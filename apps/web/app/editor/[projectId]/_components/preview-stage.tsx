@@ -3,7 +3,12 @@
 import { useEffect, useRef, useState } from "react";
 import { Pause, Play, ZoomIn } from "lucide-react";
 
-import type { AudioAnalysisProvider } from "@spectral/audio-analysis";
+import {
+  createRealtimeAudioAnalysisController,
+  type AudioAnalysisProvider,
+  type AudioAnalysisSnapshot,
+  type RealtimeAudioAnalysisController,
+} from "@spectral/audio-analysis";
 import {
   usePlaybackStore,
   usePreviewStore,
@@ -37,6 +42,7 @@ type PreviewStageProps = {
   analysisError: string | null;
   analysisLoading: boolean;
   analysisProvider: AudioAnalysisProvider | null;
+  analysisSnapshot: AudioAnalysisSnapshot | null;
 };
 
 function toAspectRatioValue(aspectRatio: SupportedAspectRatio) {
@@ -55,6 +61,7 @@ export function PreviewStage({
   analysisError,
   analysisLoading,
   analysisProvider,
+  analysisSnapshot,
 }: PreviewStageProps) {
   const project = useProjectStore((state) => state.project);
   const playing = usePlaybackStore((state) => state.playing);
@@ -78,6 +85,9 @@ export function PreviewStage({
   const stageRef = useRef<HTMLDivElement | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const runtimeRef = useRef<BrowserRenderRuntime | null>(null);
+  const realtimeAnalysisRef = useRef<RealtimeAudioAnalysisController | null>(
+    null,
+  );
   const manualClockRef = useRef(
     createManualRenderClock({ fps: project.timing.fps }),
   );
@@ -154,6 +164,44 @@ export function PreviewStage({
   }, [project.audio.assetId, project.audio.source?.url, setRuntimeHealth]);
 
   useEffect(() => {
+    const audioElement = audioRef.current;
+
+    if (!audioElement || !audioUrl || !analysisSnapshot) {
+      runtimeRef.current?.setHistoryProvider(null);
+      return;
+    }
+
+    let disposed = false;
+    const controller = createRealtimeAudioAnalysisController({
+      audioElement,
+      fps: project.timing.fps,
+      waveform: analysisSnapshot.waveform,
+      volume: muted ? 0 : 1,
+    });
+
+    controller.setMaxMagnitudes(analysisSnapshot.magnitudes);
+    realtimeAnalysisRef.current = controller;
+    runtimeRef.current?.setHistoryProvider(controller);
+
+    void controller.connect().catch(() => {
+      if (!disposed) {
+        runtimeRef.current?.setHistoryProvider(analysisProvider);
+      }
+    });
+
+    return () => {
+      disposed = true;
+
+      if (realtimeAnalysisRef.current === controller) {
+        realtimeAnalysisRef.current = null;
+      }
+
+      runtimeRef.current?.setHistoryProvider(analysisProvider);
+      void controller.destroy().catch(() => undefined);
+    };
+  }, [analysisProvider, analysisSnapshot, audioUrl, muted, project.timing.fps]);
+
+  useEffect(() => {
     const target = stageRef.current;
 
     if (!target || surfaceWidth <= 0 || surfaceHeight <= 0) {
@@ -184,6 +232,7 @@ export function PreviewStage({
                 )
               : manualClockRef.current,
           analysisProvider,
+          historyProvider: realtimeAnalysisRef.current ?? analysisProvider,
           assetResolver: assetResolverRef.current,
           autoStart: false,
         });
@@ -236,6 +285,9 @@ export function PreviewStage({
 
     runtimeRef.current.setProject(project);
     runtimeRef.current.setAudioAnalysisProvider(analysisProvider);
+    runtimeRef.current.setHistoryProvider(
+      realtimeAnalysisRef.current ?? analysisProvider,
+    );
     runtimeRef.current.setAssetResolver(assetResolverRef.current);
     void runtimeRef.current.renderFrameAt(currentTimeMs);
   }, [analysisProvider, currentTimeMs, project]);
@@ -261,6 +313,7 @@ export function PreviewStage({
 
     audioElement.muted = muted;
     audioElement.playbackRate = playbackRate;
+    realtimeAnalysisRef.current?.setVolume(muted ? 0 : 1);
   }, [muted, playbackRate]);
 
   useEffect(() => {
@@ -271,6 +324,8 @@ export function PreviewStage({
     if (Math.abs(audioRef.current.currentTime - currentTimeMs / 1000) > 0.05) {
       audioRef.current.currentTime = currentTimeMs / 1000;
     }
+
+    realtimeAnalysisRef.current?.seekToMs(currentTimeMs);
   }, [audioUrl, currentTimeMs]);
 
   useEffect(() => {
