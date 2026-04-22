@@ -2,10 +2,10 @@ import {
   AlphaFilter,
   DisplacementFilter,
   Sprite,
+  Texture,
   WRAP_MODES,
   type Container,
   type Graphics,
-  type Texture,
 } from "pixi.js";
 import chroma from "chroma-js";
 import { AdvancedBloomFilter, DropShadowFilter } from "pixi-filters";
@@ -13,8 +13,7 @@ import type { VisualizerWaveCircle } from "@spectral/project-schema";
 
 import { clamp } from "../../adapters/canvas-utils";
 
-export const SPECTERR_FIRE_TEXTURE_URL =
-  "https://specterr.b-cdn.net/fire-texture.jpg";
+let visualizerDisplacementTexture: Texture | null = null;
 
 function normalizeMixColorInput(input: string | null | undefined) {
   const normalized = input?.trim().toLowerCase();
@@ -194,10 +193,57 @@ export function createVisualizerBloomFilter(multiplier: number) {
   return bloomFilter;
 }
 
+function createVisualizerDisplacementTexture() {
+  if (visualizerDisplacementTexture) {
+    return visualizerDisplacementTexture;
+  }
+
+  if (typeof document === "undefined") {
+    visualizerDisplacementTexture = Texture.WHITE;
+    return visualizerDisplacementTexture;
+  }
+
+  const size = 256;
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const context = canvas.getContext("2d");
+
+  if (!context) {
+    visualizerDisplacementTexture = Texture.WHITE;
+    return visualizerDisplacementTexture;
+  }
+
+  const gradient = context.createLinearGradient(0, 0, size, size);
+  gradient.addColorStop(0, "#101010");
+  gradient.addColorStop(0.35, "#5a5a5a");
+  gradient.addColorStop(0.7, "#d0d0d0");
+  gradient.addColorStop(1, "#202020");
+  context.fillStyle = gradient;
+  context.fillRect(0, 0, size, size);
+
+  for (let index = 0; index < 1400; index += 1) {
+    const alpha = 0.04 + Math.random() * 0.12;
+    context.fillStyle = `rgba(255,255,255,${alpha})`;
+    context.beginPath();
+    context.arc(
+      Math.random() * size,
+      Math.random() * size,
+      2 + Math.random() * 18,
+      0,
+      Math.PI * 2,
+    );
+    context.fill();
+  }
+
+  visualizerDisplacementTexture = Texture.from(canvas, true);
+  return visualizerDisplacementTexture;
+}
+
 export function createVisualizerDisplacementFilter(
   multiplier: number,
 ) {
-  const displacementSprite = Sprite.from(SPECTERR_FIRE_TEXTURE_URL);
+  const displacementSprite = new Sprite(createVisualizerDisplacementTexture());
   displacementSprite.visible = false;
   displacementSprite.renderable = false;
   const textureSource = displacementSprite.texture.source as unknown as {
