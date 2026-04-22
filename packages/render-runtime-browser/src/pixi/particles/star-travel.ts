@@ -1,4 +1,4 @@
-import { Container, Sprite, type Texture } from "pixi.js";
+import { Container, Sprite } from "pixi.js";
 
 import {
   getSpectrumMagnitude,
@@ -49,12 +49,6 @@ type TravelParticle = {
 export class StarTravelParticlesRenderer {
   readonly container = new Container();
   readonly direction = "OUT";
-  private readonly defaultCircleTexture1: Texture;
-  private readonly defaultCircleTexture2: Texture;
-  private readonly defaultHeartTexture1: Texture;
-  private readonly defaultHeartTexture2: Texture;
-  private readonly defaultStarTexture1: Texture;
-  private readonly defaultStarTexture2: Texture;
   private particles: TravelParticle[] = [];
   private calculatedWidth = BASE_HEIGHT;
   private fps = 60;
@@ -72,14 +66,6 @@ export class StarTravelParticlesRenderer {
   };
 
   constructor() {
-    const defaultTextures = getDefaultTextures();
-
-    this.defaultCircleTexture1 = defaultTextures.circleTexture1;
-    this.defaultCircleTexture2 = defaultTextures.circleTexture2;
-    this.defaultHeartTexture1 = defaultTextures.heartTexture1;
-    this.defaultHeartTexture2 = defaultTextures.heartTexture2;
-    this.defaultStarTexture1 = defaultTextures.starTexture1;
-    this.defaultStarTexture2 = defaultTextures.starTexture2;
     this.container.zIndex = 2;
   }
 
@@ -280,23 +266,24 @@ export class StarTravelParticlesRenderer {
   }) {
     let texture = createMediaTexture(parsedConfig.shape, parsedConfig.mediaData);
     const normalizedShape = parsedConfig.shape?.trim().toLowerCase();
+    const defaultTextures = getDefaultTextures();
 
     if (!texture) {
       if (normalizedShape === "heart") {
         texture =
           Math.random() < 0.5
-            ? this.defaultHeartTexture1
-            : this.defaultHeartTexture2;
+            ? defaultTextures.heartTexture1
+            : defaultTextures.heartTexture2;
       } else if (normalizedShape === "star") {
         texture =
           Math.random() < 0.5
-            ? this.defaultStarTexture1
-            : this.defaultStarTexture2;
+            ? defaultTextures.starTexture1
+            : defaultTextures.starTexture2;
       } else {
         texture =
           Math.random() < 0.5
-            ? this.defaultCircleTexture1
-            : this.defaultCircleTexture2;
+            ? defaultTextures.circleTexture1
+            : defaultTextures.circleTexture2;
       }
     }
 

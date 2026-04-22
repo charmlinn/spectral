@@ -1,5 +1,19 @@
 import type { RenderFrameContext, RenderLayer } from "../contracts/render";
 
+function hasRenderableParticles(
+  particles: Extract<RenderLayer, { kind: "particles" }>["props"]["particles"],
+) {
+  if (particles.enabled) {
+    return true;
+  }
+
+  if (Array.isArray(particles.items)) {
+    return particles.items.some((item) => (item.birthRate ?? 0) > 0);
+  }
+
+  return (particles.birthRate ?? 0) > 0;
+}
+
 export function isLayerVisible(
   layer: RenderLayer,
   frameContext: RenderFrameContext,
@@ -25,7 +39,7 @@ export function isLayerVisible(
   }
 
   if (layer.kind === "particles") {
-    return layer.props.particles.enabled;
+    return hasRenderableParticles(layer.props.particles);
   }
 
   return true;

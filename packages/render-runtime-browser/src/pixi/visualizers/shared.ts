@@ -198,6 +198,8 @@ export function createVisualizerDisplacementFilter(
   multiplier: number,
 ) {
   const displacementSprite = Sprite.from(SPECTERR_FIRE_TEXTURE_URL);
+  displacementSprite.visible = false;
+  displacementSprite.renderable = false;
   const textureSource = displacementSprite.texture.source as unknown as {
     style?: {
       addressMode?: string;
