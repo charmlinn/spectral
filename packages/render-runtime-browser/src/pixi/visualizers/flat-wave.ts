@@ -201,6 +201,10 @@ export class FlatWaveRenderer {
     }
   }
 
+  resetSpinPosition() {
+    this.shakeOffset = { x: 0, y: 0 };
+  }
+
   render(layer: VisualizerLayer | null, input: BrowserRenderAdapterRenderInput) {
     this.container.visible = Boolean(layer);
 

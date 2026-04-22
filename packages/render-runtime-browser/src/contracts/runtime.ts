@@ -16,6 +16,7 @@ export type BrowserRenderAdapterRenderInput = {
   analysisProvider?: AudioAnalysisProvider | null;
   animationTimeMs?: number;
   historyProvider?: AudioAnalysisProvider | null;
+  playing: boolean;
   sceneGraph: RenderSceneGraph;
   visibleLayers: RenderLayer[];
   frameContext: RenderFrameContext;
@@ -54,6 +55,7 @@ export type BrowserRenderRuntime = {
   setAudioAnalysisProvider(provider: AudioAnalysisProvider | null): void;
   setHistoryProvider(provider: AudioAnalysisProvider | null): void;
   setAssetResolver(assetResolver: RenderAssetResolver | null): void;
+  setPlaybackState(playing: boolean): void;
   start(): void;
   stop(): void;
   renderFrameAt(timeMs: number): Promise<BrowserRenderAdapterRenderInput>;

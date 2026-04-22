@@ -23,6 +23,7 @@ export function createBrowserRenderRuntime(
   let rafId: number | null = null;
   let running = false;
   let renderInFlight = false;
+  let playbackState = false;
 
   const buildScene = options.buildSceneGraph ?? buildSceneGraph;
 
@@ -45,6 +46,7 @@ export function createBrowserRenderRuntime(
       analysisProvider,
       animationTimeMs: performance.now(),
       historyProvider,
+      playing: playbackState,
       sceneGraph,
       visibleLayers,
       frameContext,
@@ -131,6 +133,9 @@ export function createBrowserRenderRuntime(
     setAssetResolver(nextAssetResolver) {
       assetResolver = nextAssetResolver;
       void assetResolver;
+    },
+    setPlaybackState(nextPlaybackState) {
+      playbackState = nextPlaybackState;
     },
     start() {
       if (running) {

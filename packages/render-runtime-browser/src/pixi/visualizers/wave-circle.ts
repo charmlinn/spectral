@@ -71,6 +71,7 @@ export class WaveCircleRenderer {
   private glowGraphics: Graphics[] = [];
   private currentLogoKey: string | null = null;
   private currentLogoTexture: Texture | null = null;
+  private currentBaseRotation = 0;
   private globalSpinRotation = 0;
   private ringSpinRotations: number[] = [];
   private lastAnimationTimeMs: number | null = null;
@@ -143,6 +144,14 @@ export class WaveCircleRenderer {
     }
 
     return deltaMs;
+  }
+
+  resetSpinPosition(baseRotation = this.currentBaseRotation) {
+    this.globalSpinRotation = 0;
+    this.ringSpinRotations = this.ringSpinRotations.map(() => 0);
+    this.lastAnimationTimeMs = null;
+    this.logoContainer.rotation = baseRotation;
+    this.visualsContainer.rotation = baseRotation;
   }
 
   private getSpinDelta(
@@ -332,6 +341,7 @@ export class WaveCircleRenderer {
     const scaleAmount =
       multiplier * (effectiveRadiusFactor / SPECTERR_VISUALIZER_BASE_RADIUS);
     const baseRotation = toRadians(config.rotation);
+    this.currentBaseRotation = baseRotation;
     const waveCircleOptions = createSpecterrWaveCircleOptions({
       barCount: config.barCount,
       customSettings: config.waveCircles.map((waveCircle) => waveCircle.customOptions),
@@ -433,7 +443,12 @@ export class WaveCircleRenderer {
       input.animationTimeMs ?? performance.now(),
     );
 
-    if (!drift && config.spinSettings.enabled && animationDeltaMs > 0) {
+    if (
+      input.playing &&
+      !drift &&
+      config.spinSettings.enabled &&
+      animationDeltaMs > 0
+    ) {
       this.globalSpinRotation += this.getSpinDelta(
         config.spinSettings.speed,
         config.spinSettings.acceleration,
@@ -492,7 +507,7 @@ export class WaveCircleRenderer {
         renderConfig.waveType,
       );
       const targetMax = getVisualizerTargetMax(renderConfig.waveType);
-      if (ring.spinSettings.enabled && animationDeltaMs > 0) {
+      if (input.playing && ring.spinSettings.enabled && animationDeltaMs > 0) {
         this.ringSpinRotations[ringIndex] =
           (this.ringSpinRotations[ringIndex] ?? 0) +
           this.getSpinDelta(

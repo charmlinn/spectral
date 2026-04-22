@@ -57,16 +57,42 @@ function toAspectRatioValue(aspectRatio: SupportedAspectRatio) {
   return "1 / 1";
 }
 
-function getPreviewResolutionScale(renderQuality: "draft" | "balanced" | "high") {
+function getPreviewResolution(renderQuality: "draft" | "balanced" | "high") {
   if (renderQuality === "draft") {
-    return 0.75;
+    return 240;
   }
 
   if (renderQuality === "balanced") {
-    return 1;
+    return 480;
   }
 
-  return 1.5;
+  return 720;
+}
+
+function getPreviewSurfaceDimensions(
+  aspectRatio: SupportedAspectRatio,
+  renderQuality: "draft" | "balanced" | "high",
+) {
+  const previewResolution = getPreviewResolution(renderQuality);
+
+  if (aspectRatio === "9:16") {
+    return {
+      width: previewResolution,
+      height: (previewResolution * 16) / 9,
+    };
+  }
+
+  if (aspectRatio === "16:9") {
+    return {
+      width: (previewResolution * 16) / 9,
+      height: previewResolution,
+    };
+  }
+
+  return {
+    width: previewResolution,
+    height: previewResolution,
+  };
 }
 
 function createPreviewClock(
@@ -122,8 +148,11 @@ export function PreviewStage({
   const assetResolverRef = useRef(createProjectAssetResolver());
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [runtimeError, setRuntimeError] = useState<string | null>(null);
-  const surfaceScale = getPreviewResolutionScale(renderQuality);
-  const effectiveDpr = Math.max(0.75, Math.min(deviceDpr * surfaceScale, 2));
+  const renderSurface = getPreviewSurfaceDimensions(
+    previewAspectRatio,
+    renderQuality,
+  );
+  const effectiveDpr = Math.max(1, Math.min(deviceDpr || 1, 2));
 
   useEffect(() => {
     manualClockRef.current = createManualRenderClock({
@@ -232,10 +261,8 @@ export function PreviewStage({
     }
 
     const target = stageRef.current;
-    const measuredWidth = frameRef.current?.clientWidth ?? surfaceWidth;
-    const measuredHeight = frameRef.current?.clientHeight ?? surfaceHeight;
 
-    if (!target || measuredWidth <= 0 || measuredHeight <= 0) {
+    if (!target || renderSurface.width <= 0 || renderSurface.height <= 0) {
       return;
     }
 
@@ -251,8 +278,8 @@ export function PreviewStage({
           }),
           project,
           surface: {
-            width: measuredWidth,
-            height: measuredHeight,
+            width: renderSurface.width,
+            height: renderSurface.height,
             dpr: effectiveDpr,
           },
           clock: createPreviewClock(
@@ -277,6 +304,7 @@ export function PreviewStage({
         }
 
         runtimeRef.current = runtime;
+        runtime.setPlaybackState(playing);
         setRuntimeHealth(analysisError ? "warning" : "ready");
         await runtime.renderFrameAt(currentTimeMs);
       } catch (error) {
@@ -300,9 +328,9 @@ export function PreviewStage({
     effectiveDpr,
     project.projectId,
     project.timing.fps,
+    renderSurface.height,
+    renderSurface.width,
     setRuntimeHealth,
-    surfaceHeight,
-    surfaceWidth,
   ]);
 
   useEffect(() => {
@@ -333,6 +361,8 @@ export function PreviewStage({
     if (!runtimeRef.current) {
       return;
     }
+
+    runtimeRef.current.setPlaybackState(playing);
     runtimeRef.current.setProject(project);
     runtimeRef.current.setAudioAnalysisProvider(analysisProvider);
     runtimeRef.current.setHistoryProvider(
@@ -389,14 +419,18 @@ export function PreviewStage({
   });
 
   useEffect(() => {
-    if (!runtimeRef.current || surfaceWidth <= 0 || surfaceHeight <= 0) {
+    if (
+      !runtimeRef.current ||
+      renderSurface.width <= 0 ||
+      renderSurface.height <= 0
+    ) {
       return;
     }
 
     void (async () => {
       await runtimeRef.current?.setSurface({
-        width: surfaceWidth,
-        height: surfaceHeight,
+        width: renderSurface.width,
+        height: renderSurface.height,
         dpr: effectiveDpr,
       });
 
@@ -404,7 +438,12 @@ export function PreviewStage({
         await runtimeRef.current?.renderFrameAt(currentTimeMs);
       }
     })();
-  }, [currentTimeMs, effectiveDpr, playing, surfaceHeight, surfaceWidth]);
+  }, [
+    effectiveDpr,
+    playing,
+    renderSurface.height,
+    renderSurface.width,
+  ]);
 
   useEffect(() => {
     const audioElement = audioRef.current;
@@ -617,6 +656,8 @@ export function PreviewStage({
               <p className="text-sm font-medium">Surface</p>
               <p className="mt-2 text-sm text-muted-foreground">
                 Viewport {viewportWidth} x {viewportHeight} · Surface{" "}
+                {Math.round(renderSurface.width)} x{" "}
+                {Math.round(renderSurface.height)} · Display{" "}
                 {Math.round(surfaceWidth)} x {Math.round(surfaceHeight)}
               </p>
             </div>

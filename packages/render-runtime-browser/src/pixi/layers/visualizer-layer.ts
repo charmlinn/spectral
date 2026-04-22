@@ -11,6 +11,7 @@ type VisualizerRenderer = FlatWaveRenderer | WaveCircleRenderer;
 export class PixiVisualizerLayer {
   private renderer: VisualizerRenderer;
   private rendererShape: "circle" | "flat";
+  private lastPlaying = false;
 
   constructor(
     private readonly assetResolver: RenderAssetResolver | null | undefined,
@@ -52,6 +53,12 @@ export class PixiVisualizerLayer {
 
   async render(layer: VisualizerLayer | null, input: BrowserRenderAdapterRenderInput) {
     this.ensureRenderer(layer);
+
+    if (this.lastPlaying !== input.playing && this.rendererShape === "circle") {
+      this.renderer.resetSpinPosition();
+    }
+
+    this.lastPlaying = input.playing;
     this.renderer.container.visible = Boolean(layer);
 
     if (!layer) {
