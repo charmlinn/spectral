@@ -236,7 +236,7 @@ export class FlatWaveRenderer {
       kind: "visualizer",
       timeMs: input.frameContext.timeMs,
       spectrumMagnitude: layer.props.bassAmplitude,
-      width: Math.max(180, config.width > 0 ? config.width : 500) * baseScaleMultiplier,
+      width: config.width * baseScaleMultiplier,
       height: SPECTERR_VISUALIZER_BASE_HEIGHT * baseScaleMultiplier,
     });
 
@@ -339,12 +339,8 @@ export class FlatWaveRenderer {
         renderConfig.waveType,
       );
       const targetMax = getVisualizerTargetMax(renderConfig.waveType);
-      const baseHeight = Math.max(
-        80,
-        (config.baseHeight > 0 ? config.baseHeight : 120) +
-          waveCircleOption.heightAdjust,
-      );
-      const width = Math.max(180, config.width > 0 ? config.width : 500);
+      const baseHeight = config.baseHeight + waveCircleOption.heightAdjust;
+      const width = config.width;
 
       waveGraphic.scale.set(waveCircleOption.scale, waveCircleOption.scale);
       glowGraphic.scale.set(waveCircleOption.scale, waveCircleOption.scale);

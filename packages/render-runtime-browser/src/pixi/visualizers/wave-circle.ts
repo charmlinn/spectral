@@ -220,11 +220,11 @@ export class WaveCircleRenderer {
     const logoSize =
       SPECTERR_VISUALIZER_BASE_RADIUS *
       2 *
-      Math.max(0.2, layer.props.config.logoSizeFactor);
+      layer.props.config.logoSizeFactor;
     const logoPosition =
       -SPECTERR_VISUALIZER_BASE_RADIUS +
       SPECTERR_VISUALIZER_BASE_RADIUS *
-        (1 - Math.max(0.2, layer.props.config.logoSizeFactor));
+        (1 - layer.props.config.logoSizeFactor);
 
     updateLogoSprite(
       this.logoSprite,
@@ -334,12 +334,8 @@ export class WaveCircleRenderer {
     const { config } = layer.props;
     const ringCount = Math.max(1, config.waveCircles.length || 1);
     const multiplier = input.surface.height / SPECTERR_VISUALIZER_BASE_HEIGHT;
-    const effectiveRadiusFactor =
-      config.radiusFactor > 0
-        ? config.radiusFactor
-        : SPECTERR_VISUALIZER_BASE_RADIUS;
     const scaleAmount =
-      multiplier * (effectiveRadiusFactor / SPECTERR_VISUALIZER_BASE_RADIUS);
+      multiplier * (config.radiusFactor / SPECTERR_VISUALIZER_BASE_RADIUS);
     const baseRotation = toRadians(config.rotation);
     this.currentBaseRotation = baseRotation;
     const waveCircleOptions = createSpecterrWaveCircleOptions({
