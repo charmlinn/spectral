@@ -1,7 +1,6 @@
 import { processSpectrum } from "@spectral/audio-analysis";
 import {
   computeDriftTransform,
-  createVisualizerBars,
   type RenderAssetResolver,
   type RenderLayer,
   type RenderSurface,
@@ -380,6 +379,243 @@ function getVisualizerRingStyle(
     },
     customOptions: {},
   };
+}
+
+type VisualizerRingRenderConfig = {
+  barWidth: number;
+  inverted: boolean;
+  pointRadius: number;
+  reflectionType: string;
+  rotationRad: number;
+  waveStyle: string;
+};
+
+function resolveVisualizerRingRenderConfig(
+  config: Extract<RenderLayer, { kind: "visualizer" }>["props"]["config"],
+  ring: VisualizerWaveCircle,
+): VisualizerRingRenderConfig {
+  const customOptions = ring.customOptions as Record<string, unknown>;
+  const customEnabled = customOptions.enabled === true;
+
+  return {
+    barWidth:
+      customEnabled && typeof customOptions.barWidth === "number"
+        ? customOptions.barWidth
+        : config.barWidth,
+    inverted:
+      customEnabled && typeof customOptions.inverted === "boolean"
+        ? customOptions.inverted
+        : config.inverted,
+    pointRadius:
+      customEnabled && typeof customOptions.pointRadius === "number"
+        ? customOptions.pointRadius
+        : config.pointRadius,
+    reflectionType:
+      customEnabled && typeof customOptions.reflectionType === "string"
+        ? customOptions.reflectionType
+        : config.reflectionType,
+    rotationRad:
+      customEnabled && typeof customOptions.rotation === "number"
+        ? toRadians(customOptions.rotation)
+        : 0,
+    waveStyle:
+      customEnabled && typeof customOptions.waveStyle === "string"
+        ? customOptions.waveStyle
+        : config.waveStyle,
+  };
+}
+
+function normalizeFlatReflectionType(value: string | null | undefined) {
+  const normalized = value?.toLowerCase() ?? "none";
+
+  if (normalized.includes("combo")) {
+    return "combo";
+  }
+
+  if (normalized.includes("2 side") || normalized.includes("two side")) {
+    return "2 sides";
+  }
+
+  if (normalized.includes("1 side") || normalized.includes("one side")) {
+    return "1 side";
+  }
+
+  return "none";
+}
+
+function buildFlatWavePoints(
+  spectrum: number[],
+  width: number,
+  baseHeight: number,
+  reflectionType: string,
+  inverted: boolean,
+  waveScale: number,
+  waveStyle: string,
+) {
+  const points: number[] = [];
+  const magnitudePercents: number[] = [];
+  const reflection = normalizeFlatReflectionType(reflectionType);
+  const values = inverted ? spectrum.slice().reverse() : spectrum.slice();
+  const length = values.length;
+
+  if (length === 0) {
+    return { points, magnitudePercents };
+  }
+
+  for (let index = 0; index < length; index += 1) {
+    let x;
+
+    if (reflection === "1 side" || reflection === "combo") {
+      x = index * ((width / 2) / Math.max(1, length - 1)) - width / 2;
+    } else {
+      x = index * (width / Math.max(1, length - 1)) - width / 2;
+    }
+
+    const targetIndex = index * 2;
+    const magnitudePercent = clamp((values[index] ?? 0) / 255, 0, 1);
+    const currentX = x;
+    const currentY = -((values[index] ?? 0) * waveScale + baseHeight);
+
+    points[targetIndex] = currentX;
+    points[targetIndex + 1] = currentY;
+    magnitudePercents[index] = magnitudePercent;
+
+    let mirrorIndex;
+
+    switch (reflection) {
+      case "1 side":
+        if (index === length - 1) {
+          break;
+        }
+
+        mirrorIndex = length * 4 - (index * 2 + 4);
+        points[mirrorIndex] = -currentX;
+        points[mirrorIndex + 1] = currentY;
+        magnitudePercents[length * 2 - index - 2] = magnitudePercent;
+        break;
+      case "2 sides":
+        mirrorIndex = length * 4 - (index * 2 + 2);
+        points[mirrorIndex] = currentX;
+        points[mirrorIndex + 1] = -currentY;
+        magnitudePercents[length * 2 - index - 1] = magnitudePercent;
+        break;
+      case "combo":
+        if (index !== length - 1) {
+          mirrorIndex = length * 4 - (index * 2 + 4);
+          points[mirrorIndex] = -currentX;
+          points[mirrorIndex + 1] = currentY;
+
+          mirrorIndex = length * 4 + (index * 2 - 2);
+          points[mirrorIndex] = -currentX;
+          points[mirrorIndex + 1] = -currentY;
+
+          magnitudePercents[length * 2 - index - 2] = magnitudePercent;
+          magnitudePercents[length * 2 + index - 1] = magnitudePercent;
+        }
+
+        mirrorIndex = length * 8 - (index * 2 + 6);
+        points[mirrorIndex] = currentX;
+        points[mirrorIndex + 1] = -currentY;
+        magnitudePercents[length * 4 - index - 3] = magnitudePercent;
+        break;
+      default:
+        break;
+    }
+  }
+
+  if (waveStyle === "solid" && (reflection === "none" || reflection === "1 side")) {
+    points.unshift(points[0] ?? -width / 2, 0);
+    points.push(points[points.length - 2] ?? width / 2, 0);
+    magnitudePercents.unshift(0);
+    magnitudePercents.push(0);
+  }
+
+  return { points, magnitudePercents };
+}
+
+function buildFlatWaveBars(
+  spectrum: number[],
+  width: number,
+  baseHeight: number,
+  reflectionType: string,
+  inverted: boolean,
+  waveScale: number,
+  barWidth: number,
+) {
+  const pointSets: number[][] = [];
+  const magnitudePercents: number[] = [];
+  const reflection = normalizeFlatReflectionType(reflectionType);
+  const values = inverted ? spectrum.slice().reverse() : spectrum.slice();
+  const length = values.length;
+
+  if (length === 0) {
+    return { pointSets, magnitudePercents };
+  }
+
+  let calculatedBarWidth = (width / length) * barWidth;
+
+  if (reflection === "1 side" || reflection === "combo") {
+    calculatedBarWidth = (width / (length - 0.5)) * barWidth / 2;
+  }
+
+  for (let index = 0; index < length; index += 1) {
+    let x;
+
+    if (reflection === "1 side" || reflection === "combo") {
+      const barContainerWidth = (width / 2) / Math.max(1, length - 0.5);
+      const shift = (barContainerWidth - calculatedBarWidth) / 2;
+      x = index * barContainerWidth - width / 2 + shift;
+    } else {
+      const shift = width / length - calculatedBarWidth;
+      x = index * (width / length) - width / 2 + shift / 2;
+    }
+
+    const magnitude = values[index] ?? 0;
+    const magnitudePercent = clamp(magnitude / 255, 0, 1);
+    const pointSet: [number, number, number, number] = [
+      x,
+      -(magnitude * waveScale + baseHeight),
+      calculatedBarWidth,
+      0,
+    ];
+    pointSets[index] = pointSet;
+    magnitudePercents[index] = magnitudePercent;
+
+    let mirrorIndex;
+
+    switch (reflection) {
+      case "1 side":
+        pointSet[3] = -pointSet[1];
+        mirrorIndex = length * 2 - index - 1;
+        pointSets[mirrorIndex] = [
+          -pointSet[0] - calculatedBarWidth,
+          pointSet[1],
+          pointSet[2],
+          pointSet[3],
+        ];
+        magnitudePercents[mirrorIndex] = magnitudePercent;
+        break;
+      case "2 sides":
+        pointSet[3] = -pointSet[1] * 2;
+        break;
+      case "combo":
+        pointSet[3] = -pointSet[1] * 2;
+        mirrorIndex = length * 2 - index - 1;
+        pointSets[mirrorIndex] = [
+          -pointSet[0] - calculatedBarWidth,
+          pointSet[1],
+          pointSet[2],
+          pointSet[3],
+        ];
+        magnitudePercents[mirrorIndex] = magnitudePercent;
+        break;
+      default:
+        pointSet[3] = -pointSet[1];
+        break;
+    }
+  }
+
+  return { pointSets, magnitudePercents };
 }
 
 async function loadImageFromUrl(
@@ -855,27 +1091,33 @@ function drawFlatWave(
   spectrum: number[],
   width: number,
   baseHeight: number,
+  reflectionType: string,
+  inverted: boolean,
   waveStyle: string,
   waveScale: number,
-  barCount: number,
   barWidth: number,
   pointRadius: number,
   ring: VisualizerWaveCircle,
 ) {
   if (waveStyle === "bar") {
-    const bars = createVisualizerBars({
-      spectrum: new Float32Array(spectrum),
-      surface: {
-        width,
-        height: baseHeight,
-        dpr: 1,
-      },
-      maxBars: Math.max(12, Math.min(barCount, spectrum.length)),
-      baselineHeightRatio: 0.8 * Math.max(0.4, waveScale / 2),
-    });
+    const { pointSets, magnitudePercents } = buildFlatWaveBars(
+      spectrum,
+      width,
+      baseHeight,
+      reflectionType,
+      inverted,
+      waveScale,
+      barWidth,
+    );
 
-    for (const bar of bars) {
-      const mixPercent = clamp(bar.value / 255, 0, 1);
+    for (let index = 0; index < pointSets.length; index += 1) {
+      const pointSet = pointSets[index];
+
+      if (!pointSet) {
+        continue;
+      }
+
+      const mixPercent = magnitudePercents[index] ?? 0;
       context.fillStyle = mixColor(
         ring.fillColor,
         ring.secondaryFillColor,
@@ -887,25 +1129,46 @@ function drawFlatWave(
           1,
         ),
       );
-      context.fillRect(
-        bar.x - width / 2,
-        baseHeight / 2 - bar.height / 2,
-        Math.max(1, barWidth * 3),
-        bar.height,
+      context.strokeStyle = mixColor(
+        ring.lineColor,
+        ring.secondaryLineColor,
+        mixPercent,
+        clamp(
+          ring.lineAlpha * (1 - mixPercent) + ring.secondaryLineAlpha * mixPercent,
+          0,
+          1,
+        ),
       );
+      context.lineWidth = Math.max(1, ring.lineWidth);
+      context.beginPath();
+      context.rect(pointSet[0]!, pointSet[1]!, pointSet[2]!, pointSet[3]!);
+      context.fill();
+      context.stroke();
     }
 
     return;
   }
 
-  context.beginPath();
-  const magnitudePercents: number[] = [];
+  const { points, magnitudePercents } = buildFlatWavePoints(
+    spectrum,
+    width,
+    baseHeight,
+    reflectionType,
+    inverted,
+    waveScale,
+    waveStyle,
+  );
 
-  for (let index = 0; index < spectrum.length; index += 1) {
-    const value = clamp(spectrum[index] ?? 0, 0, 255) / 255;
-    magnitudePercents.push(value);
-    const x = -width / 2 + (index / Math.max(1, spectrum.length - 1)) * width;
-    const y = (value - 0.5) * baseHeight * 0.65 * waveScale;
+  if (points.length < 4) {
+    return;
+  }
+
+  const mixPercent = clamp(average(magnitudePercents) * 5, 0, 1);
+  context.beginPath();
+
+  for (let index = 0; index < points.length; index += 2) {
+    const x = points[index]!;
+    const y = points[index + 1]!;
 
     if (index === 0) {
       context.moveTo(x, y);
@@ -914,7 +1177,17 @@ function drawFlatWave(
     }
   }
 
-  const mixPercent = clamp(average(magnitudePercents) * 5, 0, 1);
+  context.closePath();
+  context.fillStyle = mixColor(
+    ring.fillColor,
+    ring.secondaryFillColor,
+    mixPercent,
+    clamp(
+      ring.fillAlpha * (1 - mixPercent) + ring.secondaryFillAlpha * mixPercent,
+      0,
+      1,
+    ),
+  );
   context.strokeStyle = mixColor(
     ring.lineColor,
     ring.secondaryLineColor,
@@ -926,13 +1199,16 @@ function drawFlatWave(
     ),
   );
   context.lineWidth = Math.max(1, barWidth * 2);
+  if (waveStyle === "solid") {
+    context.fill();
+  }
   context.stroke();
 
   if (waveStyle === "point") {
-    for (let index = 0; index < spectrum.length; index += 3) {
-      const value = clamp(spectrum[index] ?? 0, 0, 255) / 255;
-      const x = -width / 2 + (index / Math.max(1, spectrum.length - 1)) * width;
-      const y = (value - 0.5) * baseHeight * 0.65 * waveScale;
+    for (let index = 0; index < points.length - 1; index += 2) {
+      const value = magnitudePercents[Math.floor(index / 2)] ?? 0;
+      const x = points[index]!;
+      const y = points[index + 1]!;
       context.fillStyle = mixColor(
         ring.fillColor,
         ring.secondaryFillColor,
@@ -943,9 +1219,21 @@ function drawFlatWave(
           1,
         ),
       );
+      context.strokeStyle = mixColor(
+        ring.lineColor,
+        ring.secondaryLineColor,
+        value,
+        clamp(
+          ring.lineAlpha * (1 - value) + ring.secondaryLineAlpha * value,
+          0,
+          1,
+        ),
+      );
+      context.lineWidth = Math.max(1, ring.lineWidth);
       context.beginPath();
       context.arc(x, y, Math.max(1, pointRadius), 0, Math.PI * 2);
       context.fill();
+      context.stroke();
     }
   }
 }
@@ -1026,7 +1314,6 @@ async function drawVisualizerLayer(
   const baseRadius =
     Math.min(input.surface.width, input.surface.height) *
     (0.16 + clamp(config.radiusFactor / 1000, 0, 0.25));
-  const reflectionAngles = getReflectionAngles(config.reflectionType);
   const baseRotation = toRadians(config.rotation);
   const bounceScale = 1 + normalizedAmplitude * 0.14 * config.bounceFactor;
   const waveCircleOptions = createSpecterrWaveCircleOptions({
@@ -1070,6 +1357,8 @@ async function drawVisualizerLayer(
       continue;
     }
 
+    const renderConfig = resolveVisualizerRingRenderConfig(config, ring);
+
     const waveCircleOption =
       waveCircleOptions[ringIndex] ?? waveCircleOptions[0]!;
     const radius = baseRadius * waveCircleOption.scale;
@@ -1085,9 +1374,18 @@ async function drawVisualizerLayer(
       ring.spinSettings,
     );
 
-    for (const reflectionAngle of reflectionAngles) {
+    const activeReflectionAngles =
+      config.shape === "flat"
+        ? [0]
+        : getReflectionAngles(renderConfig.reflectionType);
+
+    for (const reflectionAngle of activeReflectionAngles) {
       context.save();
-      context.rotate(reflectionAngle + ringRotation);
+      context.rotate(
+        reflectionAngle +
+          renderConfig.rotationRad +
+          (config.shape === "flat" ? 0 : ringRotation),
+      );
       context.shadowColor = toColorString(
         ring.lineColor,
         config.glowSettings.enabled || config.dropShadowSettings.enabled
@@ -1113,29 +1411,30 @@ async function drawVisualizerLayer(
             (config.baseHeight || input.surface.height * 0.14) +
               waveCircleOption.heightAdjust,
           ),
-          config.waveStyle,
+          renderConfig.reflectionType,
+          renderConfig.inverted,
+          renderConfig.waveStyle,
           waveCircleOption.waveScale,
-          waveCircleOption.spectrumOptions.barCount,
-          config.barWidth,
-          config.pointRadius,
+          renderConfig.barWidth,
+          renderConfig.pointRadius,
           ring,
         );
-      } else if (config.waveStyle === "bar") {
+      } else if (renderConfig.waveStyle === "bar") {
         drawBarCircle(
           context,
           processedSpectrum,
           radius,
           waveCircleOption.waveScale,
-          config.barWidth,
+          renderConfig.barWidth,
           ring,
         );
-      } else if (config.waveStyle === "point") {
+      } else if (renderConfig.waveStyle === "point") {
         drawPointCircle(
           context,
           processedSpectrum,
           radius,
           waveCircleOption.waveScale,
-          config.pointRadius,
+          renderConfig.pointRadius,
           ring,
         );
       } else {
