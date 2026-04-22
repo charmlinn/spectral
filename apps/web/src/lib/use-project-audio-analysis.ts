@@ -113,6 +113,7 @@ export function useProjectAudioAnalysis({
           spectrumJson: serializeAudioAnalysisSnapshot(snapshot).spectrumFrames,
           metadata: {
             generatedBy: "editor-preview",
+            fps,
             bassMaxMagnitude: snapshot.magnitudes.bass,
             wideMaxMagnitude: snapshot.magnitudes.wide,
           },

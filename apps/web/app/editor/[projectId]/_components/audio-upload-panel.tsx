@@ -141,6 +141,7 @@ export function AudioUploadPanel({ projectId }: AudioUploadPanelProps) {
         spectrumJson: serializeAudioAnalysisSnapshot(snapshot).spectrumFrames,
         metadata: {
           generatedBy: "editor-audio-panel",
+          fps: project.timing.fps,
           originalFilename: file.name,
           bassMaxMagnitude: snapshot.magnitudes.bass,
           wideMaxMagnitude: snapshot.magnitudes.wide,

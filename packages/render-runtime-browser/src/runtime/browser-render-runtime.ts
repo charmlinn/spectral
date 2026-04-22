@@ -22,6 +22,7 @@ export function createBrowserRenderRuntime(
   let assetResolver = options.assetResolver ?? null;
   let rafId: number | null = null;
   let running = false;
+  let renderInFlight = false;
 
   const buildScene = options.buildSceneGraph ?? buildSceneGraph;
 
@@ -62,14 +63,34 @@ export function createBrowserRenderRuntime(
     }
   }
 
-  function tick(): void {
+  async function tick(): Promise<void> {
     if (!running) {
       return;
     }
 
+    if (renderInFlight) {
+      rafId = requestAnimationFrame(() => {
+        void tick();
+      });
+      return;
+    }
+
+    renderInFlight = true;
     const currentTimeMs = clock?.getCurrentTimeMs() ?? 0;
-    void renderFrameAt(currentTimeMs);
-    rafId = requestAnimationFrame(() => tick());
+
+    try {
+      await renderFrameAt(currentTimeMs);
+    } finally {
+      renderInFlight = false;
+    }
+
+    if (!running) {
+      return;
+    }
+
+    rafId = requestAnimationFrame(() => {
+      void tick();
+    });
   }
 
   return {
@@ -116,7 +137,7 @@ export function createBrowserRenderRuntime(
       }
 
       running = true;
-      tick();
+      void tick();
     },
     stop() {
       running = false;

@@ -17,9 +17,9 @@ import {
 import type { SupportedAspectRatio } from "@spectral/project-schema";
 import {
   createBrowserRenderRuntime,
-  createCanvas2dRenderAdapter,
   createHtmlMediaElementClock,
   createManualRenderClock,
+  createSpectralPixiRenderAdapter,
   type BrowserRenderRuntime,
 } from "@spectral/render-runtime-browser";
 import { Badge } from "@spectral/ui/components/badge";
@@ -210,7 +210,7 @@ export function PreviewStage({
         setRuntimeError(null);
 
         const runtime = createBrowserRenderRuntime({
-          adapter: createCanvas2dRenderAdapter({
+          adapter: createSpectralPixiRenderAdapter({
             assetResolver: assetResolverRef.current,
           }),
           project,
@@ -288,8 +288,11 @@ export function PreviewStage({
         : analysisProvider,
     );
     runtimeRef.current.setAssetResolver(assetResolverRef.current);
-    void runtimeRef.current.renderFrameAt(currentTimeMs);
-  }, [analysisProvider, currentTimeMs, project]);
+
+    if (!playing) {
+      void runtimeRef.current.renderFrameAt(currentTimeMs);
+    }
+  }, [analysisProvider, currentTimeMs, playing, project]);
 
   const startAudioPreview = useEffectEvent(async () => {
     const audioElement = audioRef.current;

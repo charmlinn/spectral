@@ -48,6 +48,20 @@ function toAudioAnalysisMagnitudes(value: unknown): AudioAnalysisMagnitudes {
   };
 }
 
+function toAnalysisFps(value: unknown): number {
+  if (typeof value !== "object" || value === null) {
+    return 30;
+  }
+
+  const candidate = value as {
+    fps?: unknown;
+  };
+
+  return typeof candidate.fps === "number" && candidate.fps > 0
+    ? candidate.fps
+    : 30;
+}
+
 function isWaveformOverview(value: unknown): value is WaveformOverview {
   if (typeof value !== "object" || value === null) {
     return false;
@@ -157,7 +171,7 @@ export function createAudioAnalysisSnapshotFromDto(
 
   const snapshot: AudioAnalysisSnapshot = {
     createdAt: analysis.createdAt,
-    fps: 30,
+    fps: toAnalysisFps(analysis.metadata),
     waveform,
     spectrumFrames: toSpectrumFrames(analysis.spectrumJson),
     magnitudes: toAudioAnalysisMagnitudes(analysis.metadata),

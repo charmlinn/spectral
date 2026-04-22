@@ -53,7 +53,6 @@ type InternalState = {
   audioContext: AudioContext | null;
   mediaSource: MediaElementAudioSourceNode | null;
   gainNode: GainNode | null;
-  delayNode: DelayNode | null;
   getByteFrequencyData: ReturnType<typeof createFFTAnalyzer> | null;
   bassMaxMagnitude: number | null;
   wideMaxMagnitude: number | null;
@@ -69,7 +68,6 @@ function createInitialState(options: RealtimeAudioAnalysisControllerOptions): In
     audioContext: options.audioContext ?? null,
     mediaSource: null,
     gainNode: null,
-    delayNode: null,
     getByteFrequencyData: null,
     bassMaxMagnitude: null,
     wideMaxMagnitude: null,
@@ -111,7 +109,6 @@ export function createRealtimeAudioAnalysisController(
     audioContext: AudioContext;
     mediaSource: MediaElementAudioSourceNode;
     gainNode: GainNode;
-    delayNode: DelayNode;
     getByteFrequencyData: ReturnType<typeof createFFTAnalyzer>;
   } {
     if (
@@ -119,7 +116,6 @@ export function createRealtimeAudioAnalysisController(
       !state.audioContext ||
       !state.mediaSource ||
       !state.gainNode ||
-      !state.delayNode ||
       !state.getByteFrequencyData
     ) {
       throw new Error("Realtime audio analysis is not connected. Call connect() first.");
@@ -131,7 +127,6 @@ export function createRealtimeAudioAnalysisController(
       audioContext: state.audioContext,
       mediaSource: state.mediaSource,
       gainNode: state.gainNode,
-      delayNode: state.delayNode,
       getByteFrequencyData: state.getByteFrequencyData,
     };
   }
@@ -170,16 +165,12 @@ export function createRealtimeAudioAnalysisController(
     const gainNode = audioContext.createGain();
     gainNode.gain.value = state.volume;
     analyzerNode.connect(gainNode);
-
-    const delayNode = new DelayNode(audioContext, { delayTime: 0.15 });
-    gainNode.connect(delayNode);
-    delayNode.connect(audioContext.destination);
+    gainNode.connect(audioContext.destination);
 
     state.audioContext = audioContext;
     state.analyzerNode = analyzerNode;
     state.mediaSource = mediaSource;
     state.gainNode = gainNode;
-    state.delayNode = delayNode;
     state.getByteFrequencyData = getByteFrequencyData;
 
     if (audioContext.state === "suspended") {
@@ -252,7 +243,7 @@ export function createRealtimeAudioAnalysisController(
       await connect();
     },
     async destroy() {
-      if (!state.delayNode || !state.gainNode || !state.analyzerNode || !state.mediaSource) {
+      if (!state.gainNode || !state.analyzerNode || !state.mediaSource) {
         return;
       }
 
@@ -261,8 +252,7 @@ export function createRealtimeAudioAnalysisController(
         throw new Error("Realtime audio analysis is missing AudioContext destination.");
       }
 
-      state.delayNode.disconnect(destination);
-      state.gainNode.disconnect(state.delayNode);
+      state.gainNode.disconnect(destination);
       state.analyzerNode.disconnect(state.gainNode);
       state.mediaSource.disconnect(state.analyzerNode);
 
@@ -272,7 +262,6 @@ export function createRealtimeAudioAnalysisController(
       state.analyzerNode = null;
       state.mediaSource = null;
       state.gainNode = null;
-      state.delayNode = null;
       state.getByteFrequencyData = null;
       state.historicalBassFrequencies = [];
       state.historicalWideFrequencies = [];
@@ -285,7 +274,9 @@ export function createRealtimeAudioAnalysisController(
       audioElement.pause();
     },
     seekToMs(ms) {
-      audioElement.currentTime = ms / 1000;
+      if (Math.abs(audioElement.currentTime - ms / 1000) > 0.05) {
+        audioElement.currentTime = ms / 1000;
+      }
     },
     getCurrentTimeMs() {
       return audioElement.currentTime * 1000;

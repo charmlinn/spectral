@@ -15,6 +15,7 @@
   "dependencies": {
     "@spectral/audio-analysis": "workspace:*",
     "@spectral/project-schema": "workspace:*",
-    "@spectral/render-core": "workspace:*"
+    "@spectral/render-core": "workspace:*",
+    "pixi.js": "^8.18.1"
   }
 }

@@ -1,6 +1,6 @@
 import { createHtmlMediaElementClock } from "../clock/html-media-clock";
 import type { BrowserRenderRuntime, PreviewStageRuntimeOptions } from "../contracts/runtime";
-import { createCanvas2dRenderAdapter } from "../adapters/canvas-2d-render-adapter";
+import { createSpectralPixiRenderAdapter } from "../pixi/spectral-pixi-render-adapter";
 import { createBrowserRenderRuntime } from "./browser-render-runtime";
 
 export async function bootstrapPreviewStageRuntime(
@@ -9,7 +9,7 @@ export async function bootstrapPreviewStageRuntime(
   const runtime = createBrowserRenderRuntime({
     adapter:
       options.adapter ??
-      createCanvas2dRenderAdapter({
+      createSpectralPixiRenderAdapter({
         assetResolver: options.assetResolver,
       }),
     project: options.project,

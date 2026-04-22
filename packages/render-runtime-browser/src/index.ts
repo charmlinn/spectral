@@ -5,6 +5,7 @@ export * from "./clock/manual-render-clock";
 export * from "./contracts/runtime";
 export * from "./media/browser-asset-resolver";
 export * from "./pixi/pixi-renderer";
+export * from "./pixi/spectral-pixi-render-adapter";
 export * from "./runtime/bootstrap-preview-stage-runtime";
 export * from "./runtime/bootstrap-render-page-runtime";
 export * from "./runtime/browser-render-runtime";
