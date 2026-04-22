@@ -35,6 +35,28 @@ export type ProjectDetailDto = {
   activeProject: VideoProject | null;
 };
 
+export type PresetSummaryDto = {
+  id: string;
+  slug: string | null;
+  name: string;
+  enabled: boolean;
+  isPremium: boolean;
+  recentlyAdded: boolean;
+  priority: number;
+  popularity: number;
+  thumbnailUrl: string | null;
+  exampleUrl: string | null;
+  importedAt: string;
+  updatedAt: string;
+};
+
+export type PresetDetailDto = PresetSummaryDto & {
+  schemaVersion: number;
+  projectData: VideoProject;
+  sourcePayload: unknown;
+  sourceUpdatedAt: string | null;
+};
+
 export type SaveProjectSnapshotResponseDto = {
   snapshot: ProjectSnapshotDto;
   project: ProjectDetailDto;
@@ -236,6 +258,14 @@ export function mapExportEventToStoreEvent(event: ExportJobEventDto) {
 
 export async function getProject(projectId: string): Promise<ProjectDetailDto> {
   return readApiResponse<ProjectDetailDto>(`/api/projects/${projectId}`);
+}
+
+export async function listPresets(): Promise<PresetSummaryDto[]> {
+  return readApiResponse<PresetSummaryDto[]>("/api/presets");
+}
+
+export async function getPreset(presetId: string): Promise<PresetDetailDto> {
+  return readApiResponse<PresetDetailDto>(`/api/presets/${presetId}`);
 }
 
 export async function listProjectExports(projectId: string): Promise<ExportJobDto[]> {

@@ -18,6 +18,8 @@ import { Switch } from "@spectral/ui/components/switch";
 import { Textarea } from "@spectral/ui/components/textarea";
 
 import { AudioUploadPanel } from "./audio-upload-panel";
+import { ElementsSidebar } from "./elements-sidebar";
+import { GeneralSidebar } from "./general-sidebar";
 import { VisualizerSidebar } from "./visualizer-sidebar";
 
 const sections = [
@@ -27,6 +29,7 @@ const sections = [
   { id: "backdrop", label: "Backdrop" },
   { id: "lyrics", label: "Lyrics" },
   { id: "text", label: "Text" },
+  { id: "elements", label: "Elements" },
   { id: "export", label: "Export" },
 ] as const;
 
@@ -85,85 +88,7 @@ export function EditorSidebar({ projectId }: { projectId: string }) {
           </div>
 
           {currentTab === "general" ? (
-            <div className="grid gap-3">
-              <div className="rounded-[20px] border border-border/70 bg-background/60 p-4">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="text-sm font-medium">Canvas ratio</p>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      Switching ratio syncs viewport, export, and preview state
-                      together.
-                    </p>
-                  </div>
-                  <div className="rounded-full border border-border/70 px-3 py-1 text-xs text-muted-foreground">
-                    {project.viewport.width} x {project.viewport.height}
-                  </div>
-                </div>
-                <div className="mt-4 grid grid-cols-3 gap-2">
-                  {supportedAspectRatios.map((aspectRatio) => (
-                    <Button
-                      key={aspectRatio}
-                      size="sm"
-                      variant={
-                        project.viewport.aspectRatio === aspectRatio
-                          ? "secondary"
-                          : "outline"
-                      }
-                      onClick={() => setAspectRatio(aspectRatio)}
-                    >
-                      {aspectRatio}
-                    </Button>
-                  ))}
-                </div>
-              </div>
-              <label className="grid gap-2">
-                <span className="text-sm font-medium">Project name</span>
-                <Input
-                  value={project.meta.name}
-                  onChange={(event) =>
-                    updateAtPath(["meta", "name"], event.target.value)
-                  }
-                />
-              </label>
-              <label className="grid gap-2">
-                <span className="text-sm font-medium">Description</span>
-                <Textarea
-                  value={project.meta.description ?? ""}
-                  onChange={(event) =>
-                    updateAtPath(
-                      ["meta", "description"],
-                      event.target.value || null,
-                    )
-                  }
-                />
-              </label>
-              <label className="grid gap-2">
-                <span className="text-sm font-medium">Duration (ms)</span>
-                <Input
-                  type="number"
-                  value={String(project.timing.durationMs)}
-                  onChange={(event) => {
-                    const nextValue = toNumber(event.target.value);
-                    if (nextValue !== null && nextValue > 0) {
-                      updateAtPath(["timing", "durationMs"], nextValue);
-                    }
-                  }}
-                />
-              </label>
-              <label className="grid gap-2">
-                <span className="text-sm font-medium">Background color</span>
-                <Input
-                  type="color"
-                  value={project.viewport.backgroundColor}
-                  onChange={(event) =>
-                    updateAtPath(
-                      ["viewport", "backgroundColor"],
-                      event.target.value,
-                    )
-                  }
-                />
-              </label>
-            </div>
+            <GeneralSidebar projectId={projectId} />
           ) : null}
 
           {currentTab === "audio" ? (
@@ -507,6 +432,8 @@ export function EditorSidebar({ projectId }: { projectId: string }) {
               </label>
             </div>
           ) : null}
+
+          {currentTab === "elements" ? <ElementsSidebar /> : null}
 
           {currentTab === "export" ? (
             <div className="grid gap-3">
