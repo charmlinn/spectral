@@ -22,6 +22,7 @@ export type R2StorageAdapterOptions = {
   accessKeyId: string;
   secretAccessKey: string;
   publicBaseUrl?: string | null;
+  forcePathStyle?: boolean;
 };
 
 export class R2StorageAdapter implements StorageAdapter {
@@ -45,6 +46,9 @@ export class R2StorageAdapter implements StorageAdapter {
     this.#client = new S3Client({
       region: options.region ?? "auto",
       endpoint,
+      forcePathStyle: options.forcePathStyle ?? false,
+      requestChecksumCalculation: "WHEN_REQUIRED",
+      responseChecksumValidation: "WHEN_REQUIRED",
       credentials: {
         accessKeyId: options.accessKeyId,
         secretAccessKey: options.secretAccessKey,
@@ -54,9 +58,6 @@ export class R2StorageAdapter implements StorageAdapter {
 
   async createSignedUpload(input: CreateSignedUploadInput): Promise<SignedUpload> {
     const expiresInSeconds = input.expiresInSeconds ?? 900;
-    const metadataHeaders = Object.fromEntries(
-      Object.entries(input.metadata ?? {}).map(([key, value]) => [`x-amz-meta-${key}`, value]),
-    );
     const command = new PutObjectCommand({
       Bucket: this.bucket,
       Key: input.key,
@@ -74,7 +75,6 @@ export class R2StorageAdapter implements StorageAdapter {
       method: "PUT",
       headers: {
         "content-type": input.contentType,
-        ...metadataHeaders,
       },
       expiresInSeconds,
     };

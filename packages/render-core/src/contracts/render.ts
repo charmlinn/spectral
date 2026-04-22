@@ -1,6 +1,10 @@
 import type { AudioAnalysisProvider } from "@spectral/audio-analysis";
 import type {
   LyricsSegment,
+  ParticleSettings,
+  ReflectionSettings,
+  HlsAdjustment,
+  TextStyle,
   MediaReference,
   TextLayer,
   VideoProject,
@@ -38,23 +42,41 @@ export type RenderAssetResolver = {
 export type VisualizerLayerProps = {
   config: VisualizerConfig;
   spectrum: Float32Array;
+  bassSpectrum: Float32Array;
   amplitude: number;
+  bassAmplitude: number;
 };
 
 export type LyricsLayerProps = {
   activeSegment: LyricsSegment | null;
   previousSegment: LyricsSegment | null;
   nextSegment: LyricsSegment | null;
+  style: TextStyle;
+  amplitude: number;
 };
 
 export type BackdropLayerProps = {
   viewport: ViewportSettings;
   source: MediaReference | null;
   sourceKind: string | null;
+  reflection: ReflectionSettings;
+  hlsAdjustment: HlsAdjustment;
+  rotation: number;
+  shakeEnabled: boolean;
+  filterEnabled: boolean;
+  amplitude: number;
+  bassAmplitude: number;
+  drift: VideoProject["backdrop"]["drift"];
 };
 
 export type TextLayerProps = {
   layer: TextLayer;
+  amplitude: number;
+};
+
+export type ParticleLayerProps = {
+  particles: ParticleSettings;
+  amplitude: number;
 };
 
 export type RenderLayer =
@@ -81,6 +103,14 @@ export type RenderLayer =
       startMs: number;
       endMs: number | null;
       props: LyricsLayerProps;
+    }
+  | {
+      id: "particles";
+      kind: "particles";
+      zIndex: number;
+      startMs: number;
+      endMs: number | null;
+      props: ParticleLayerProps;
     }
   | {
       id: string;

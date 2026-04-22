@@ -51,6 +51,7 @@ export function groupLayersByKind(layers: RenderLayer[]): Record<RenderLayer["ki
   return {
     backdrop: layers.filter((layer) => layer.kind === "backdrop"),
     visualizer: layers.filter((layer) => layer.kind === "visualizer"),
+    particles: layers.filter((layer) => layer.kind === "particles"),
     lyrics: layers.filter((layer) => layer.kind === "lyrics"),
     text: layers.filter((layer) => layer.kind === "text"),
   };

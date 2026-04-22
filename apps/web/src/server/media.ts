@@ -27,6 +27,7 @@ export function getStorageAdapter() {
     R2_ACCESS_KEY_ID: env.r2AccessKeyId,
     R2_SECRET_ACCESS_KEY: env.r2SecretAccessKey,
     R2_PUBLIC_BASE_URL: env.r2PublicBaseUrl,
+    R2_FORCE_PATH_STYLE: env.r2ForcePathStyle ? "true" : "false",
   });
 
   return cachedStorageAdapter;

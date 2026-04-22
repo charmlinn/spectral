@@ -24,5 +24,9 @@ export function isLayerVisible(
     return layer.props.layer.visible;
   }
 
+  if (layer.kind === "particles") {
+    return layer.props.particles.enabled;
+  }
+
   return true;
 }

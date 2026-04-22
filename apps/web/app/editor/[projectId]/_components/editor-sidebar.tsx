@@ -10,6 +10,8 @@ import { ScrollArea } from "@spectral/ui/components/scroll-area";
 import { Switch } from "@spectral/ui/components/switch";
 import { Textarea } from "@spectral/ui/components/textarea";
 
+import { AudioUploadPanel } from "./audio-upload-panel";
+
 const sections = [
   { id: "general", label: "General" },
   { id: "audio", label: "Audio" },
@@ -111,6 +113,7 @@ export function EditorSidebar() {
 
           {currentTab === "audio" ? (
             <div className="grid gap-3">
+              <AudioUploadPanel projectId={project.projectId} />
               <label className="grid gap-2">
                 <span className="text-sm font-medium">Audio asset</span>
                 <Input readOnly value={project.audio.assetId ?? "No audio asset"} />

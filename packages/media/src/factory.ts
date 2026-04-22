@@ -8,6 +8,7 @@ export type R2Environment = {
   R2_ACCESS_KEY_ID?: string;
   R2_SECRET_ACCESS_KEY?: string;
   R2_PUBLIC_BASE_URL?: string;
+  R2_FORCE_PATH_STYLE?: string;
 };
 
 export function createR2StorageAdapterFromEnv(env: R2Environment): R2StorageAdapter {
@@ -29,6 +30,7 @@ export function createR2StorageAdapterFromEnv(env: R2Environment): R2StorageAdap
     accessKeyId,
     secretAccessKey,
     publicBaseUrl: env.R2_PUBLIC_BASE_URL ?? null,
+    forcePathStyle: env.R2_FORCE_PATH_STYLE === "true",
   };
 
   return new R2StorageAdapter(options);

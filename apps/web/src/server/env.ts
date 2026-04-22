@@ -12,6 +12,7 @@ type ServerEnv = {
   r2AccessKeyId: string;
   r2SecretAccessKey: string;
   r2PublicBaseUrl?: string;
+  r2ForcePathStyle: boolean;
   ssePollIntervalMs: number;
   sseHeartbeatIntervalMs: number;
 };
@@ -61,6 +62,7 @@ export function getServerEnv(): ServerEnv {
     r2AccessKeyId: readRequired("R2_ACCESS_KEY_ID"),
     r2SecretAccessKey: readRequired("R2_SECRET_ACCESS_KEY"),
     r2PublicBaseUrl: process.env.R2_PUBLIC_BASE_URL,
+    r2ForcePathStyle: process.env.R2_FORCE_PATH_STYLE === "true",
     ssePollIntervalMs: readNumber("SSE_POLL_INTERVAL_MS", 1_000),
     sseHeartbeatIntervalMs: readNumber("SSE_HEARTBEAT_INTERVAL_MS", 15_000),
   };

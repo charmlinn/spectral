@@ -1,12 +1,15 @@
 import type {
   BuildSceneGraphInput,
-  LyricsLayerProps,
   RenderLayer,
   RenderSceneGraph,
 } from "../contracts/render";
 import { getSpectrumForFrame, getAverageAmplitude } from "../visualizer/analysis";
 
-function getActiveLyricsProps(input: BuildSceneGraphInput): LyricsLayerProps {
+function getBassSpectrum(spectrum: Float32Array): Float32Array {
+  return spectrum.slice(0, Math.max(12, Math.floor(spectrum.length * 0.18)));
+}
+
+function getActiveLyricsProps(input: BuildSceneGraphInput) {
   const { segments } = input.project.lyrics;
   const activeIndex = segments.findIndex(
     (segment) =>
@@ -31,6 +34,9 @@ function getActiveLyricsProps(input: BuildSceneGraphInput): LyricsLayerProps {
 
 export function buildSceneGraph(input: BuildSceneGraphInput): RenderSceneGraph {
   const spectrum = getSpectrumForFrame(input.analysisProvider, input.frameContext);
+  const bassSpectrum = getBassSpectrum(spectrum);
+  const amplitude = getAverageAmplitude(spectrum);
+  const bassAmplitude = getAverageAmplitude(bassSpectrum);
   const layers: RenderLayer[] = [
     {
       id: "backdrop",
@@ -42,6 +48,14 @@ export function buildSceneGraph(input: BuildSceneGraphInput): RenderSceneGraph {
         viewport: input.project.viewport,
         source: input.project.backdrop.source,
         sourceKind: input.project.backdrop.source?.kind ?? null,
+        reflection: input.project.backdrop.reflection,
+        hlsAdjustment: input.project.backdrop.hlsAdjustment,
+        rotation: input.project.backdrop.rotation,
+        shakeEnabled: input.project.backdrop.shakeEnabled,
+        filterEnabled: input.project.backdrop.filterEnabled,
+        amplitude,
+        bassAmplitude,
+        drift: input.project.backdrop.drift,
       },
     },
   ];
@@ -56,7 +70,9 @@ export function buildSceneGraph(input: BuildSceneGraphInput): RenderSceneGraph {
       props: {
         config: input.project.visualizer,
         spectrum,
-        amplitude: getAverageAmplitude(spectrum),
+        bassSpectrum,
+        amplitude,
+        bassAmplitude,
       },
     });
   }
@@ -67,8 +83,26 @@ export function buildSceneGraph(input: BuildSceneGraphInput): RenderSceneGraph {
     zIndex: 20,
     startMs: 0,
     endMs: null,
-    props: getActiveLyricsProps(input),
+    props: {
+      ...getActiveLyricsProps(input),
+      style: input.project.lyrics.style,
+      amplitude,
+    },
   });
+
+  if (input.project.overlays.particles.enabled) {
+    layers.push({
+      id: "particles",
+      kind: "particles",
+      zIndex: 15,
+      startMs: 0,
+      endMs: null,
+      props: {
+        particles: input.project.overlays.particles,
+        amplitude,
+      },
+    });
+  }
 
   for (const layer of input.project.textLayers) {
     layers.push({
@@ -79,6 +113,7 @@ export function buildSceneGraph(input: BuildSceneGraphInput): RenderSceneGraph {
       endMs: layer.endMs,
       props: {
         layer,
+        amplitude,
       },
     });
   }

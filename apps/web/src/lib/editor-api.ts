@@ -130,6 +130,20 @@ export type AudioAnalysisDto = {
   updatedAt: string;
 };
 
+export type SignedUploadDto = {
+  key: string;
+  bucket: string;
+  uploadUrl: string;
+  method: "PUT";
+  headers: Record<string, string>;
+  expiresInSeconds: number;
+};
+
+export type CreateAssetUploadUrlResponseDto = {
+  asset: MediaAssetDto;
+  upload: SignedUploadDto;
+};
+
 export type CreateAudioAnalysisInput = {
   assetId: string;
   analyzerVersion?: string;
@@ -140,6 +154,25 @@ export type CreateAudioAnalysisInput = {
   sampleCount?: number | null;
   waveformJson?: unknown;
   spectrumJson?: unknown;
+  metadata?: Record<string, unknown>;
+};
+
+export type CreateAssetUploadUrlInput = {
+  projectId: string;
+  kind: "audio" | "image" | "video" | "logo" | "font" | "thumbnail" | "analysis" | "other";
+  contentType: string;
+  originalFilename: string;
+};
+
+export type CompleteAssetInput = {
+  assetId: string;
+  sha256?: string | null;
+  byteSize?: number | null;
+  width?: number | null;
+  height?: number | null;
+  durationMs?: number | null;
+  sampleRate?: number | null;
+  channels?: number | null;
   metadata?: Record<string, unknown>;
 };
 
@@ -271,4 +304,43 @@ export async function createAudioAnalysis(
     },
     body: JSON.stringify(input),
   });
+}
+
+export async function createAssetUploadUrl(
+  input: CreateAssetUploadUrlInput,
+): Promise<CreateAssetUploadUrlResponseDto> {
+  return readApiResponse<CreateAssetUploadUrlResponseDto>("/api/assets/upload-url", {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+    },
+    body: JSON.stringify(input),
+  });
+}
+
+export async function completeAsset(
+  input: CompleteAssetInput,
+): Promise<MediaAssetDto> {
+  return readApiResponse<MediaAssetDto>("/api/assets/complete", {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+    },
+    body: JSON.stringify(input),
+  });
+}
+
+export async function uploadFileToSignedUrl(
+  upload: SignedUploadDto,
+  file: File,
+): Promise<void> {
+  const response = await fetch(upload.uploadUrl, {
+    method: upload.method,
+    headers: upload.headers,
+    body: file,
+  });
+
+  if (!response.ok) {
+    throw new Error(`Upload failed with ${response.status}.`);
+  }
 }

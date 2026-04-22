@@ -6,12 +6,11 @@ It starts only:
 
 - PostgreSQL 16
 - Redis 7
-
-It does not provide object storage. `Cloudflare R2` should continue using real remote credentials.
+- MinIO
 
 ## Files
 
-- `compose.local.yml`: local Docker Compose for Postgres and Redis
+- `compose.local.yml`: local Docker Compose for Postgres, Redis, and MinIO
 - `.env.example`: example variables for Docker and app processes
 
 ## Default local services
@@ -37,6 +36,18 @@ It does not provide object storage. `Cloudflare R2` should continue using real r
 - Health check: `redis-cli -a $REDIS_PASSWORD ping`
 - Persistence mode: `appendonly yes`
 
+### MinIO
+
+- Container name: `spectral-minio-local`
+- Image: `minio/minio`
+- API host port: `9000`
+- Console host port: `9001`
+- Default root user: `minioadmin`
+- Default root password: `minioadmin`
+- Persistent volume: `spectral-minio-data`
+- Health check: `GET /minio/health/live`
+- Bucket bootstrap: `minio-init` creates the configured `R2_BUCKET` and applies browser CORS for the editor
+
 ## Quick start
 
 1. Copy the example env file:
@@ -45,7 +56,7 @@ It does not provide object storage. `Cloudflare R2` should continue using real r
 cp infra/docker/.env.example infra/docker/.env
 ```
 
-2. Fill in the real `R2_*` values in `infra/docker/.env`.
+2. Adjust ports or credentials in `infra/docker/.env` if they conflict with existing local services.
 
 3. Start local infrastructure:
 
@@ -91,6 +102,7 @@ The app processes should use the same env names already consumed by the repo:
 - `R2_ACCOUNT_ID`
 - `R2_REGION`
 - `R2_ENDPOINT`
+- `R2_FORCE_PATH_STYLE`
 - `R2_PUBLIC_BASE_URL`
 
 ## Connection targets
@@ -105,7 +117,17 @@ REDIS_URL=redis://:spectral@127.0.0.1:6379/0
 REDIS_QUEUE_PREFIX=spectral
 ```
 
-It also needs the real `R2_*` values because local compose does not provide object storage.
+It should point `R2_*` to the local MinIO endpoint during local development:
+
+```env
+R2_BUCKET=spectral-local
+R2_ACCESS_KEY_ID=minioadmin
+R2_SECRET_ACCESS_KEY=minioadmin
+R2_REGION=us-east-1
+R2_ENDPOINT=http://127.0.0.1:9000
+R2_FORCE_PATH_STYLE=true
+R2_PUBLIC_BASE_URL=http://127.0.0.1:9000/spectral-local
+```
 
 ### apps/render-worker
 
@@ -118,6 +140,15 @@ REDIS_QUEUE_PREFIX=spectral
 WEB_BASE_URL=http://127.0.0.1:3000
 EXPORT_WORKER_CONCURRENCY=1
 ```
+
+## MinIO access
+
+- API endpoint: `http://127.0.0.1:9000`
+- Console: `http://127.0.0.1:9001`
+- Default login: `minioadmin` / `minioadmin`
+
+The `minio-init` helper container creates the bucket named by `R2_BUCKET` and applies CORS for:
+The `minio-init` helper container waits for MinIO, creates the bucket named by `R2_BUCKET`, and enables anonymous download so preview/runtime reads can use `R2_PUBLIC_BASE_URL`.
 
 ## Prisma compatibility
 
