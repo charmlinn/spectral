@@ -150,7 +150,7 @@ export class FlatWaveRenderer {
         graphic,
         points[index]!,
         points[index + 1]!,
-        Math.max(1, pointRadius),
+        pointRadius,
         ring,
         magnitudePercents[Math.floor(index / 2)] ?? 0,
       );

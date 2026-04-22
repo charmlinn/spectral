@@ -118,7 +118,7 @@ export function resolveRingStyle(
       1,
     ),
     lineColor: mixPixiColor(ring.lineColor, ring.secondaryLineColor, mix),
-    lineWidth: Math.max(1, ring.lineWidth),
+    lineWidth: ring.lineWidth,
   };
 }
 

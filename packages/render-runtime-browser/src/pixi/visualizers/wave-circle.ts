@@ -317,7 +317,7 @@ export class WaveCircleRenderer {
         graphic,
         points[index]!,
         points[index + 1]!,
-        Math.max(1, pointRadius * 1.5),
+        pointRadius,
         ring,
         magnitudePercents[Math.floor(index / 2)] ?? 0,
       );
