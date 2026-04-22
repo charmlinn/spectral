@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { Pause, Play, ZoomIn } from "lucide-react";
 
 import {
@@ -88,6 +88,7 @@ export function PreviewStage({
   const realtimeAnalysisRef = useRef<RealtimeAudioAnalysisController | null>(
     null,
   );
+  const realtimeAnalysisReadyRef = useRef(false);
   const manualClockRef = useRef(
     createManualRenderClock({ fps: project.timing.fps }),
   );
@@ -167,11 +168,11 @@ export function PreviewStage({
     const audioElement = audioRef.current;
 
     if (!audioElement || !audioUrl || !analysisSnapshot) {
+      realtimeAnalysisReadyRef.current = false;
       runtimeRef.current?.setHistoryProvider(null);
       return;
     }
 
-    let disposed = false;
     const controller = createRealtimeAudioAnalysisController({
       audioElement,
       fps: project.timing.fps,
@@ -181,21 +182,15 @@ export function PreviewStage({
 
     controller.setMaxMagnitudes(analysisSnapshot.magnitudes);
     realtimeAnalysisRef.current = controller;
-    runtimeRef.current?.setHistoryProvider(controller);
-
-    void controller.connect().catch(() => {
-      if (!disposed) {
-        runtimeRef.current?.setHistoryProvider(analysisProvider);
-      }
-    });
+    realtimeAnalysisReadyRef.current = false;
+    runtimeRef.current?.setHistoryProvider(analysisProvider);
 
     return () => {
-      disposed = true;
-
       if (realtimeAnalysisRef.current === controller) {
         realtimeAnalysisRef.current = null;
       }
 
+      realtimeAnalysisReadyRef.current = false;
       runtimeRef.current?.setHistoryProvider(analysisProvider);
       void controller.destroy().catch(() => undefined);
     };
@@ -232,7 +227,9 @@ export function PreviewStage({
                 )
               : manualClockRef.current,
           analysisProvider,
-          historyProvider: realtimeAnalysisRef.current ?? analysisProvider,
+          historyProvider: realtimeAnalysisReadyRef.current
+            ? realtimeAnalysisRef.current
+            : analysisProvider,
           assetResolver: assetResolverRef.current,
           autoStart: false,
         });
@@ -286,11 +283,46 @@ export function PreviewStage({
     runtimeRef.current.setProject(project);
     runtimeRef.current.setAudioAnalysisProvider(analysisProvider);
     runtimeRef.current.setHistoryProvider(
-      realtimeAnalysisRef.current ?? analysisProvider,
+      realtimeAnalysisReadyRef.current
+        ? realtimeAnalysisRef.current
+        : analysisProvider,
     );
     runtimeRef.current.setAssetResolver(assetResolverRef.current);
     void runtimeRef.current.renderFrameAt(currentTimeMs);
   }, [analysisProvider, currentTimeMs, project]);
+
+  const startAudioPreview = useEffectEvent(async () => {
+    const audioElement = audioRef.current;
+
+    if (!audioElement) {
+      throw new Error("Preview audio element is not available.");
+    }
+
+    const controller = realtimeAnalysisRef.current;
+
+    if (controller) {
+      await controller.play();
+      realtimeAnalysisReadyRef.current = true;
+      runtimeRef.current?.setHistoryProvider(controller);
+      return;
+    }
+
+    await audioElement.play();
+  });
+
+  const stopAudioPreview = useEffectEvent(() => {
+    const controller = realtimeAnalysisRef.current;
+
+    if (controller) {
+      controller.pause();
+      runtimeRef.current?.setHistoryProvider(
+        realtimeAnalysisReadyRef.current ? controller : analysisProvider,
+      );
+      return;
+    }
+
+    audioRef.current?.pause();
+  });
 
   useEffect(() => {
     if (!runtimeRef.current || surfaceWidth <= 0 || surfaceHeight <= 0) {
@@ -332,7 +364,9 @@ export function PreviewStage({
     if (playing) {
       if (audioUrl && audioRef.current) {
         runtimeRef.current?.start();
-        void audioRef.current.play().catch((error: unknown) => {
+        void startAudioPreview().catch((error: unknown) => {
+          realtimeAnalysisReadyRef.current = false;
+          runtimeRef.current?.setHistoryProvider(analysisProvider);
           setRuntimeError(
             error instanceof Error
               ? error.message
@@ -348,11 +382,20 @@ export function PreviewStage({
       void runtimeRef.current?.renderFrameAt(currentTimeMs);
     } else {
       runtimeRef.current?.stop();
-      audioRef.current?.pause();
+      stopAudioPreview();
       manualClockRef.current.seekToMs(currentTimeMs);
       void runtimeRef.current?.renderFrameAt(currentTimeMs);
     }
-  }, [audioUrl, currentTimeMs, pause, playing, setRuntimeHealth]);
+  }, [
+    analysisProvider,
+    audioUrl,
+    currentTimeMs,
+    pause,
+    playing,
+    setRuntimeHealth,
+    startAudioPreview,
+    stopAudioPreview,
+  ]);
 
   useEffect(() => {
     if (!playing) {
@@ -485,6 +528,9 @@ export function PreviewStage({
               <audio
                 ref={audioRef}
                 className="hidden"
+                crossOrigin="anonymous"
+                playsInline
+                preload="auto"
                 src={audioUrl ?? undefined}
               />
             </div>
