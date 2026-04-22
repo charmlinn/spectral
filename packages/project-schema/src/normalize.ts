@@ -72,6 +72,61 @@ function normalizeNullableHexColor(
   return normalizeHexColor(value, "#ffffff");
 }
 
+function normalizeBackdropMotion<T extends VideoProject["backdrop"]>(backdrop: T): T {
+  const normalized = {
+    ...backdrop,
+    drift: {
+      ...backdrop.drift,
+    },
+  };
+
+  if (normalized.drift.enabled && normalized.shakeEnabled) {
+    normalized.shakeEnabled = false;
+  }
+
+  return normalized as T;
+}
+
+function normalizeVisualizerMotion<T extends VideoProject["visualizer"]>(
+  visualizer: T,
+): T {
+  const normalized = {
+    ...visualizer,
+    drift: {
+      ...visualizer.drift,
+    },
+  };
+
+  if (normalized.drift.enabled && normalized.spinSettings.enabled) {
+    normalized.spinSettings = {
+      ...normalized.spinSettings,
+      enabled: false,
+    };
+  }
+
+  return normalized as T;
+}
+
+function normalizeParticlesSettings<T extends VideoProject["overlays"]["particles"]>(
+  particles: T,
+): T {
+  if (typeof particles.enabled === "boolean") {
+    return particles;
+  }
+
+  if (Array.isArray(particles.items)) {
+    return {
+      ...particles,
+      enabled: particles.items.some((item) => (item.birthRate ?? 0) > 0),
+    } as T;
+  }
+
+  return {
+    ...particles,
+    enabled: (particles.birthRate ?? 0) > 0,
+  } as T;
+}
+
 export function normalizeVideoProject(input: unknown): VideoProject {
   const defaults = createDefaultVideoProject();
   const merged = mergeValue(defaults, input);
@@ -139,7 +194,7 @@ export function normalizeVideoProject(input: unknown): VideoProject {
         : merged.viewport.height,
       aspectRatio: normalizedAspectRatio,
     },
-    backdrop: {
+    backdrop: normalizeBackdropMotion({
       ...merged.backdrop,
       ...(usesLegacyBlankEditorBackdropDefaults
         ? defaults.backdrop
@@ -157,12 +212,14 @@ export function normalizeVideoProject(input: unknown): VideoProject {
             zoomBlurFactor: defaults.backdrop.zoomBlurFactor,
           }
         : {}),
-    },
+    }),
     overlays: {
       ...merged.overlays,
-      particles: usesLegacyBlankEditorParticleDefaults
-        ? defaults.overlays.particles
-        : merged.overlays.particles,
+      particles: normalizeParticlesSettings(
+        usesLegacyBlankEditorParticleDefaults
+          ? defaults.overlays.particles
+          : merged.overlays.particles,
+      ),
     },
     lyrics: {
       ...merged.lyrics,
@@ -187,7 +244,7 @@ export function normalizeVideoProject(input: unknown): VideoProject {
         ),
       },
     })),
-    visualizer: {
+    visualizer: normalizeVisualizerMotion({
       ...merged.visualizer,
       waveCircles: merged.visualizer.waveCircles.map((circle) => ({
         ...circle,
@@ -196,7 +253,7 @@ export function normalizeVideoProject(input: unknown): VideoProject {
         lineColor: normalizeHexColor(circle.lineColor, "0xffffff"),
         secondaryLineColor: normalizeNullableHexColor(circle.secondaryLineColor),
       })),
-    },
+    }),
   };
 
   return videoProjectSchema.parse(normalized);

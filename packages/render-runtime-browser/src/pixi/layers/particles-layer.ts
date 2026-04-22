@@ -22,6 +22,15 @@ const SPECTERR_PARTICLE_BASS_SPECTRUM_OPTIONS: ProcessSpectrumOptions = {
   smoothingPoints: 5,
 };
 
+function hasRenderableParticles(layer: ParticleLayer | null) {
+  if (!layer) {
+    return false;
+  }
+
+  const particleTextures = buildParticleTextureConfigs(layer.props.particles);
+  return particleTextures.some((particle) => (particle.birthRate ?? 0) > 0);
+}
+
 function normalizeDirection(direction: string | null | undefined) {
   return (direction ?? "up").trim().toUpperCase();
 }
@@ -65,7 +74,7 @@ export class PixiParticlesLayer {
     this.renderer.updateSurface(input.surface);
     this.renderer.update(
       {
-        enabled: Boolean(layer?.props.particles.enabled),
+        enabled: hasRenderableParticles(layer),
         particleTextures: buildParticleTextureConfigs(layer?.props.particles),
         spectrumOptions: SPECTERR_PARTICLE_BASS_SPECTRUM_OPTIONS,
         speedUpEnabled: Boolean(layer?.props.particles.speedUpEnabled),

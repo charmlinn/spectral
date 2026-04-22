@@ -157,6 +157,12 @@ function createConfigKey(layer: ParticleLayer) {
   });
 }
 
+function hasRenderableParticles(layer: ParticleLayer) {
+  return buildParticleTextureConfigs(layer.props.particles).some(
+    (particle) => (particle.birthRate ?? 0) > 0,
+  );
+}
+
 function createSidewaysParticle(
   direction: string,
   width: number,
@@ -445,7 +451,7 @@ export function drawParticlesLayer(
 ) {
   updateParticles(store, layer, input);
 
-  if (!layer.props.particles.enabled) {
+  if (!hasRenderableParticles(layer)) {
     return;
   }
 
