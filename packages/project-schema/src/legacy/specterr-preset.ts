@@ -300,12 +300,51 @@ function sanitizeParticleSettings(
   settings: LegacySpecterrPreset["settings"],
 ): VideoProject["overlays"]["particles"] {
   const particles = settings?.elements?.particles;
+  const particleItems = Array.isArray(particles?.items)
+    ? particles.items
+        .filter(
+          (
+            item,
+          ): item is {
+            shape?: unknown;
+            color?: unknown;
+            birthRate?: unknown;
+            maxSize?: unknown;
+            minSize?: unknown;
+            maxOpacity?: unknown;
+            minOpacity?: unknown;
+            mediaData?: unknown;
+          } => typeof item === "object" && item !== null,
+        )
+        .map((item) => ({
+          shape: typeof item.shape === "string" ? item.shape : "circle",
+          color:
+            typeof item.color === "string"
+              ? item.color
+              : defaults.color,
+          birthRate:
+            typeof item.birthRate === "number" ? item.birthRate : defaults.birthRate,
+          maxSize: typeof item.maxSize === "number" ? item.maxSize : defaults.maxSize,
+          minSize: typeof item.minSize === "number" ? item.minSize : defaults.minSize,
+          maxOpacity:
+            typeof item.maxOpacity === "number"
+              ? item.maxOpacity
+              : defaults.maxOpacity,
+          minOpacity:
+            typeof item.minOpacity === "number"
+              ? item.minOpacity
+              : defaults.minOpacity,
+          mediaData:
+            typeof item.mediaData === "string" ? item.mediaData : null,
+        }))
+    : null;
 
   return {
     ...defaults,
     ...(particles ?? {}),
     items:
-      typeof particles?.items === "string" ? particles.items : defaults.items,
+      particleItems ??
+      (typeof particles?.items === "string" ? particles.items : defaults.items),
   };
 }
 

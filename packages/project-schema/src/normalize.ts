@@ -62,9 +62,37 @@ function normalizeHexColor(
   return value;
 }
 
+function normalizeNullableHexColor(
+  value: string | null | undefined,
+): string | null {
+  if (value === null || value === undefined || value === "") {
+    return null;
+  }
+
+  return normalizeHexColor(value, "#ffffff");
+}
+
 export function normalizeVideoProject(input: unknown): VideoProject {
   const defaults = createDefaultVideoProject();
   const merged = mergeValue(defaults, input);
+  const usesLegacyBackdropRuntimePlaceholders =
+    merged.backdrop.paddingFactor === 1 &&
+    merged.backdrop.shakeFactor === 18 &&
+    merged.backdrop.bounceScale === 0 &&
+    merged.backdrop.maxVignette === 0 &&
+    merged.backdrop.vignetteFactor === 0 &&
+    merged.backdrop.maxContrast === 1 &&
+    merged.backdrop.contrastFactor === 0 &&
+    merged.backdrop.maxZoomBlur === 0 &&
+    merged.backdrop.zoomBlurFactor === 0;
+  const shouldApplyLegacySpecterrBackdropDefaults =
+    usesLegacyBackdropRuntimePlaceholders &&
+    (
+      merged.meta.source === "preset" ||
+      merged.meta.source === "import" ||
+      merged.meta.presetId !== null ||
+      merged.source.legacyPresetId !== null
+    );
   const normalizedAspectRatio = normalizeAspectRatio(
     merged.viewport.aspectRatio,
   );
@@ -90,6 +118,22 @@ export function normalizeVideoProject(input: unknown): VideoProject {
         ? defaultViewportDimensions.height
         : merged.viewport.height,
       aspectRatio: normalizedAspectRatio,
+    },
+    backdrop: {
+      ...merged.backdrop,
+      ...(shouldApplyLegacySpecterrBackdropDefaults
+        ? {
+            bounceScale: defaults.backdrop.bounceScale,
+            paddingFactor: defaults.backdrop.paddingFactor,
+            shakeFactor: defaults.backdrop.shakeFactor,
+            maxVignette: defaults.backdrop.maxVignette,
+            vignetteFactor: defaults.backdrop.vignetteFactor,
+            maxContrast: defaults.backdrop.maxContrast,
+            contrastFactor: defaults.backdrop.contrastFactor,
+            maxZoomBlur: defaults.backdrop.maxZoomBlur,
+            zoomBlurFactor: defaults.backdrop.zoomBlurFactor,
+          }
+        : {}),
     },
     lyrics: {
       ...merged.lyrics,
@@ -119,15 +163,9 @@ export function normalizeVideoProject(input: unknown): VideoProject {
       waveCircles: merged.visualizer.waveCircles.map((circle) => ({
         ...circle,
         fillColor: normalizeHexColor(circle.fillColor, "0xffffff"),
-        secondaryFillColor: normalizeHexColor(
-          circle.secondaryFillColor,
-          "0xffffff",
-        ),
+        secondaryFillColor: normalizeNullableHexColor(circle.secondaryFillColor),
         lineColor: normalizeHexColor(circle.lineColor, "0xffffff"),
-        secondaryLineColor: normalizeHexColor(
-          circle.secondaryLineColor,
-          "0xffffff",
-        ),
+        secondaryLineColor: normalizeNullableHexColor(circle.secondaryLineColor),
       })),
     },
   };

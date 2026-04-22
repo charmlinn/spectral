@@ -92,6 +92,7 @@ export abstract class ReactiveMedia {
   });
   protected loadedTexture: LoadedTexture | null = null;
   protected activeMedia: LoadedMedia | null = null;
+  protected offset = { x: 0, y: 0 };
 
   constructor(
     protected readonly assetResolver: RenderAssetResolver | null | undefined,
@@ -310,13 +311,7 @@ export abstract class ReactiveMedia {
       width: input.surface.width,
       height: input.surface.height,
     });
-    const bounceScale = layer.props.bounceEnabled
-      ? 1 + normalizedBassAmplitude * Math.max(0, layer.props.bounceScale)
-      : 1;
-    const mediaScale =
-      (drift?.scale ?? 1) *
-      Math.max(1, layer.props.paddingFactor) *
-      bounceScale;
+    const baseScale = drift?.scale ?? 1;
     const cover = computeCoverDimensions(
       resolvedMediaWidth,
       resolvedMediaHeight,
@@ -324,20 +319,56 @@ export abstract class ReactiveMedia {
       input.surface.height,
     );
     const shakeEnabled = !drift && layer.props.shakeEnabled;
-    const baseWidth = cover.width * mediaScale;
-    const baseHeight = cover.height * mediaScale;
+    const paddingFactor = shakeEnabled
+      ? Math.max(1, layer.props.paddingFactor)
+      : 1;
+    const contentWidth = cover.width * baseScale;
+    const contentHeight = cover.height * baseScale;
+    let baseWidth = contentWidth * paddingFactor;
+    let baseHeight = contentHeight * paddingFactor;
+
+    if (layer.props.bounceEnabled) {
+      const bounceMultiplier =
+        paddingFactor *
+        (1 + normalizedBassAmplitude * layer.props.bounceScale);
+      baseWidth = Math.max(contentWidth, contentWidth * bounceMultiplier);
+      baseHeight = Math.max(contentHeight, contentHeight * bounceMultiplier);
+    }
+
     const shake = shakeEnabled
-      ? {
-          x:
-            Math.sin(input.frameContext.timeMs / 80) *
-            Math.max(0, layer.props.shakeFactor) *
-            normalizedBassAmplitude,
-          y:
-            Math.cos(input.frameContext.timeMs / 65) *
-            Math.max(0, layer.props.shakeFactor) *
-            normalizedBassAmplitude,
-        }
+      ? (() => {
+          let nextXOffset =
+            (this.offset.x + (Math.random() - 0.5) * Math.max(0, layer.props.shakeFactor)) *
+            normalizedBassAmplitude;
+          const offsetXOvershot =
+            Math.abs(nextXOffset) - ((baseWidth - contentWidth) / 2);
+
+          if (offsetXOvershot > 0) {
+            nextXOffset -= Math.sign(nextXOffset) * offsetXOvershot;
+          }
+
+          let nextYOffset =
+            (this.offset.y + (Math.random() - 0.5) * Math.max(0, layer.props.shakeFactor)) *
+            normalizedBassAmplitude;
+          const offsetYOvershot =
+            Math.abs(nextYOffset) - ((baseHeight - contentHeight) / 2);
+
+          if (offsetYOvershot > 0) {
+            nextYOffset -= Math.sign(nextYOffset) * offsetYOvershot;
+          }
+
+          this.offset = {
+            x: nextXOffset,
+            y: nextYOffset,
+          };
+
+          return this.offset;
+        })()
       : { x: 0, y: 0 };
+
+    if (!shakeEnabled) {
+      this.offset = { x: 0, y: 0 };
+    }
     const contrast = layer.props.contrastEnabled
       ? Math.min(
           Math.max(1, layer.props.maxContrast),

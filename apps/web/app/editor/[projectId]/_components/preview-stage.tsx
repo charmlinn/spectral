@@ -95,6 +95,7 @@ export function PreviewStage({
   const setRenderQuality = usePreviewStore((state) => state.setRenderQuality);
   const setRuntimeHealth = usePreviewStore((state) => state.setRuntimeHealth);
 
+  const frameRef = useRef<HTMLDivElement | null>(null);
   const stageRef = useRef<HTMLDivElement | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const runtimeRef = useRef<BrowserRenderRuntime | null>(null);
@@ -118,7 +119,7 @@ export function PreviewStage({
   }, [project.timing.fps]);
 
   useEffect(() => {
-    const element = stageRef.current;
+    const element = frameRef.current;
 
     if (!element) {
       return;
@@ -533,10 +534,14 @@ export function PreviewStage({
 
       <CardContent className="flex min-h-0 flex-1 flex-col gap-4">
         <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_18rem]">
-          <div className="flex min-h-[24rem] items-center justify-center rounded-[28px] border border-border/70 bg-slate-950/55 p-4">
+          <div className="flex h-[34rem] items-center justify-center rounded-[28px] border border-border/70 bg-slate-950/55 p-3 xl:h-[42rem]">
             <div
-              className="relative flex w-full max-w-4xl items-center justify-center overflow-hidden rounded-[32px] border border-white/10 bg-black shadow-[0_34px_120px_-52px_rgba(15,23,42,0.95)]"
-              style={{ aspectRatio: toAspectRatioValue(previewAspectRatio) }}
+              ref={frameRef}
+              className="relative flex w-full max-h-full max-w-full items-center justify-center overflow-hidden rounded-[32px] border border-white/10 bg-black shadow-[0_34px_120px_-52px_rgba(15,23,42,0.95)]"
+              style={{
+                aspectRatio: toAspectRatioValue(previewAspectRatio),
+                maxHeight: "100%",
+              }}
             >
               <div ref={stageRef} className="size-full" />
               {runtimeHealth !== "ready" ? (

@@ -12,6 +12,7 @@ import {
   createMediaTexture,
   getDefaultTextures,
 } from "./texture-utils";
+import type { ParticleTextureConfig } from "../../particles/config";
 
 const BASE_HEIGHT = 500;
 const ORIGIN_Z = 100;
@@ -26,17 +27,6 @@ const MIN_B = 20;
 const MAX_B = 100;
 const MIN_H = 0;
 const MAX_H = MAX_B * 2 * Math.PI;
-
-type ParticleTextureConfig = {
-  birthRate?: number;
-  color?: string | null;
-  maxOpacity?: number;
-  maxSize?: number;
-  mediaData?: string | null;
-  minOpacity?: number;
-  minSize?: number;
-  shape?: string | null;
-};
 
 type TravelParticle = {
   aX: number;

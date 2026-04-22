@@ -144,6 +144,17 @@ export const shadowSettingsSchema = z.object({
   opacity: z.number().default(1),
 });
 
+export const particleItemSchema = z.object({
+  shape: z.string().default("circle"),
+  color: z.string().nullable().default("#ffffff"),
+  birthRate: z.number().default(0),
+  maxSize: z.number().default(0),
+  minSize: z.number().default(0),
+  maxOpacity: z.number().default(1),
+  minOpacity: z.number().default(0),
+  mediaData: z.string().nullable().default(null),
+});
+
 export const glowSettingsSchema = z.object({
   enabled: z.boolean().default(false),
   glowType: z.string().default("outer"),
@@ -207,9 +218,9 @@ export const textLayerSchema = z.object({
 
 export const visualizerWaveCircleSchema = z.object({
   fillColor: z.string().default("0xffffff"),
-  secondaryFillColor: z.string().default("0xffffff"),
+  secondaryFillColor: z.string().nullable().default(null),
   lineColor: z.string().default("0xffffff"),
-  secondaryLineColor: z.string().default("0xffffff"),
+  secondaryLineColor: z.string().nullable().default(null),
   fillAlpha: z.number().default(1),
   secondaryFillAlpha: z.number().default(1),
   lineWidth: z.number().default(1),
@@ -260,21 +271,21 @@ export const visualizerSchema = z.object({
 export const backdropSchema = z.object({
   source: mediaReferenceSchema.nullable().default(null),
   bounceEnabled: z.boolean().default(false),
-  bounceScale: z.number().default(0),
-  paddingFactor: z.number().default(1),
+  bounceScale: z.number().default(-1.5),
+  paddingFactor: z.number().default(1.1),
   shakeEnabled: z.boolean().default(false),
-  shakeFactor: z.number().default(18),
+  shakeFactor: z.number().default(300),
   filterEnabled: z.boolean().default(false),
   rotation: z.number().default(0),
   vignetteEnabled: z.boolean().default(false),
-  maxVignette: z.number().default(0),
-  vignetteFactor: z.number().default(0),
+  maxVignette: z.number().default(0.2),
+  vignetteFactor: z.number().default(5),
   contrastEnabled: z.boolean().default(false),
-  maxContrast: z.number().default(1),
-  contrastFactor: z.number().default(0),
+  maxContrast: z.number().default(1.2),
+  contrastFactor: z.number().default(6),
   zoomBlurEnabled: z.boolean().default(false),
-  maxZoomBlur: z.number().default(0),
-  zoomBlurFactor: z.number().default(0),
+  maxZoomBlur: z.number().default(0.5),
+  zoomBlurFactor: z.number().default(1.7),
   reflection: reflectionSettingsSchema.default(createDefaultReflectionSettings),
   hlsAdjustment: hlsAdjustmentSchema.default(createDefaultHlsAdjustment),
   drift: driftSettingsSchema.default(createDefaultDriftSettings),
@@ -284,7 +295,7 @@ export const particleSettingsSchema = z.object({
   enabled: z.boolean().default(false),
   speedUpEnabled: z.boolean().default(false),
   direction: z.string().default("up"),
-  items: z.string().default("dots"),
+  items: z.union([z.string(), z.array(particleItemSchema)]).default("dots"),
   color: z.string().default("#ffffff"),
   birthRate: z.number().default(0),
   maxSize: z.number().default(0),
@@ -388,6 +399,7 @@ export type TextLayer = z.infer<typeof textLayerSchema>;
 export type VisualizerWaveCircle = z.infer<typeof visualizerWaveCircleSchema>;
 export type VisualizerConfig = z.infer<typeof visualizerSchema>;
 export type BackdropConfig = z.infer<typeof backdropSchema>;
+export type ParticleItemSettings = z.infer<typeof particleItemSchema>;
 export type ParticleSettings = z.infer<typeof particleSettingsSchema>;
 export type ProjectMeta = z.infer<typeof projectMetaSchema>;
 export type ProjectTiming = z.infer<typeof projectTimingSchema>;

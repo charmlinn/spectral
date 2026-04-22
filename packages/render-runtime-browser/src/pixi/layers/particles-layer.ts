@@ -2,6 +2,9 @@ import type { RenderLayer } from "@spectral/render-core";
 import type { ProcessSpectrumOptions } from "@spectral/audio-analysis";
 
 import type { BrowserRenderAdapterRenderInput } from "../../contracts/runtime";
+import {
+  buildParticleTextureConfigs,
+} from "../../particles/config";
 import { SidewaysParticlesRenderer } from "../particles/sideways";
 import { StarTravelParticlesRenderer } from "../particles/star-travel";
 
@@ -21,39 +24,6 @@ const SPECTERR_PARTICLE_BASS_SPECTRUM_OPTIONS: ProcessSpectrumOptions = {
 
 function normalizeDirection(direction: string | null | undefined) {
   return (direction ?? "up").trim().toUpperCase();
-}
-
-function resolveParticleShape(items: string | null | undefined) {
-  const normalized = items?.trim().toLowerCase() ?? "dots";
-
-  if (normalized.includes("heart")) {
-    return "heart";
-  }
-
-  if (normalized.includes("star")) {
-    return "star";
-  }
-
-  return "circle";
-}
-
-function createParticleTextures(layer: ParticleLayer | null) {
-  if (!layer) {
-    return [];
-  }
-
-  return [
-    {
-      birthRate: layer.props.particles.birthRate,
-      color: layer.props.particles.color,
-      maxOpacity: layer.props.particles.maxOpacity,
-      maxSize: layer.props.particles.maxSize,
-      mediaData: null,
-      minOpacity: layer.props.particles.minOpacity,
-      minSize: layer.props.particles.minSize,
-      shape: resolveParticleShape(layer.props.particles.items),
-    },
-  ];
 }
 
 export class PixiParticlesLayer {
@@ -94,7 +64,7 @@ export class PixiParticlesLayer {
     this.renderer.update(
       {
         enabled: Boolean(layer?.props.particles.enabled),
-        particleTextures: createParticleTextures(layer),
+        particleTextures: buildParticleTextureConfigs(layer?.props.particles),
         spectrumOptions: SPECTERR_PARTICLE_BASS_SPECTRUM_OPTIONS,
         speedUpEnabled: Boolean(layer?.props.particles.speedUpEnabled),
       },

@@ -234,9 +234,9 @@ export function getVisualizerRingStyle(
 
   return {
     fillColor: "0xffffff",
-    secondaryFillColor: "0xffffff",
+    secondaryFillColor: null,
     lineColor: "0xffffff",
-    secondaryLineColor: "0xffffff",
+    secondaryLineColor: null,
     fillAlpha: 0.2,
     secondaryFillAlpha: 0.1,
     lineWidth: 2,

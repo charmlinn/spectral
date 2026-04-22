@@ -200,7 +200,14 @@ export function EditorShell({
       });
 
       if (useProjectStore.getState().project === payload) {
-        useProjectStore.getState().markSaved(response.snapshot.id);
+        if (response.project.activeProject) {
+          useProjectStore.getState().setProject(
+            response.project.activeProject,
+            response.snapshot.id,
+          );
+        } else {
+          useProjectStore.getState().markSaved(response.snapshot.id);
+        }
       }
 
       setLastSavedAt(response.snapshot.createdAt);

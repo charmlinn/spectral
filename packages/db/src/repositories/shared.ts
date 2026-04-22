@@ -212,10 +212,15 @@ export function mapPresetRecord(preset: {
   importedAt: Date;
   updatedAt: Date;
 }): PresetRecord {
+  const sourceProjectData =
+    typeof preset.sourcePayload === "object" && preset.sourcePayload !== null
+      ? preset.sourcePayload
+      : preset.projectData;
+
   return {
     ...mapPresetSummaryRecord(preset),
     schemaVersion: preset.schemaVersion,
-    projectData: migrateVideoProjectDocument(preset.projectData),
+    projectData: migrateVideoProjectDocument(sourceProjectData),
     sourcePayload: preset.sourcePayload as LegacySpecterrPreset,
     sourceUpdatedAt: preset.sourceUpdatedAt,
   };

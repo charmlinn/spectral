@@ -1,18 +1,24 @@
 import type { RenderLayer } from "@spectral/render-core";
 
 import type { BrowserRenderAdapterRenderInput } from "../contracts/runtime";
+import {
+  buildParticleTextureConfigs,
+  type ParticleTextureConfig,
+} from "../particles/config";
 import { clamp, normalizeAmplitude, toColorString } from "./canvas-utils";
 
 type ParticleLayer = Extract<RenderLayer, { kind: "particles" }>;
 
 type SidewaysParticle = {
   alpha: number;
+  color: string | null | undefined;
   driftPhaseX: number;
   driftPhaseY: number;
   driftRangeX: number;
   driftRangeY: number;
   driftSpeedX: number;
   driftSpeedY: number;
+  shape: string;
   size: number;
   vx: number;
   vy: number;
@@ -22,7 +28,9 @@ type SidewaysParticle = {
 
 type TravelParticle = {
   alpha: number;
+  color: string | null | undefined;
   maxVisualSize: number;
+  shape: string;
   size: number;
   vx: number;
   vy: number;
@@ -39,7 +47,7 @@ type TravelParticle = {
 };
 
 type ParticleStore = {
-  carry: number;
+  carryByConfig: Record<string, number>;
   configKey: string | null;
   lastTimeMs: number | null;
   sideways: SidewaysParticle[];
@@ -140,16 +148,11 @@ function drawParticleShape(
 
 function createConfigKey(layer: ParticleLayer) {
   const config = layer.props.particles;
+  const particleTextures = buildParticleTextureConfigs(config);
   return JSON.stringify({
-    birthRate: config.birthRate,
-    color: config.color,
     direction: config.direction,
     enabled: config.enabled,
-    items: config.items,
-    maxOpacity: config.maxOpacity,
-    maxSize: config.maxSize,
-    minOpacity: config.minOpacity,
-    minSize: config.minSize,
+    particleTextures,
     speedUpEnabled: config.speedUpEnabled,
   });
 }
@@ -162,6 +165,7 @@ function createSidewaysParticle(
   maxSize: number,
   minOpacity: number,
   maxOpacity: number,
+  particleConfig: ParticleTextureConfig,
 ): SidewaysParticle {
   const size = randomValue(
     SIDEWAYS_BASE_SIZE * minSize,
@@ -193,12 +197,14 @@ function createSidewaysParticle(
 
   return {
     alpha: randomValue(minOpacity, maxOpacity),
+    color: particleConfig.color,
     driftPhaseX: randomValue(0, Math.PI * 20),
     driftPhaseY: randomValue(0, Math.PI * 20),
     driftRangeX: randomValue(SIDEWAYS_MIN_A, SIDEWAYS_MAX_A),
     driftRangeY: randomValue(SIDEWAYS_MIN_A, SIDEWAYS_MAX_A),
     driftSpeedX: randomValue(SIDEWAYS_MIN_B, SIDEWAYS_MAX_B),
     driftSpeedY: randomValue(SIDEWAYS_MIN_B, SIDEWAYS_MAX_B),
+    shape: particleConfig.shape ?? "circle",
     size,
     vx,
     vy,
@@ -212,6 +218,7 @@ function createTravelParticle(
   maxSize: number,
   minOpacity: number,
   maxOpacity: number,
+  particleConfig: ParticleTextureConfig,
 ): TravelParticle {
   const size = randomValue(
     STAR_TRAVEL_BASE_SIZE * minSize,
@@ -220,7 +227,9 @@ function createTravelParticle(
 
   return {
     alpha: randomValue(minOpacity, maxOpacity),
+    color: particleConfig.color,
     maxVisualSize: STAR_TRAVEL_BASE_MAX_VISUAL_SIZE * maxSize,
+    shape: particleConfig.shape ?? "circle",
     size,
     vx: randomValue(0, STAR_TRAVEL_MAX_SPEED, true),
     vy: randomValue(0, STAR_TRAVEL_MAX_SPEED, true),
@@ -256,12 +265,15 @@ function updateParticles(
 ) {
   const config = layer.props.particles;
   const configKey = createConfigKey(layer);
+  const activeParticleTextures = buildParticleTextureConfigs(config).filter(
+    (particleTexture) => (particleTexture.birthRate ?? 0) > 0,
+  );
 
   if (store.configKey !== configKey) {
     store.configKey = configKey;
     store.sideways = [];
     store.travel = [];
-    store.carry = 0;
+    store.carryByConfig = {};
   }
 
   const nowMs = input.frameContext.timeMs;
@@ -274,7 +286,7 @@ function updateParticles(
   if (!config.enabled) {
     store.sideways = [];
     store.travel = [];
-    store.carry = 0;
+    store.carryByConfig = {};
     return;
   }
 
@@ -288,21 +300,70 @@ function updateParticles(
           ? STAR_TRAVEL_SPEED_UP_FACTOR
           : SIDEWAYS_SPEED_UP_FACTOR
         : 0);
-  const spawnCountRaw = (Math.max(0, config.birthRate) * deltaMs) / 1000 + store.carry;
-  const spawnCount = Math.floor(spawnCountRaw);
-  store.carry = spawnCountRaw - spawnCount;
-  const minSize = clamp(config.minSize || 0.1, 0.02, 3);
-  const maxSize = Math.max(minSize, clamp(config.maxSize || 0.3, minSize, 3));
-  const minOpacity = clamp(config.minOpacity, 0.02, 1);
-  const maxOpacity = Math.max(minOpacity, clamp(config.maxOpacity, minOpacity, 1));
+  const totalBirthRate = activeParticleTextures.reduce(
+    (sum, particleTexture) => sum + (particleTexture.birthRate ?? 35),
+    0,
+  );
+  const averagedTotalBirthRate =
+    activeParticleTextures.length > 0
+      ? totalBirthRate / activeParticleTextures.length
+      : 0;
 
-  if (normalizedDirection === "out") {
-    for (let index = 0; index < spawnCount; index += 1) {
-      store.travel.push(
-        createTravelParticle(minSize, maxSize, minOpacity, maxOpacity),
-      );
+  for (const particleTexture of activeParticleTextures) {
+    const textureKey = JSON.stringify(particleTexture);
+    const particleBirthRate = particleTexture.birthRate ?? 35;
+    const proportionalBirthRate =
+      totalBirthRate > 0
+        ? (particleBirthRate / totalBirthRate) * averagedTotalBirthRate
+        : 0;
+    const spawnCountRaw =
+      (Math.max(0, proportionalBirthRate) * speedMultiplier * deltaMs) / 1000 +
+      (store.carryByConfig[textureKey] ?? 0);
+    const spawnCount = Math.floor(spawnCountRaw);
+    store.carryByConfig[textureKey] = spawnCountRaw - spawnCount;
+    const minSize = clamp(particleTexture.minSize || 0.1, 0.02, 3);
+    const maxSize = Math.max(
+      minSize,
+      clamp(particleTexture.maxSize || 0.3, minSize, 3),
+    );
+    const minOpacity = clamp(particleTexture.minOpacity ?? 0.2, 0.02, 1);
+    const maxOpacity = Math.max(
+      minOpacity,
+      clamp(particleTexture.maxOpacity ?? 1, minOpacity, 1),
+    );
+
+    if (normalizedDirection === "out") {
+      for (let index = 0; index < spawnCount; index += 1) {
+        store.travel.push(
+          createTravelParticle(
+            minSize,
+            maxSize,
+            minOpacity,
+            maxOpacity,
+            particleTexture,
+          ),
+        );
+      }
+      continue;
     }
 
+    for (let index = 0; index < spawnCount; index += 1) {
+      store.sideways.push(
+        createSidewaysParticle(
+          config.direction,
+          BASE_HEIGHT * (input.surface.width / input.surface.height),
+          BASE_HEIGHT,
+          minSize,
+          maxSize,
+          minOpacity,
+          maxOpacity,
+          particleTexture,
+        ),
+      );
+    }
+  }
+
+  if (normalizedDirection === "out") {
     store.travel = store.travel.filter((particle) => {
       particle.z +=
         particle.vz *
@@ -331,20 +392,6 @@ function updateParticles(
 
     store.sideways = [];
     return;
-  }
-
-  for (let index = 0; index < spawnCount; index += 1) {
-    store.sideways.push(
-      createSidewaysParticle(
-        config.direction,
-        BASE_HEIGHT * (input.surface.width / input.surface.height),
-        BASE_HEIGHT,
-        minSize,
-        maxSize,
-        minOpacity,
-        maxOpacity,
-      ),
-    );
   }
 
   const width = BASE_HEIGHT * (input.surface.width / input.surface.height);
@@ -382,7 +429,7 @@ function updateParticles(
 
 export function createParticleStore(): ParticleStore {
   return {
-    carry: 0,
+    carryByConfig: {},
     configKey: null,
     lastTimeMs: null,
     sideways: [],
@@ -403,22 +450,18 @@ export function drawParticlesLayer(
   }
 
   const multiplier = input.surface.height / BASE_HEIGHT;
-  const fill = toColorString(
-    layer.props.particles.color,
-    clamp(layer.props.particles.maxOpacity, 0.05, 1),
-  );
 
   context.save();
   context.translate(input.surface.width / 2, input.surface.height / 2);
-  context.fillStyle = fill;
 
   if (layer.props.particles.direction.toLowerCase() === "out") {
     for (const particle of store.travel) {
       const projected = convertTravel3dTo2d(particle, multiplier);
       context.globalAlpha = particle.alpha;
+      context.fillStyle = toColorString(particle.color ?? "#ffffff", 1);
       drawParticleShape(
         context,
-        layer.props.particles.items,
+        particle.shape,
         projected.x,
         projected.y,
         Math.max(0.5, projected.size),
@@ -427,9 +470,10 @@ export function drawParticlesLayer(
   } else {
     for (const particle of store.sideways) {
       context.globalAlpha = particle.alpha;
+      context.fillStyle = toColorString(particle.color ?? "#ffffff", 1);
       drawParticleShape(
         context,
-        layer.props.particles.items,
+        particle.shape,
         particle.x * multiplier,
         particle.y * multiplier,
         Math.max(0.5, particle.size * multiplier),

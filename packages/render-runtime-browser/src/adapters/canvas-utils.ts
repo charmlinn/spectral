@@ -9,6 +9,15 @@ export const SPECTERR_WIDE_BOUNCE_SCALE = 2;
 export const SPECTERR_WIDE_SHAKE_FACTOR_LITTLE = 40;
 export const SPECTERR_WIDE_SHAKE_FACTOR_LOT = 70;
 export const SPECTERR_WIDE_TARGET_MAX = 185;
+export const SPECTERR_BACKGROUND_BOUNCE_SCALE = -1.5;
+export const SPECTERR_BACKGROUND_SHAKE_FACTOR = 300;
+export const SPECTERR_BACKGROUND_PADDING_FACTOR = 1.1;
+export const SPECTERR_BACKGROUND_MAX_VIGNETTE = 0.2;
+export const SPECTERR_BACKGROUND_VIGNETTE_FACTOR = 5;
+export const SPECTERR_BACKGROUND_MAX_CONTRAST = 1.2;
+export const SPECTERR_BACKGROUND_CONTRAST_FACTOR = 6;
+export const SPECTERR_BACKGROUND_MAX_ZOOM_BLUR = 0.5;
+export const SPECTERR_BACKGROUND_ZOOM_BLUR_FACTOR = 1.7;
 
 export function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));

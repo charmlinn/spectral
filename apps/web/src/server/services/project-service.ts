@@ -6,6 +6,7 @@ import {
 
 import { notFound } from "../errors";
 import { getServerRepositories } from "../repositories";
+import { repairPresetDerivedProjectData } from "./project-preset-repair";
 
 export async function createProject(input: {
   name: string;
@@ -72,7 +73,7 @@ export async function createProject(input: {
 }
 
 export async function getProject(projectId: string) {
-  const { projectRepository } = getServerRepositories();
+  const { presetRepository, projectRepository } = getServerRepositories();
   const project = await projectRepository.getProjectWithActiveSnapshot(projectId);
 
   if (!project) {
@@ -81,7 +82,34 @@ export async function getProject(projectId: string) {
     });
   }
 
-  return project;
+  if (!project.project.presetId || !project.activeSnapshot || !project.activeProject) {
+    return project;
+  }
+
+  const preset = await presetRepository.getPresetById(project.project.presetId);
+
+  if (!preset) {
+    return project;
+  }
+
+  const repairedProjectData = repairPresetDerivedProjectData(
+    project.activeProject,
+    preset.projectData,
+  );
+
+  if (repairedProjectData === project.activeProject) {
+    return project;
+  }
+
+  return {
+    ...project,
+    activeProject: repairedProjectData,
+    activeSnapshot: {
+      ...project.activeSnapshot,
+      projectData: repairedProjectData,
+    },
+  };
+
 }
 
 export async function updateProject(projectId: string, input: {
@@ -104,13 +132,25 @@ export async function saveProjectSnapshot(projectId: string, input: {
   reason?: string | null;
   schemaVersion?: number;
 }) {
-  const { projectRepository } = getServerRepositories();
+  const { presetRepository, projectRepository } = getServerRepositories();
 
-  await getProject(projectId);
+  const projectDetail = await getProject(projectId);
+  let projectData = input.projectData;
+
+  if (projectDetail.project.presetId) {
+    const preset = await presetRepository.getPresetById(projectDetail.project.presetId);
+
+    if (preset) {
+      projectData = repairPresetDerivedProjectData(
+        projectData,
+        preset.projectData,
+      );
+    }
+  }
 
   const snapshot = await projectRepository.saveSnapshot({
     projectId,
-    projectData: input.projectData,
+    projectData,
     source: input.source,
     reason: input.reason,
     schemaVersion: input.schemaVersion,
