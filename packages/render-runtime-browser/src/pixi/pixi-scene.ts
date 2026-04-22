@@ -22,6 +22,7 @@ export class PixiSceneRenderer {
     this.pipeline.update(input);
     this.root.sortChildren();
     await this.pipeline.draw(input);
+    this.root.sortChildren();
   }
 
   destroy() {

@@ -268,39 +268,33 @@ export class FlatWaveRenderer {
       opacity: config.dropShadowSettings.opacity,
     });
 
-    let lastVisibleWaveType = config.waveType;
-    let lastVisibleSpectrumMagnitude = 0;
-
-    for (let ringIndex = 0; ringIndex < ringCount; ringIndex += 1) {
-      const ring = getVisualizerRingStyle(layer, ringIndex);
-
-      if (!ring.visible) {
-        continue;
-      }
-
-      const renderConfig = resolveVisualizerRingRenderConfig(config, ring);
-      const waveCircleOption =
-        waveCircleOptions[ringIndex] ?? waveCircleOptions[0]!;
-      const processedSpectrum = getSpectrumForVisualizer(
-        layer,
-        input,
-        waveCircleOption,
-        renderConfig.waveType,
-      );
-
-      lastVisibleWaveType = renderConfig.waveType;
-      lastVisibleSpectrumMagnitude = averageSpectrumMagnitude(processedSpectrum);
-    }
+    const finalRingIndex = Math.max(0, ringCount - 1);
+    const finalRing = getVisualizerRingStyle(layer, finalRingIndex);
+    const finalRingRenderConfig = resolveVisualizerRingRenderConfig(
+      config,
+      finalRing,
+    );
+    const finalRingOptions =
+      waveCircleOptions[finalRingIndex] ?? waveCircleOptions[0]!;
+    const finalRingSpectrum = getSpectrumForVisualizer(
+      layer,
+      input,
+      finalRingOptions,
+      finalRingRenderConfig.waveType,
+    );
+    const finalRingSpectrumMagnitude = averageSpectrumMagnitude(
+      finalRingSpectrum,
+    );
 
     const shakeStrength = getVisualizerShakeFactor(
       config.shakeAmount,
-      lastVisibleWaveType,
+      finalRingRenderConfig.waveType,
     );
     const shake =
       !drift && shakeStrength > 0
         ? (this.shakeOffset = advanceVisualizerShakeOffset(
             this.shakeOffset,
-            lastVisibleSpectrumMagnitude,
+            finalRingSpectrumMagnitude,
             shakeStrength,
           ))
         : { x: 0, y: 0 };

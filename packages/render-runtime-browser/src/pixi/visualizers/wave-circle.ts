@@ -388,34 +388,27 @@ export class WaveCircleRenderer {
       opacity: config.dropShadowSettings.opacity,
     });
 
-    let lastVisibleRenderConfig: ReturnType<typeof resolveVisualizerRingRenderConfig> | null =
-      null;
-    let lastVisibleSpectrumMagnitude = 0;
+    const finalRingIndex = Math.max(0, ringCount - 1);
+    const finalRing = getVisualizerRingStyle(layer, finalRingIndex);
+    const finalRingRenderConfig = resolveVisualizerRingRenderConfig(
+      config,
+      finalRing,
+    );
+    const finalRingOptions =
+      waveCircleOptions[finalRingIndex] ?? waveCircleOptions[0]!;
+    const finalRingSpectrum = getSpectrumForVisualizer(
+      layer,
+      input,
+      finalRingOptions,
+      finalRingRenderConfig.waveType,
+    );
+    const finalRingSpectrumMagnitude = averageSpectrumMagnitude(
+      finalRingSpectrum,
+    );
 
-    for (let ringIndex = 0; ringIndex < ringCount; ringIndex += 1) {
-      const ring = getVisualizerRingStyle(layer, ringIndex);
-
-      if (!ring.visible) {
-        continue;
-      }
-
-      const renderConfig = resolveVisualizerRingRenderConfig(config, ring);
-      const waveCircleOption =
-        waveCircleOptions[ringIndex] ?? waveCircleOptions[0]!;
-      const processedSpectrum = getSpectrumForVisualizer(
-        layer,
-        input,
-        waveCircleOption,
-        renderConfig.waveType,
-      );
-
-      lastVisibleRenderConfig = renderConfig;
-      lastVisibleSpectrumMagnitude = averageSpectrumMagnitude(processedSpectrum);
-    }
-
-    const dominantWaveType = lastVisibleRenderConfig?.waveType ?? config.waveType;
+    const dominantWaveType = finalRingRenderConfig.waveType ?? config.waveType;
     const bounceScale = getVisualizerBounceScale(
-      lastVisibleSpectrumMagnitude,
+      finalRingSpectrumMagnitude,
       dominantWaveType,
       config.bounceFactor,
     );
@@ -435,7 +428,7 @@ export class WaveCircleRenderer {
       !drift && shakeStrength > 0
         ? (this.shakeOffset = advanceVisualizerShakeOffset(
             this.shakeOffset,
-            lastVisibleSpectrumMagnitude,
+            finalRingSpectrumMagnitude,
             shakeStrength,
           ))
         : { x: 0, y: 0 };
