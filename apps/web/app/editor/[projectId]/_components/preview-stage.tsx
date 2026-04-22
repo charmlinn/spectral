@@ -69,6 +69,19 @@ function getPreviewResolutionScale(renderQuality: "draft" | "balanced" | "high")
   return 1.5;
 }
 
+function createPreviewClock(
+  audioElement: HTMLAudioElement | null,
+  audioUrl: string | null,
+  fps: number,
+  fallbackClock: ReturnType<typeof createManualRenderClock>,
+) {
+  if (audioUrl && audioElement) {
+    return createHtmlMediaElementClock(audioElement, fps);
+  }
+
+  return fallbackClock;
+}
+
 export function PreviewStage({
   analysisError,
   analysisLoading,
@@ -214,9 +227,15 @@ export function PreviewStage({
   }, [analysisProvider, analysisSnapshot, audioUrl, muted, project.timing.fps]);
 
   useEffect(() => {
-    const target = stageRef.current;
+    if (runtimeRef.current) {
+      return;
+    }
 
-    if (!target || surfaceWidth <= 0 || surfaceHeight <= 0) {
+    const target = stageRef.current;
+    const measuredWidth = frameRef.current?.clientWidth ?? surfaceWidth;
+    const measuredHeight = frameRef.current?.clientHeight ?? surfaceHeight;
+
+    if (!target || measuredWidth <= 0 || measuredHeight <= 0) {
       return;
     }
 
@@ -232,17 +251,16 @@ export function PreviewStage({
           }),
           project,
           surface: {
-            width: surfaceWidth,
-            height: surfaceHeight,
+            width: measuredWidth,
+            height: measuredHeight,
             dpr: effectiveDpr,
           },
-          clock:
-            audioUrl && audioRef.current
-              ? createHtmlMediaElementClock(
-                  audioRef.current,
-                  project.timing.fps,
-                )
-              : manualClockRef.current,
+          clock: createPreviewClock(
+            audioRef.current,
+            audioUrl,
+            project.timing.fps,
+            manualClockRef.current,
+          ),
           analysisProvider,
           historyProvider: realtimeAnalysisReadyRef.current
             ? realtimeAnalysisRef.current
@@ -275,29 +293,46 @@ export function PreviewStage({
 
     return () => {
       disposed = true;
+    };
+  }, [
+    analysisProvider,
+    audioUrl,
+    effectiveDpr,
+    project.projectId,
+    project.timing.fps,
+    setRuntimeHealth,
+    surfaceHeight,
+    surfaceWidth,
+  ]);
 
+  useEffect(() => {
+    return () => {
       if (runtimeRef.current) {
         void runtimeRef.current.unmount();
         runtimeRef.current = null;
       }
     };
-  }, [
-    analysisError,
-    analysisProvider,
-    audioUrl,
-    effectiveDpr,
-    surfaceHeight,
-    project.projectId,
-    project.timing.fps,
-    setRuntimeHealth,
-    surfaceWidth,
-  ]);
+  }, []);
 
   useEffect(() => {
     if (!runtimeRef.current) {
       return;
     }
 
+    runtimeRef.current.setClock(
+      createPreviewClock(
+        audioRef.current,
+        audioUrl,
+        project.timing.fps,
+        manualClockRef.current,
+      ),
+    );
+  }, [audioUrl, project.timing.fps]);
+
+  useEffect(() => {
+    if (!runtimeRef.current) {
+      return;
+    }
     runtimeRef.current.setProject(project);
     runtimeRef.current.setAudioAnalysisProvider(analysisProvider);
     runtimeRef.current.setHistoryProvider(
@@ -311,6 +346,14 @@ export function PreviewStage({
       void runtimeRef.current.renderFrameAt(currentTimeMs);
     }
   }, [analysisProvider, currentTimeMs, playing, project]);
+
+  useEffect(() => {
+    if (!runtimeRef.current || runtimeError) {
+      return;
+    }
+
+    setRuntimeHealth(analysisError ? "warning" : "ready");
+  }, [analysisError, runtimeError, setRuntimeHealth]);
 
   const startAudioPreview = useEffectEvent(async () => {
     const audioElement = audioRef.current;
@@ -350,12 +393,18 @@ export function PreviewStage({
       return;
     }
 
-    void runtimeRef.current.setSurface({
-      width: surfaceWidth,
-      height: surfaceHeight,
-      dpr: effectiveDpr,
-    });
-  }, [effectiveDpr, surfaceHeight, surfaceWidth]);
+    void (async () => {
+      await runtimeRef.current?.setSurface({
+        width: surfaceWidth,
+        height: surfaceHeight,
+        dpr: effectiveDpr,
+      });
+
+      if (!playing) {
+        await runtimeRef.current?.renderFrameAt(currentTimeMs);
+      }
+    })();
+  }, [currentTimeMs, effectiveDpr, playing, surfaceHeight, surfaceWidth]);
 
   useEffect(() => {
     const audioElement = audioRef.current;

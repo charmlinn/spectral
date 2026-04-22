@@ -78,6 +78,7 @@ export function createSpectralPixiRenderAdapter(
         return;
       }
 
+      app.renderer.resolution = surface.dpr;
       app.renderer.resize(surface.width, surface.height);
     },
     async render(input: BrowserRenderAdapterRenderInput) {

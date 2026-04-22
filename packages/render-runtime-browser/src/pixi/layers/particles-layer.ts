@@ -56,10 +56,12 @@ export class PixiParticlesLayer {
   }
 
   render(layer: ParticleLayer | null, input: BrowserRenderAdapterRenderInput) {
-    this.container.visible = Boolean(layer);
-    const direction = normalizeDirection(layer?.props.particles.direction);
+    const direction = layer
+      ? normalizeDirection(layer.props.particles.direction)
+      : this.rendererDirection;
 
     this.ensureRenderer(direction);
+    this.renderer.container.visible = Boolean(layer);
     this.renderer.updateSurface(input.surface);
     this.renderer.update(
       {

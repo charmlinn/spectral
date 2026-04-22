@@ -24,7 +24,11 @@ export class PixiVisualizerLayer {
   }
 
   private ensureRenderer(layer: VisualizerLayer | null) {
-    const shape = layer?.props.config.shape === "flat" ? "flat" : "circle";
+    const shape = layer
+      ? layer.props.config.shape === "flat"
+        ? "flat"
+        : "circle"
+      : this.rendererShape;
 
     if (this.rendererShape === shape) {
       return;
