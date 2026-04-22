@@ -93,10 +93,22 @@ export class StarTravelParticlesRenderer {
     return result;
   }
 
+  private resetParticles() {
+    this.particles.forEach((particle) => particle.sprite.destroy());
+    this.container.removeChildren();
+    this.particles = [];
+  }
+
   updateSurface(surface: RenderSurface) {
     const multiplier = surface.height / BASE_HEIGHT;
+    const nextWidth = (BASE_HEIGHT * surface.width) / surface.height;
+    const dimensionsChanged = this.calculatedWidth !== nextWidth;
 
-    this.calculatedWidth = (BASE_HEIGHT * surface.width) / surface.height;
+    if (dimensionsChanged) {
+      this.resetParticles();
+    }
+
+    this.calculatedWidth = nextWidth;
     this.container.position.set(surface.width * 0.5, surface.height * 0.5);
     this.container.scale.set(multiplier, multiplier);
   }
@@ -114,9 +126,7 @@ export class StarTravelParticlesRenderer {
       this.container.alpha = config.enabled ? 1 : 0;
 
       if (!config.enabled) {
-        this.particles.forEach((particle) => particle.sprite.destroy());
-        this.container.removeChildren();
-        this.particles = [];
+        this.resetParticles();
       }
     }
 
@@ -125,9 +135,7 @@ export class StarTravelParticlesRenderer {
       JSON.stringify(config.particleTextures ?? []);
 
     if (texturesChanged) {
-      this.particles.forEach((particle) => particle.sprite.destroy());
-      this.container.removeChildren();
-      this.particles = [];
+      this.resetParticles();
     }
 
     this.enabled = config.enabled;

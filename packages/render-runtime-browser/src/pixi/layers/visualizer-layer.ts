@@ -12,6 +12,7 @@ export class PixiVisualizerLayer {
   private renderer: VisualizerRenderer;
   private rendererShape: "circle" | "flat";
   private lastPlaying = false;
+  private lastSurfaceKey = "";
 
   constructor(
     private readonly assetResolver: RenderAssetResolver | null | undefined,
@@ -24,17 +25,7 @@ export class PixiVisualizerLayer {
     return this.renderer.container;
   }
 
-  private ensureRenderer(layer: VisualizerLayer | null) {
-    const shape = layer
-      ? layer.props.config.shape === "flat"
-        ? "flat"
-        : "circle"
-      : this.rendererShape;
-
-    if (this.rendererShape === shape) {
-      return;
-    }
-
+  private replaceRenderer(shape: "circle" | "flat") {
     const currentContainer = this.renderer.container;
     const parent = currentContainer.parent;
     const index = parent ? parent.getChildIndex(currentContainer) : -1;
@@ -51,8 +42,29 @@ export class PixiVisualizerLayer {
     }
   }
 
+  private ensureRenderer(layer: VisualizerLayer | null) {
+    const shape = layer
+      ? layer.props.config.shape === "flat"
+        ? "flat"
+        : "circle"
+      : this.rendererShape;
+
+    if (this.rendererShape === shape) {
+      return;
+    }
+
+    this.replaceRenderer(shape);
+  }
+
   async render(layer: VisualizerLayer | null, input: BrowserRenderAdapterRenderInput) {
     this.ensureRenderer(layer);
+    const surfaceKey = `${input.surface.width}x${input.surface.height}`;
+
+    if (this.lastSurfaceKey && this.lastSurfaceKey !== surfaceKey) {
+      this.replaceRenderer(this.rendererShape);
+    }
+
+    this.lastSurfaceKey = surfaceKey;
 
     if (this.lastPlaying !== input.playing && this.rendererShape === "circle") {
       this.renderer.resetSpinPosition();
