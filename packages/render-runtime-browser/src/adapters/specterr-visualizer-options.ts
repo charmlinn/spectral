@@ -4,14 +4,9 @@
  * 保持 Specterr 的 visualizer layer / delay / reflection 组合逻辑。
  */
 
-type SpecterrWaveSpectrumOptions = {
-  smoothingPoints: number;
-  smoothingPasses: number;
-  maxShiftPasses: number;
-  barCount: number;
-  smoothed: boolean;
-  loop: boolean;
-};
+import type { ProcessSpectrumOptions } from "@spectral/audio-analysis";
+
+type SpecterrWaveSpectrumOptions = ProcessSpectrumOptions;
 
 export type SpecterrWaveCircleRenderOptions = {
   scale: number;
@@ -107,7 +102,7 @@ function getSpectrumOptionsAndBaseWaveScale(
   waveType: string,
   shape: string,
   reflectionType: string,
-  computedBarCount: number,
+  computedBarCount: number | undefined,
   smoothed: boolean,
 ) {
   switch (normalizeWaveType(waveType)) {
@@ -141,14 +136,7 @@ function getSpectrumOptionsAndBaseWaveScale(
       };
     default:
       return {
-        primarySpectrumOptions: {
-          smoothingPoints: WIDE_SMOOTHING_POINTS,
-          smoothingPasses: 0,
-          maxShiftPasses: 0,
-          barCount: computedBarCount,
-          smoothed,
-          loop: false,
-        },
+        primarySpectrumOptions: {},
         baseWaveScale: 1,
       };
   }
@@ -180,42 +168,66 @@ function configureAvailableOptions(
   if (normalizedLayoutType === "webbed" || normalizedLayoutType === "layered") {
     availableOptions[0]!.spectrumOptions.smoothingPasses = 4;
     availableOptions[0]!.spectrumOptions.maxShiftPasses = 0;
-    availableOptions[1]!.spectrumOptions.smoothingPasses += Math.floor(
+    availableOptions[1]!.spectrumOptions.smoothingPasses =
+      (availableOptions[1]!.spectrumOptions.smoothingPasses ?? 0) +
+      Math.floor(
       8 * separation,
-    );
-    availableOptions[1]!.spectrumOptions.maxShiftPasses += Math.floor(
+      );
+    availableOptions[1]!.spectrumOptions.maxShiftPasses =
+      (availableOptions[1]!.spectrumOptions.maxShiftPasses ?? 0) +
+      Math.floor(
       4 * separation,
-    );
-    availableOptions[2]!.spectrumOptions.smoothingPasses += Math.floor(
+      );
+    availableOptions[2]!.spectrumOptions.smoothingPasses =
+      (availableOptions[2]!.spectrumOptions.smoothingPasses ?? 0) +
+      Math.floor(
       12 * separation,
-    );
-    availableOptions[2]!.spectrumOptions.maxShiftPasses += Math.floor(
+      );
+    availableOptions[2]!.spectrumOptions.maxShiftPasses =
+      (availableOptions[2]!.spectrumOptions.maxShiftPasses ?? 0) +
+      Math.floor(
       8 * separation,
-    );
-    availableOptions[3]!.spectrumOptions.smoothingPasses += Math.floor(
+      );
+    availableOptions[3]!.spectrumOptions.smoothingPasses =
+      (availableOptions[3]!.spectrumOptions.smoothingPasses ?? 0) +
+      Math.floor(
       16 * separation,
-    );
-    availableOptions[3]!.spectrumOptions.maxShiftPasses += Math.floor(
+      );
+    availableOptions[3]!.spectrumOptions.maxShiftPasses =
+      (availableOptions[3]!.spectrumOptions.maxShiftPasses ?? 0) +
+      Math.floor(
       12 * separation,
-    );
-    availableOptions[4]!.spectrumOptions.smoothingPasses += Math.floor(
+      );
+    availableOptions[4]!.spectrumOptions.smoothingPasses =
+      (availableOptions[4]!.spectrumOptions.smoothingPasses ?? 0) +
+      Math.floor(
       20 * separation,
-    );
-    availableOptions[4]!.spectrumOptions.maxShiftPasses += Math.floor(
+      );
+    availableOptions[4]!.spectrumOptions.maxShiftPasses =
+      (availableOptions[4]!.spectrumOptions.maxShiftPasses ?? 0) +
+      Math.floor(
       16 * separation,
-    );
-    availableOptions[5]!.spectrumOptions.smoothingPasses += Math.floor(
+      );
+    availableOptions[5]!.spectrumOptions.smoothingPasses =
+      (availableOptions[5]!.spectrumOptions.smoothingPasses ?? 0) +
+      Math.floor(
       24 * separation,
-    );
-    availableOptions[5]!.spectrumOptions.maxShiftPasses += Math.floor(
+      );
+    availableOptions[5]!.spectrumOptions.maxShiftPasses =
+      (availableOptions[5]!.spectrumOptions.maxShiftPasses ?? 0) +
+      Math.floor(
       20 * separation,
-    );
-    availableOptions[6]!.spectrumOptions.smoothingPasses += Math.floor(
+      );
+    availableOptions[6]!.spectrumOptions.smoothingPasses =
+      (availableOptions[6]!.spectrumOptions.smoothingPasses ?? 0) +
+      Math.floor(
       28 * separation,
-    );
-    availableOptions[6]!.spectrumOptions.maxShiftPasses += Math.floor(
+      );
+    availableOptions[6]!.spectrumOptions.maxShiftPasses =
+      (availableOptions[6]!.spectrumOptions.maxShiftPasses ?? 0) +
+      Math.floor(
       24 * separation,
-    );
+      );
   }
 
   if (

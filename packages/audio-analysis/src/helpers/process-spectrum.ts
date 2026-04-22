@@ -5,11 +5,11 @@
  */
 
 export type ProcessSpectrumOptions = {
-  maxShiftPasses: number;
-  smoothed: boolean;
-  smoothingPasses: number;
-  smoothingPoints: number;
-  loop: boolean;
+  maxShiftPasses?: number;
+  smoothed?: boolean;
+  smoothingPasses?: number;
+  smoothingPoints?: number;
+  loop?: boolean;
   barCount?: number;
 };
 
@@ -18,14 +18,19 @@ export function processSpectrum(
   options: ProcessSpectrumOptions,
 ): number[] {
   let nextSpectrum = spectrum.slice();
+  const maxShiftPasses = options.maxShiftPasses ?? 0;
+  const smoothed = options.smoothed ?? false;
+  const smoothingPasses = options.smoothingPasses ?? 0;
+  const smoothingPoints = options.smoothingPoints ?? 0;
+  const loop = options.loop ?? false;
 
-  nextSpectrum = maxShift(nextSpectrum, options.maxShiftPasses);
-  if (options.smoothed) {
+  nextSpectrum = maxShift(nextSpectrum, maxShiftPasses);
+  if (smoothed) {
     nextSpectrum = smooth(
       nextSpectrum,
-      options.smoothingPasses,
-      options.smoothingPoints,
-      options.loop,
+      smoothingPasses,
+      smoothingPoints,
+      loop,
     );
   }
   if (options.barCount) {
