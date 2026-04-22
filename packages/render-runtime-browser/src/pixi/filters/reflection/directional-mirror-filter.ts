@@ -84,13 +84,20 @@ void main(void) {
 }
 `;
 
+type DirectionalMirrorUniforms = {
+  uBoundary: number;
+  uDirection: number;
+  uDimensions: Float32Array;
+};
+
+type DirectionalMirrorUniformGroup = {
+  uniforms: DirectionalMirrorUniforms;
+  update(): void;
+};
+
 export type DirectionalMirrorFilterInstance = Filter & {
   resources: {
-    directionalMirrorUniforms: {
-      uBoundary: number;
-      uDirection: number;
-      uDimensions: Float32Array;
-    };
+    directionalMirrorUniforms: DirectionalMirrorUniformGroup;
   };
 };
 
@@ -121,9 +128,13 @@ export function updateDirectionalMirrorFilter(
     width: number;
   },
 ) {
+  const uniformGroup = filter.resources.directionalMirrorUniforms;
+  const uniforms = uniformGroup.uniforms;
+
   filter.enabled = input.enabled;
-  filter.resources.directionalMirrorUniforms.uBoundary = input.boundary;
-  filter.resources.directionalMirrorUniforms.uDirection = input.direction;
-  filter.resources.directionalMirrorUniforms.uDimensions[0] = input.width;
-  filter.resources.directionalMirrorUniforms.uDimensions[1] = input.height;
+  uniforms.uBoundary = input.boundary;
+  uniforms.uDirection = input.direction;
+  uniforms.uDimensions[0] = input.width;
+  uniforms.uDimensions[1] = input.height;
+  uniformGroup.update();
 }

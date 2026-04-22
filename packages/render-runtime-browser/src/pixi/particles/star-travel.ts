@@ -1,5 +1,10 @@
 import { Container, Sprite, type Texture } from "pixi.js";
 
+import {
+  getSpectrumMagnitude,
+  processSpectrum,
+  type ProcessSpectrumOptions,
+} from "@spectral/audio-analysis";
 import type { RenderSurface } from "@spectral/render-core";
 import { toPixiColor } from "../shared";
 import {
@@ -67,6 +72,14 @@ export class StarTravelParticlesRenderer {
   private speedUpEnabled = false;
   private particleTextures: ParticleTextureConfig[] = [];
   private activeParticles: ParticleTextureConfig[] = [];
+  private spectrumOptions: ProcessSpectrumOptions = {
+    barCount: undefined,
+    loop: false,
+    maxShiftPasses: 0,
+    smoothed: false,
+    smoothingPasses: 0,
+    smoothingPoints: 0,
+  };
 
   constructor() {
     const defaultTextures = getDefaultTextures();
@@ -77,7 +90,7 @@ export class StarTravelParticlesRenderer {
     this.defaultHeartTexture2 = defaultTextures.heartTexture2;
     this.defaultStarTexture1 = defaultTextures.starTexture1;
     this.defaultStarTexture2 = defaultTextures.starTexture2;
-    this.container.zIndex = 15;
+    this.container.zIndex = 2;
   }
 
   private randomValue(min: number, max: number, negative = false) {
@@ -102,6 +115,7 @@ export class StarTravelParticlesRenderer {
     config: {
       enabled: boolean;
       particleTextures: ParticleTextureConfig[];
+      spectrumOptions: ProcessSpectrumOptions;
       speedUpEnabled: boolean;
     },
     fps: number,
@@ -129,16 +143,23 @@ export class StarTravelParticlesRenderer {
     this.enabled = config.enabled;
     this.speedUpEnabled = config.speedUpEnabled;
     this.particleTextures = config.particleTextures ?? [];
+    this.spectrumOptions = config.spectrumOptions;
     this.activeParticles = this.particleTextures.filter(
       (particleTexture) => (particleTexture.birthRate ?? 0) > 0,
     );
     this.fps = fps;
   }
 
-  draw(spectrumMagnitude: number) {
+  draw(spectrum: ArrayLike<number>) {
     if (!this.enabled) {
       return;
     }
+
+    const processedSpectrum = processSpectrum(
+      Array.from(spectrum ?? []),
+      this.spectrumOptions,
+    );
+    const spectrumMagnitude = getSpectrumMagnitude(processedSpectrum);
 
     let speedMultiplier = this.speedUpEnabled
       ? 1 + (spectrumMagnitude / 255) * SPEED_UP_FACTOR
@@ -331,4 +352,3 @@ export class StarTravelParticlesRenderer {
     clearAllTextures();
   }
 }
-

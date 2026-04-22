@@ -96,7 +96,7 @@ export abstract class ReactiveMedia {
   constructor(
     protected readonly assetResolver: RenderAssetResolver | null | undefined,
   ) {
-    this.container.zIndex = 0;
+    this.container.zIndex = 1;
     this.sprite.anchor.set(0.5);
     this.directionalMirrorFilter.enabled = false;
     this.quadrantMirrorFilter.enabled = false;

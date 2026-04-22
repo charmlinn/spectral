@@ -1,5 +1,10 @@
 import { Container, Sprite, type Texture } from "pixi.js";
 
+import {
+  getSpectrumMagnitude,
+  processSpectrum,
+  type ProcessSpectrumOptions,
+} from "@spectral/audio-analysis";
 import type { RenderSurface } from "@spectral/render-core";
 import { toPixiColor } from "../shared";
 import {
@@ -66,6 +71,14 @@ export class SidewaysParticlesRenderer {
   private speedUpEnabled = false;
   private particleTextures: ParticleTextureConfig[] = [];
   private activeParticles: ParticleTextureConfig[] = [];
+  private spectrumOptions: ProcessSpectrumOptions = {
+    barCount: undefined,
+    loop: false,
+    maxShiftPasses: 0,
+    smoothed: false,
+    smoothingPasses: 0,
+    smoothingPoints: 0,
+  };
   private particleOutOfFrame: (sprite: Sprite) => boolean = () => false;
 
   constructor(direction = "up") {
@@ -77,7 +90,7 @@ export class SidewaysParticlesRenderer {
     this.defaultHeartTexture2 = defaultTextures.heartTexture2;
     this.defaultStarTexture1 = defaultTextures.starTexture1;
     this.defaultStarTexture2 = defaultTextures.starTexture2;
-    this.container.zIndex = 15;
+    this.container.zIndex = 2;
     this.direction = normalizeDirection(direction);
   }
 
@@ -104,6 +117,7 @@ export class SidewaysParticlesRenderer {
     config: {
       enabled: boolean;
       particleTextures: ParticleTextureConfig[];
+      spectrumOptions: ProcessSpectrumOptions;
       speedUpEnabled: boolean;
     },
     fps: number,
@@ -131,6 +145,7 @@ export class SidewaysParticlesRenderer {
     this.enabled = config.enabled;
     this.speedUpEnabled = config.speedUpEnabled;
     this.particleTextures = config.particleTextures ?? [];
+    this.spectrumOptions = config.spectrumOptions;
     this.activeParticles = this.particleTextures.filter(
       (particleTexture) => (particleTexture.birthRate ?? 0) > 0,
     );
@@ -156,10 +171,16 @@ export class SidewaysParticlesRenderer {
     }
   }
 
-  draw(spectrumMagnitude: number) {
+  draw(spectrum: ArrayLike<number>) {
     if (!this.enabled) {
       return;
     }
+
+    const processedSpectrum = processSpectrum(
+      Array.from(spectrum ?? []),
+      this.spectrumOptions,
+    );
+    const spectrumMagnitude = getSpectrumMagnitude(processedSpectrum);
 
     let speedMultiplier = this.speedUpEnabled
       ? 1 + (spectrumMagnitude / 255) * SPEED_UP_FACTOR

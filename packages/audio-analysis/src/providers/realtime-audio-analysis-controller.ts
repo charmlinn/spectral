@@ -51,6 +51,7 @@ export type RealtimeAudioAnalysisController = AudioAnalysisProvider & {
 type InternalState = {
   analyzerNode: AnalyserNode | null;
   audioContext: AudioContext | null;
+  delayNode: DelayNode | null;
   mediaSource: MediaElementAudioSourceNode | null;
   gainNode: GainNode | null;
   getByteFrequencyData: ReturnType<typeof createFFTAnalyzer> | null;
@@ -66,6 +67,7 @@ function createInitialState(options: RealtimeAudioAnalysisControllerOptions): In
   return {
     analyzerNode: null,
     audioContext: options.audioContext ?? null,
+    delayNode: null,
     mediaSource: null,
     gainNode: null,
     getByteFrequencyData: null,
@@ -165,10 +167,13 @@ export function createRealtimeAudioAnalysisController(
     const gainNode = audioContext.createGain();
     gainNode.gain.value = state.volume;
     analyzerNode.connect(gainNode);
-    gainNode.connect(audioContext.destination);
+    const delayNode = new DelayNode(audioContext, { delayTime: 0.15 });
+    gainNode.connect(delayNode);
+    delayNode.connect(audioContext.destination);
 
     state.audioContext = audioContext;
     state.analyzerNode = analyzerNode;
+    state.delayNode = delayNode;
     state.mediaSource = mediaSource;
     state.gainNode = gainNode;
     state.getByteFrequencyData = getByteFrequencyData;
@@ -243,7 +248,12 @@ export function createRealtimeAudioAnalysisController(
       await connect();
     },
     async destroy() {
-      if (!state.gainNode || !state.analyzerNode || !state.mediaSource) {
+      if (
+        !state.gainNode ||
+        !state.analyzerNode ||
+        !state.mediaSource ||
+        !state.delayNode
+      ) {
         return;
       }
 
@@ -252,7 +262,8 @@ export function createRealtimeAudioAnalysisController(
         throw new Error("Realtime audio analysis is missing AudioContext destination.");
       }
 
-      state.gainNode.disconnect(destination);
+      state.delayNode.disconnect(destination);
+      state.gainNode.disconnect(state.delayNode);
       state.analyzerNode.disconnect(state.gainNode);
       state.mediaSource.disconnect(state.analyzerNode);
 
@@ -260,6 +271,7 @@ export function createRealtimeAudioAnalysisController(
 
       state.audioContext = null;
       state.analyzerNode = null;
+      state.delayNode = null;
       state.mediaSource = null;
       state.gainNode = null;
       state.getByteFrequencyData = null;

@@ -57,6 +57,7 @@ export class FlatWaveRenderer {
   private glowGraphics: Graphics[] = [];
 
   constructor() {
+    this.container.zIndex = 3;
     this.container.addChild(this.displacement.displacementSprite);
     this.container.addChild(this.glowContainer);
     this.container.addChild(this.waveContainer);

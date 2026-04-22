@@ -44,15 +44,22 @@ void main(void)
 }
 `;
 
+type QuadrantMirrorUniforms = {
+  uDimensions: Float32Array;
+  uEnableBottomPart: number;
+  uEnableLeftPart: number;
+  uEnableRightPart: number;
+  uEnableTopPart: number;
+};
+
+type QuadrantMirrorUniformGroup = {
+  uniforms: QuadrantMirrorUniforms;
+  update(): void;
+};
+
 export type QuadrantMirrorFilterInstance = Filter & {
   resources: {
-    quadrantMirrorUniforms: {
-      uDimensions: Float32Array;
-      uEnableBottomPart: number;
-      uEnableLeftPart: number;
-      uEnableRightPart: number;
-      uEnableTopPart: number;
-    };
+    quadrantMirrorUniforms: QuadrantMirrorUniformGroup;
   };
 };
 
@@ -84,34 +91,42 @@ export function updateQuadrantMirrorFilter(
     width: number;
   },
 ) {
+  const uniformGroup = filter.resources.quadrantMirrorUniforms;
+  const uniforms = uniformGroup.uniforms;
+
   filter.enabled = input.enabled;
-  filter.resources.quadrantMirrorUniforms.uDimensions[0] = input.width;
-  filter.resources.quadrantMirrorUniforms.uDimensions[1] = input.height;
-  filter.resources.quadrantMirrorUniforms.uEnableLeftPart = 0;
-  filter.resources.quadrantMirrorUniforms.uEnableRightPart = 0;
-  filter.resources.quadrantMirrorUniforms.uEnableTopPart = 0;
-  filter.resources.quadrantMirrorUniforms.uEnableBottomPart = 0;
+  uniforms.uDimensions[0] = input.width;
+  uniforms.uDimensions[1] = input.height;
+  uniforms.uEnableLeftPart = 0;
+  uniforms.uEnableRightPart = 0;
+  uniforms.uEnableTopPart = 0;
+  uniforms.uEnableBottomPart = 0;
 
   if (input.direction === 1) {
-    filter.resources.quadrantMirrorUniforms.uEnableRightPart = 1;
-    filter.resources.quadrantMirrorUniforms.uEnableTopPart = 1;
+    uniforms.uEnableRightPart = 1;
+    uniforms.uEnableTopPart = 1;
+    uniformGroup.update();
     return;
   }
 
   if (input.direction === 0) {
-    filter.resources.quadrantMirrorUniforms.uEnableLeftPart = 1;
-    filter.resources.quadrantMirrorUniforms.uEnableTopPart = 1;
+    uniforms.uEnableLeftPart = 1;
+    uniforms.uEnableTopPart = 1;
+    uniformGroup.update();
     return;
   }
 
   if (input.direction === 2) {
-    filter.resources.quadrantMirrorUniforms.uEnableRightPart = 1;
-    filter.resources.quadrantMirrorUniforms.uEnableBottomPart = 1;
+    uniforms.uEnableRightPart = 1;
+    uniforms.uEnableBottomPart = 1;
+    uniformGroup.update();
     return;
   }
 
   if (input.direction === 3) {
-    filter.resources.quadrantMirrorUniforms.uEnableLeftPart = 1;
-    filter.resources.quadrantMirrorUniforms.uEnableBottomPart = 1;
+    uniforms.uEnableLeftPart = 1;
+    uniforms.uEnableBottomPart = 1;
   }
+
+  uniformGroup.update();
 }

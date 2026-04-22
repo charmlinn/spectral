@@ -1,4 +1,5 @@
 import type { RenderLayer } from "@spectral/render-core";
+import type { ProcessSpectrumOptions } from "@spectral/audio-analysis";
 
 import type { BrowserRenderAdapterRenderInput } from "../../contracts/runtime";
 import { SidewaysParticlesRenderer } from "../particles/sideways";
@@ -9,6 +10,14 @@ type ParticleLayer = Extract<RenderLayer, { kind: "particles" }>;
 type ParticleRenderer =
   | SidewaysParticlesRenderer
   | StarTravelParticlesRenderer;
+
+const SPECTERR_PARTICLE_BASS_SPECTRUM_OPTIONS: ProcessSpectrumOptions = {
+  loop: false,
+  maxShiftPasses: 0,
+  smoothed: true,
+  smoothingPasses: 4,
+  smoothingPoints: 5,
+};
 
 function normalizeDirection(direction: string | null | undefined) {
   return (direction ?? "up").trim().toUpperCase();
@@ -86,11 +95,12 @@ export class PixiParticlesLayer {
       {
         enabled: Boolean(layer?.props.particles.enabled),
         particleTextures: createParticleTextures(layer),
+        spectrumOptions: SPECTERR_PARTICLE_BASS_SPECTRUM_OPTIONS,
         speedUpEnabled: Boolean(layer?.props.particles.speedUpEnabled),
       },
       input.frameContext.fps,
     );
-    this.renderer.draw(layer?.props.amplitude ?? 0);
+    this.renderer.draw(layer?.props.bassSpectrum ?? new Float32Array());
   }
 
   destroy() {

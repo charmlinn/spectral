@@ -28,6 +28,7 @@ const BASE_HEIGHT = 500;
 
 export class PixiTextElement {
   readonly text = new Text({ text: "" });
+  private currentFontKey = "";
 
   constructor() {
     this.text.style = new PixiTextStyle({
@@ -57,16 +58,13 @@ export class PixiTextElement {
 
     const multiplier = input.surface.height / BASE_HEIGHT;
     const fontSize = Math.max(1, config.fontSize * multiplier);
-    const drift = computeDriftTransform({
-      drift: config.drift,
-      kind: "text",
-      timeMs: input.timeMs,
-      spectrumMagnitude: input.amplitude,
-      width: input.surface.width * 0.8,
-      height: input.surface.height * 0.2,
-    });
-
-    primeFont(
+    const fontPadding = fontSize / 3;
+    const style = this.text.style as PixiTextStyle;
+    const nextFill = toPixiColor(config.color);
+    const nextFontWeight = config.bold ? "700" : "400";
+    const nextFontFamily = getFontFamilyChain(config.font).join(",");
+    const nextAlign = getTextAlign(config.anchorPoint);
+    const nextDropShadow = getTextDropShadow(
       {
         anchorPoint: config.anchorPoint,
         bold: config.bold,
@@ -92,43 +90,90 @@ export class PixiTextElement {
       multiplier,
     );
 
-    this.text.visible = true;
-    this.text.zIndex = zIndex;
-    this.text.text = config.text;
-    this.text.anchor.set(getTextAnchor(config.anchorPoint), 0.5);
-    this.text.style = new PixiTextStyle({
-      align: getTextAlign(config.anchorPoint),
-      dropShadow: getTextDropShadow(
-        {
-          anchorPoint: config.anchorPoint,
-          bold: config.bold,
-          color: config.color,
-          drift: config.drift ?? {
-            acceleration: 0,
-            amplitudeX: 0,
-            amplitudeY: 0,
-            customMode: false,
-            enabled: false,
-            intensity: 0,
-            octaves: 1,
-            rotation: 0,
-            scale: 1,
-            speed: 0,
+    if (!this.text.visible) {
+      this.text.visible = true;
+    }
+
+    if (this.text.zIndex !== zIndex) {
+      this.text.zIndex = zIndex;
+    }
+
+    if (style.fill !== nextFill) {
+      style.fill = nextFill;
+    }
+
+    if (style.dropShadow !== nextDropShadow) {
+      style.dropShadow = nextDropShadow;
+    }
+
+    if (
+      style.fontFamily !== nextFontFamily ||
+      style.fontWeight !== nextFontWeight
+    ) {
+      style.fontFamily = nextFontFamily;
+      style.fontWeight = nextFontWeight;
+
+      const fontKey = `${config.font}-${nextFontWeight}`;
+      if (this.currentFontKey !== fontKey) {
+        this.currentFontKey = fontKey;
+        primeFont(
+          {
+            anchorPoint: config.anchorPoint,
+            bold: config.bold,
+            color: config.color,
+            drift: config.drift ?? {
+              acceleration: 0,
+              amplitudeX: 0,
+              amplitudeY: 0,
+              customMode: false,
+              enabled: false,
+              intensity: 0,
+              octaves: 1,
+              rotation: 0,
+              scale: 1,
+              speed: 0,
+            },
+            font: config.font,
+            fontSize: config.fontSize,
+            position: config.position,
+            shadow: config.shadow,
+            text: config.text,
           },
-          font: config.font,
-          fontSize: config.fontSize,
-          position: config.position,
-          shadow: config.shadow,
-          text: config.text,
-        },
-        multiplier,
-      ),
-      fill: toPixiColor(config.color),
-      fontFamily: getFontFamilyChain(config.font),
-      fontSize: fontSize * 2,
-      fontWeight: config.bold ? "700" : "400",
-      padding: fontSize / 3,
+          multiplier,
+        );
+      }
+    }
+
+    if (style.fontSize !== fontSize) {
+      style.fontSize = fontSize;
+    }
+
+    if (style.align !== nextAlign) {
+      style.align = nextAlign;
+    }
+
+    if (style.padding !== fontPadding) {
+      style.padding = fontPadding;
+    }
+
+    if (this.text.text !== config.text) {
+      this.text.text = config.text;
+    }
+
+    const nextAnchorX = getTextAnchor(config.anchorPoint);
+    if (this.text.anchor.x !== nextAnchorX || this.text.anchor.y !== 0.5) {
+      this.text.anchor.set(nextAnchorX, 0.5);
+    }
+
+    const drift = computeDriftTransform({
+      drift: config.drift,
+      kind: "text",
+      timeMs: input.timeMs,
+      spectrumMagnitude: input.amplitude,
+      width: Math.max(1, this.text.width * 0.5),
+      height: Math.max(1, this.text.height * 0.5),
     });
+
     this.text.position.set(
       config.position.x * multiplier + (drift?.translateX ?? 0),
       config.position.y * multiplier + (drift?.translateY ?? 0),

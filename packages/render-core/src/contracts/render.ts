@@ -90,6 +90,7 @@ export type TextLayerProps = {
 export type ParticleLayerProps = {
   particles: ParticleSettings;
   amplitude: number;
+  bassSpectrum: Float32Array;
 };
 
 export type RenderLayer =

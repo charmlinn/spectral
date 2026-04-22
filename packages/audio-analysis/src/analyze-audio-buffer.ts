@@ -17,11 +17,25 @@ export type AnalyzeAudioBufferOptions = {
   waveformPoints?: number;
 };
 
-function mixToMono(audioBuffer: AudioBuffer): Float32Array {
-  const { length, numberOfChannels } = audioBuffer;
+export type AnalyzeAudioChannelDataInput = {
+  channels: readonly Float32Array[];
+  sampleRate: number;
+  durationMs?: number;
+};
+
+function mixChannelsToMono(channels: readonly Float32Array[]): Float32Array {
+  const numberOfChannels = channels.length;
+
+  if (numberOfChannels === 0) {
+    return new Float32Array();
+  }
+
+  const length = channels[0]?.length ?? 0;
 
   if (numberOfChannels === 1) {
-    return new Float32Array(audioBuffer.getChannelData(0));
+    const firstChannel = channels[0];
+
+    return firstChannel ? new Float32Array(firstChannel) : new Float32Array();
   }
 
   const mixed = new Float32Array(length);
@@ -31,7 +45,11 @@ function mixToMono(audioBuffer: AudioBuffer): Float32Array {
     channelIndex < numberOfChannels;
     channelIndex += 1
   ) {
-    const channel = audioBuffer.getChannelData(channelIndex);
+    const channel = channels[channelIndex];
+
+    if (!channel) {
+      continue;
+    }
 
     for (let sampleIndex = 0; sampleIndex < length; sampleIndex += 1) {
       mixed[sampleIndex] =
@@ -41,6 +59,16 @@ function mixToMono(audioBuffer: AudioBuffer): Float32Array {
   }
 
   return mixed;
+}
+
+function mixToMono(audioBuffer: AudioBuffer): Float32Array {
+  return mixChannelsToMono(
+    Array.from(
+      { length: audioBuffer.numberOfChannels },
+      (_, channelIndex) =>
+        new Float32Array(audioBuffer.getChannelData(channelIndex)),
+    ),
+  );
 }
 
 function createFrameWindow(
@@ -95,14 +123,33 @@ export function analyzeAudioBuffer(
   audioBuffer: AudioBuffer,
   options: AnalyzeAudioBufferOptions = {},
 ): AudioAnalysisSnapshot {
+  return analyzeAudioChannelData(
+    {
+      channels: Array.from(
+        { length: audioBuffer.numberOfChannels },
+        (_, channelIndex) =>
+          new Float32Array(audioBuffer.getChannelData(channelIndex)),
+      ),
+      durationMs: Math.round(audioBuffer.duration * 1000),
+      sampleRate: audioBuffer.sampleRate,
+    },
+    options,
+  );
+}
+
+export function analyzeAudioChannelData(
+  input: AnalyzeAudioChannelDataInput,
+  options: AnalyzeAudioBufferOptions = {},
+): AudioAnalysisSnapshot {
   const fps = options.fps ?? 30;
-  const mixedSamples = mixToMono(audioBuffer);
-  const durationMs = Math.round(audioBuffer.duration * 1000);
+  const mixedSamples = mixChannelsToMono(input.channels);
+  const durationMs =
+    input.durationMs ?? Math.round((mixedSamples.length / input.sampleRate) * 1000);
   const waveform = createWaveformOverview(
     mixedSamples,
-    audioBuffer.sampleRate,
+    input.sampleRate,
     options.waveformPoints ??
-      Math.max(1200, Math.round(audioBuffer.duration * 240)),
+      Math.max(1200, Math.round((durationMs / 1000) * 240)),
   );
   const frameCount = Math.max(1, Math.ceil((durationMs / 1000) * fps));
   const analyzeByteFrequencyData = createFFTAnalyzer(
@@ -120,7 +167,7 @@ export function analyzeAudioBuffer(
     const frameWindow = createFrameWindow(
       mixedSamples,
       frameIndex,
-      audioBuffer.sampleRate,
+      input.sampleRate,
       fps,
       AUDIO_ANALYZER_OPTIONS.fftSize,
     );

@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { Loader2, Upload } from "lucide-react";
 
-import { analyzeAudioBuffer } from "@spectral/audio-analysis";
 import { useProjectStore } from "@spectral/editor-store";
 import { Button } from "@spectral/ui/components/button";
 import { Input } from "@spectral/ui/components/input";
@@ -15,6 +14,7 @@ import {
   createAudioAnalysis,
   uploadFileToSignedUrl,
 } from "@/src/lib/editor-api";
+import { analyzeAudioBufferOffThread } from "@/src/lib/analyze-audio-off-thread";
 import { serializeAudioAnalysisSnapshot } from "@/src/lib/editor-runtime";
 
 type AudioUploadPanelProps = {
@@ -124,7 +124,7 @@ export function AudioUploadPanel({ projectId }: AudioUploadPanelProps) {
         },
       });
 
-      const snapshot = analyzeAudioBuffer(audioBuffer, {
+      const snapshot = await analyzeAudioBufferOffThread(audioBuffer, {
         fps: project.timing.fps,
       });
 

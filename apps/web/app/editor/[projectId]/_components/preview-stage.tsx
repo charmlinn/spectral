@@ -181,6 +181,7 @@ export function PreviewStage({
     });
 
     controller.setMaxMagnitudes(analysisSnapshot.magnitudes);
+    controller.setVolume(muted ? 0 : 1);
     realtimeAnalysisRef.current = controller;
     realtimeAnalysisReadyRef.current = false;
     runtimeRef.current?.setHistoryProvider(analysisProvider);
@@ -346,9 +347,11 @@ export function PreviewStage({
       return;
     }
 
+    const realtimeController = realtimeAnalysisRef.current;
+
     audioElement.muted = muted;
     audioElement.playbackRate = playbackRate;
-    realtimeAnalysisRef.current?.setVolume(muted ? 0 : 1);
+    realtimeController?.setVolume(muted ? 0 : 1);
   }, [muted, playbackRate]);
 
   useEffect(() => {

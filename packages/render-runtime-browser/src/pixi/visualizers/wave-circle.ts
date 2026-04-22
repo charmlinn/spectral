@@ -78,6 +78,7 @@ export class WaveCircleRenderer {
     private readonly assetResolver: RenderAssetResolver | null | undefined,
   ) {
     this.container.sortableChildren = true;
+    this.container.zIndex = 3;
     this.logoContainer.zIndex = 10.1;
     this.visualsContainer.zIndex = 10;
     this.visualsContainer.sortableChildren = true;

@@ -105,9 +105,41 @@ function getBassSpectrumSlice(spectrum: Float32Array) {
   return spectrum.slice(0, Math.max(12, Math.floor(spectrum.length * 0.18)));
 }
 
+function waveformPointToMagnitude(point: { min: number; max: number }) {
+  return Math.max(Math.abs(point.min), Math.abs(point.max)) * 255;
+}
+
+function getWaveformHistory(
+  input: BrowserRenderAdapterRenderInput,
+  targetPoints: number,
+) {
+  const provider = input.historyProvider ?? input.analysisProvider;
+  const history: number[][] = [];
+  const frameMs = 1000 / Math.max(1, input.frameContext.fps);
+  const windowDurationMs = 500;
+
+  for (
+    let frameDelay = 0;
+    frameDelay < SPECTERR_HISTORY_LIMIT;
+    frameDelay += 1
+  ) {
+    const centerTimeMs = Math.max(0, input.frameContext.timeMs - frameDelay * frameMs);
+    const startMs = Math.max(0, centerTimeMs - windowDurationMs / 2);
+    const endMs = centerTimeMs + windowDurationMs / 2;
+    const waveform = provider?.getWaveformSlice(startMs, endMs, targetPoints);
+
+    history.push(
+      waveform?.points.map((point) => waveformPointToMagnitude(point)) ?? [],
+    );
+  }
+
+  return history;
+}
+
 function getSpectrumHistory(
   input: BrowserRenderAdapterRenderInput,
   waveType: string,
+  targetPoints: number,
 ): number[][] {
   const historyProvider = (input.historyProvider ?? input.analysisProvider) as
     | ((typeof input.historyProvider | typeof input.analysisProvider) & {
@@ -118,6 +150,10 @@ function getSpectrumHistory(
     | undefined;
   const fallbackProvider = input.analysisProvider ?? input.historyProvider;
   const normalizedWaveType = normalizeVisualizerWaveType(waveType);
+
+  if (normalizedWaveType === "waveform") {
+    return getWaveformHistory(input, targetPoints);
+  }
 
   if (normalizedWaveType.includes("bass")) {
     try {
@@ -175,7 +211,11 @@ export function getSpectrumForVisualizer(
   waveType: string,
 ) {
   const normalizedWaveType = normalizeVisualizerWaveType(waveType);
-  const spectrumHistory = getSpectrumHistory(input, normalizedWaveType);
+  const spectrumHistory = getSpectrumHistory(
+    input,
+    normalizedWaveType,
+    ringOptions.spectrumOptions.barCount ?? layer.props.spectrum.length,
+  );
   const targetSpectrum =
     spectrumHistory[ringOptions.frameDelay] ??
     spectrumHistory[0] ??

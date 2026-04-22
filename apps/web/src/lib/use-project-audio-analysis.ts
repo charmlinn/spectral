@@ -3,13 +3,13 @@
 import { useEffect, useState } from "react";
 
 import {
-  analyzeAudioBuffer,
   createArrayAudioAnalysisProvider,
   type AudioAnalysisSnapshot,
   type AudioAnalysisProvider,
 } from "@spectral/audio-analysis";
 
 import { createAudioAnalysis, getAudioAnalysis } from "./editor-api";
+import { analyzeAudioBufferOffThread } from "./analyze-audio-off-thread";
 import {
   createAudioAnalysisSnapshotFromDto,
   resolveProjectAudioUrl,
@@ -98,7 +98,7 @@ export function useProjectAudioAnalysis({
         }
 
         const audioBuffer = await decodeAudioFromUrl(audioUrl);
-        const snapshot = analyzeAudioBuffer(audioBuffer, {
+        const snapshot = await analyzeAudioBufferOffThread(audioBuffer, {
           fps,
         });
         const persisted = await createAudioAnalysis({

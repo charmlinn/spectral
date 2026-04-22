@@ -75,15 +75,22 @@ void main() {
 }
 `;
 
+type HslUniforms = {
+  uAlpha: number;
+  uColorize: number;
+  uHue: number;
+  uLightness: number;
+  uSaturation: number;
+};
+
+type HslUniformGroup = {
+  uniforms: HslUniforms;
+  update(): void;
+};
+
 type HslAdjustmentFilterInstance = Filter & {
   resources: {
-    hslUniforms: {
-      uAlpha: number;
-      uColorize: number;
-      uHue: number;
-      uLightness: number;
-      uSaturation: number;
-    };
+    hslUniforms: HslUniformGroup;
   };
 };
 
@@ -116,15 +123,19 @@ export function updateHslAdjustmentFilter(
     saturation: number;
   },
 ) {
+  const uniformGroup = filter.resources.hslUniforms;
+  const uniforms = uniformGroup.uniforms;
+
   filter.enabled =
     input.alpha > 0 ||
     input.colorize ||
     input.hue !== 0 ||
     input.lightness !== 0 ||
     input.saturation !== 0;
-  filter.resources.hslUniforms.uHue = (input.hue * Math.PI) / 180;
-  filter.resources.hslUniforms.uAlpha = input.alpha;
-  filter.resources.hslUniforms.uColorize = input.colorize ? 1 : 0;
-  filter.resources.hslUniforms.uLightness = input.lightness;
-  filter.resources.hslUniforms.uSaturation = input.saturation;
+  uniforms.uHue = (input.hue * Math.PI) / 180;
+  uniforms.uAlpha = input.alpha;
+  uniforms.uColorize = input.colorize ? 1 : 0;
+  uniforms.uLightness = input.lightness;
+  uniforms.uSaturation = input.saturation;
+  uniformGroup.update();
 }

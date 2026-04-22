@@ -113,6 +113,7 @@ export function buildSceneGraph(input: BuildSceneGraphInput): RenderSceneGraph {
       props: {
         particles: input.project.overlays.particles,
         amplitude,
+        bassSpectrum,
       },
     });
   }
