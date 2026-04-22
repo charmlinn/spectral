@@ -6,7 +6,7 @@ import { PixiTextContainer } from "../text/text-container";
 type TextLayer = Extract<RenderLayer, { kind: "text" }>;
 
 export class PixiTextLayer {
-  private readonly textContainer = new PixiTextContainer(30);
+  private readonly textContainer = new PixiTextContainer(20);
 
   get container() {
     return this.textContainer.container;

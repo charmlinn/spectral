@@ -6,7 +6,7 @@ import { PixiLyricsContainer } from "../text/lyrics-container";
 type LyricsLayer = Extract<RenderLayer, { kind: "lyrics" }>;
 
 export class PixiLyricsLayer {
-  private readonly lyricsContainer = new PixiLyricsContainer(20);
+  private readonly lyricsContainer = new PixiLyricsContainer(30);
 
   get container() {
     return this.lyricsContainer.container;

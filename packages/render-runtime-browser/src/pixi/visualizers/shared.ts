@@ -1,11 +1,11 @@
 import {
   AlphaFilter,
   DisplacementFilter,
-  Graphics,
   Sprite,
-  Texture,
   WRAP_MODES,
   type Container,
+  type Graphics,
+  type Texture,
 } from "pixi.js";
 import chroma from "chroma-js";
 import { AdvancedBloomFilter, DropShadowFilter } from "pixi-filters";
@@ -231,7 +231,7 @@ export function createVisualizerDropShadowFilters(multiplier: number) {
   const shadowSettings = {
     blur: 0,
     color: 0x000000,
-    offset: { x: 0, y: 0 },
+    distance: 0,
     quality: 10,
   } as const;
 
@@ -263,6 +263,7 @@ export function updateGlowFilter(
     scale: number;
   },
 ) {
+  bloomFilter.padding = 100 * input.multiplier;
   bloomFilter.blur = input.blur * input.multiplier;
   bloomFilter.bloomScale = input.scale;
   waveContainer.alpha =
@@ -280,6 +281,7 @@ export function updateDisplacementFilter(
   },
 ) {
   displacementFilter.enabled = input.enabled;
+  displacementFilter.padding = 110 * input.multiplier;
   displacementFilter.scale.x = input.intensity * input.multiplier;
   displacementFilter.scale.y = input.intensity * input.multiplier * 10;
   displacementSprite.scale.set(input.detail, input.detail);
@@ -306,6 +308,7 @@ export function updateDropShadowFilters(
   filters.waveShadowFilter1.enabled = waveShadowEnabled;
   filters.waveShadowFilter2.enabled = waveShadowEnabled;
   filters.waveShadowPaddingFilter.enabled = waveShadowEnabled;
+  filters.waveShadowPaddingFilter.padding = 100 * input.multiplier;
 
   for (const filter of [
     filters.glowShadowFilter1,

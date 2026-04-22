@@ -66,10 +66,10 @@ export class PreviewElementsPipeline {
   get containers() {
     return [
       this.renderElements.background.container,
-      this.renderElements.visualizer.container,
       this.renderElements.particles.container,
-      this.renderElements.lyrics.container,
+      this.renderElements.visualizer.container,
       this.renderElements.text.container,
+      this.renderElements.lyrics.container,
     ];
   }
 
@@ -79,8 +79,8 @@ export class PreviewElementsPipeline {
 
   async draw(input: BrowserRenderAdapterRenderInput) {
     await this.renderElements.background.render(this.layers.backdrop, input);
-    await this.renderElements.visualizer.render(this.layers.visualizer, input);
     this.renderElements.particles.render(this.layers.particles, input);
+    await this.renderElements.visualizer.render(this.layers.visualizer, input);
     this.renderElements.text.render(this.layers.text, input);
     this.renderElements.lyrics.render(this.layers.lyrics, input);
   }
@@ -93,4 +93,3 @@ export class PreviewElementsPipeline {
     this.renderElements.lyrics.destroy();
   }
 }
-

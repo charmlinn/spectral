@@ -41,7 +41,7 @@ export function buildSceneGraph(input: BuildSceneGraphInput): RenderSceneGraph {
     {
       id: "backdrop",
       kind: "backdrop",
-      zIndex: 0,
+      zIndex: 1,
       startMs: 0,
       endMs: null,
       props: {
@@ -77,7 +77,7 @@ export function buildSceneGraph(input: BuildSceneGraphInput): RenderSceneGraph {
     layers.push({
       id: "visualizer",
       kind: "visualizer",
-      zIndex: 10,
+      zIndex: 3,
       startMs: 0,
       endMs: null,
       props: {
@@ -93,7 +93,7 @@ export function buildSceneGraph(input: BuildSceneGraphInput): RenderSceneGraph {
   layers.push({
     id: "lyrics",
     kind: "lyrics",
-    zIndex: 20,
+    zIndex: 5,
     startMs: 0,
     endMs: null,
     props: {
@@ -107,7 +107,7 @@ export function buildSceneGraph(input: BuildSceneGraphInput): RenderSceneGraph {
     layers.push({
       id: "particles",
       kind: "particles",
-      zIndex: 15,
+      zIndex: 2,
       startMs: 0,
       endMs: null,
       props: {
@@ -122,7 +122,7 @@ export function buildSceneGraph(input: BuildSceneGraphInput): RenderSceneGraph {
     layers.push({
       id: layer.id,
       kind: "text",
-      zIndex: 30,
+      zIndex: 4,
       startMs: layer.startMs,
       endMs: layer.endMs,
       props: {

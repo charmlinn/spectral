@@ -20,6 +20,7 @@ export class PixiSceneRenderer {
 
   async render(input: BrowserRenderAdapterRenderInput) {
     this.pipeline.update(input);
+    this.root.sortChildren();
     await this.pipeline.draw(input);
   }
 
