@@ -399,8 +399,8 @@ export abstract class ReactiveMedia {
     this.adjustmentFilter.contrast = contrast;
     this.crtFilter.vignetting = vignette;
     this.zoomBlurFilter.center = {
-      x: input.surface.width / 2 + (drift?.translateX ?? 0) + shake.x,
-      y: input.surface.height / 2 + (drift?.translateY ?? 0) + shake.y,
+      x: input.surface.width / 2,
+      y: input.surface.height / 2,
     };
     this.zoomBlurFilter.strength = zoomBlurStrength;
     this.zoomBlurFilter.innerRadius = 0;
