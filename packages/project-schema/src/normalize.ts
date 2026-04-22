@@ -75,6 +75,26 @@ function normalizeNullableHexColor(
 export function normalizeVideoProject(input: unknown): VideoProject {
   const defaults = createDefaultVideoProject();
   const merged = mergeValue(defaults, input);
+  const usesLegacyBlankEditorBackdropDefaults =
+    merged.meta.source === "editor" &&
+    merged.meta.presetId === null &&
+    merged.source.legacyPresetId === null &&
+    merged.backdrop.source === null &&
+    merged.backdrop.bounceEnabled === false &&
+    merged.backdrop.shakeEnabled === false &&
+    merged.backdrop.filterEnabled === false &&
+    merged.backdrop.vignetteEnabled === false &&
+    merged.backdrop.contrastEnabled === false &&
+    merged.backdrop.zoomBlurEnabled === false;
+  const usesLegacyBlankEditorParticleDefaults =
+    merged.meta.source === "editor" &&
+    merged.meta.presetId === null &&
+    merged.source.legacyPresetId === null &&
+    merged.overlays.particles.enabled === false &&
+    merged.overlays.particles.items === "dots" &&
+    merged.overlays.particles.birthRate === 0 &&
+    merged.overlays.particles.maxSize === 0 &&
+    merged.overlays.particles.minSize === 0;
   const usesLegacyBackdropRuntimePlaceholders =
     merged.backdrop.paddingFactor === 1 &&
     merged.backdrop.shakeFactor === 18 &&
@@ -121,6 +141,9 @@ export function normalizeVideoProject(input: unknown): VideoProject {
     },
     backdrop: {
       ...merged.backdrop,
+      ...(usesLegacyBlankEditorBackdropDefaults
+        ? defaults.backdrop
+        : {}),
       ...(shouldApplyLegacySpecterrBackdropDefaults
         ? {
             bounceScale: defaults.backdrop.bounceScale,
@@ -134,6 +157,12 @@ export function normalizeVideoProject(input: unknown): VideoProject {
             zoomBlurFactor: defaults.backdrop.zoomBlurFactor,
           }
         : {}),
+    },
+    overlays: {
+      ...merged.overlays,
+      particles: usesLegacyBlankEditorParticleDefaults
+        ? defaults.overlays.particles
+        : merged.overlays.particles,
     },
     lyrics: {
       ...merged.lyrics,

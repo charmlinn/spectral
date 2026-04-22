@@ -9,6 +9,20 @@ function getBassSpectrum(spectrum: Float32Array): Float32Array {
   return spectrum.slice(0, Math.max(12, Math.floor(spectrum.length * 0.18)));
 }
 
+function hasRenderableParticles(
+  particles: BuildSceneGraphInput["project"]["overlays"]["particles"],
+) {
+  if (particles.enabled) {
+    return true;
+  }
+
+  if (Array.isArray(particles.items)) {
+    return particles.items.some((item) => (item.birthRate ?? 0) > 0);
+  }
+
+  return (particles.birthRate ?? 0) > 0;
+}
+
 function getActiveLyricsProps(input: BuildSceneGraphInput) {
   const { segments } = input.project.lyrics;
   const activeIndex = segments.findIndex(
@@ -48,7 +62,9 @@ export function buildSceneGraph(input: BuildSceneGraphInput): RenderSceneGraph {
         viewport: input.project.viewport,
         source: input.project.backdrop.source,
         sourceKind: input.project.backdrop.source?.kind ?? null,
-        bounceEnabled: input.project.backdrop.bounceEnabled,
+        bounceEnabled:
+          input.project.backdrop.shakeEnabled ||
+          input.project.backdrop.bounceEnabled,
         bounceScale: input.project.backdrop.bounceScale,
         paddingFactor: input.project.backdrop.paddingFactor,
         reflection: input.project.backdrop.reflection,
@@ -57,13 +73,19 @@ export function buildSceneGraph(input: BuildSceneGraphInput): RenderSceneGraph {
         shakeEnabled: input.project.backdrop.shakeEnabled,
         shakeFactor: input.project.backdrop.shakeFactor,
         filterEnabled: input.project.backdrop.filterEnabled,
-        vignetteEnabled: input.project.backdrop.vignetteEnabled,
+        vignetteEnabled:
+          input.project.backdrop.filterEnabled ||
+          input.project.backdrop.vignetteEnabled,
         maxVignette: input.project.backdrop.maxVignette,
         vignetteFactor: input.project.backdrop.vignetteFactor,
-        contrastEnabled: input.project.backdrop.contrastEnabled,
+        contrastEnabled:
+          input.project.backdrop.filterEnabled ||
+          input.project.backdrop.contrastEnabled,
         maxContrast: input.project.backdrop.maxContrast,
         contrastFactor: input.project.backdrop.contrastFactor,
-        zoomBlurEnabled: input.project.backdrop.zoomBlurEnabled,
+        zoomBlurEnabled:
+          input.project.backdrop.shakeEnabled ||
+          input.project.backdrop.zoomBlurEnabled,
         maxZoomBlur: input.project.backdrop.maxZoomBlur,
         zoomBlurFactor: input.project.backdrop.zoomBlurFactor,
         amplitude,
@@ -103,7 +125,7 @@ export function buildSceneGraph(input: BuildSceneGraphInput): RenderSceneGraph {
     },
   });
 
-  if (input.project.overlays.particles.enabled) {
+  if (hasRenderableParticles(input.project.overlays.particles)) {
     layers.push({
       id: "particles",
       kind: "particles",

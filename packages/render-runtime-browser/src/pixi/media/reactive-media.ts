@@ -303,21 +303,21 @@ export abstract class ReactiveMedia {
       };
     }
     const normalizedBassAmplitude = normalizeAmplitude(layer.props.bassAmplitude);
-    const drift = computeDriftTransform({
-      drift: layer.props.drift,
-      kind: "backdrop",
-      timeMs: input.frameContext.timeMs,
-      spectrumMagnitude: layer.props.bassAmplitude,
-      width: input.surface.width,
-      height: input.surface.height,
-    });
-    const baseScale = drift?.scale ?? 1;
     const cover = computeCoverDimensions(
       resolvedMediaWidth,
       resolvedMediaHeight,
       input.surface.width,
       input.surface.height,
     );
+    const drift = computeDriftTransform({
+      drift: layer.props.drift,
+      kind: "backdrop",
+      timeMs: input.frameContext.timeMs,
+      spectrumMagnitude: layer.props.bassAmplitude,
+      width: cover.width,
+      height: cover.height,
+    });
+    const baseScale = drift?.scale ?? 1;
     const shakeEnabled = !drift && layer.props.shakeEnabled;
     const paddingFactor = shakeEnabled
       ? Math.max(1, layer.props.paddingFactor)

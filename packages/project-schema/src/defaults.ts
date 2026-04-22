@@ -7,6 +7,9 @@ import {
 } from "./constants";
 import type { VideoProject } from "./schema";
 
+const SPECTERR_DEFAULT_BACKGROUND_URL =
+  "https://specterr.b-cdn.net/bg-default.jpg";
+
 export function createDefaultVideoProject(
   overrides: Partial<VideoProject> = {},
 ): VideoProject {
@@ -113,31 +116,38 @@ export function createDefaultVideoProject(
       glowType: "outer",
     },
     backdrop: {
-      source: null,
-      bounceEnabled: false,
+      source: {
+        assetId: null,
+        storageKey: null,
+        url: SPECTERR_DEFAULT_BACKGROUND_URL,
+        kind: "image",
+        origin: "preset",
+        mimeType: null,
+      },
+      bounceEnabled: true,
       bounceScale: -1.5,
       paddingFactor: 1.1,
-      shakeEnabled: false,
+      shakeEnabled: true,
       shakeFactor: 300,
-      filterEnabled: false,
+      filterEnabled: true,
       rotation: 0,
-      vignetteEnabled: false,
+      vignetteEnabled: true,
       maxVignette: 0.2,
       vignetteFactor: 5,
-      contrastEnabled: false,
+      contrastEnabled: true,
       maxContrast: 1.2,
       contrastFactor: 6,
-      zoomBlurEnabled: false,
+      zoomBlurEnabled: true,
       maxZoomBlur: 0.5,
       zoomBlurFactor: 1.7,
       reflection: {
         type: "none",
-        direction: "down",
+        direction: "right",
       },
       hlsAdjustment: {
         enabled: false,
         colorize: false,
-        alpha: 0,
+        alpha: 1,
         hue: 0,
         lightness: 0,
         saturation: 0,
@@ -191,16 +201,16 @@ export function createDefaultVideoProject(
     textLayers: [],
     overlays: {
       particles: {
-        enabled: false,
-        speedUpEnabled: false,
-        direction: "up",
+        enabled: true,
+        speedUpEnabled: true,
+        direction: "out",
         items: "dots",
-        color: "#ffffff",
-        birthRate: 0,
-        maxSize: 0,
-        minSize: 0,
+        color: "#fbfbfb",
+        birthRate: 35,
+        maxSize: 0.3,
+        minSize: 0.1,
         maxOpacity: 1,
-        minOpacity: 0,
+        minOpacity: 0.2,
       },
       youTubeCta: {
         enabled: false,
