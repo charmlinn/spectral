@@ -13,13 +13,19 @@ import {
 } from "../../adapters/canvas-media";
 import {
   clamp,
-  getBackdropMirrorAxes,
-  getReflectionAngles,
   normalizeAmplitude,
   toRadians,
 } from "../../adapters/canvas-utils";
 import type { BrowserRenderAdapterRenderInput } from "../../contracts/runtime";
 import { createHslAdjustmentFilter, updateHslAdjustmentFilter } from "../filters/hsl-adjustment-filter";
+import {
+  createDirectionalMirrorFilter,
+  updateDirectionalMirrorFilter,
+} from "../filters/reflection/directional-mirror-filter";
+import {
+  createQuadrantMirrorFilter,
+  updateQuadrantMirrorFilter,
+} from "../filters/reflection/quadrant-mirror-filter";
 import { mediaSourceDimensions } from "./media-source-dimension-tracker";
 
 type BackdropLayer = Extract<RenderLayer, { kind: "backdrop" }>;
@@ -52,9 +58,10 @@ function computeCoverDimensions(
 
 export abstract class ReactiveMedia {
   readonly container = new Container();
-  protected readonly spriteContainer = new Container();
-  protected readonly sprites = [new Sprite(), new Sprite(), new Sprite(), new Sprite()];
+  protected readonly sprite = new Sprite();
   protected readonly mediaCache: MediaCache = createMediaCache();
+  protected readonly directionalMirrorFilter = createDirectionalMirrorFilter();
+  protected readonly quadrantMirrorFilter = createQuadrantMirrorFilter();
   protected readonly hslFilter = createHslAdjustmentFilter();
   protected readonly crtFilter = new CRTFilter({
     curvature: 0,
@@ -90,21 +97,128 @@ export abstract class ReactiveMedia {
     protected readonly assetResolver: RenderAssetResolver | null | undefined,
   ) {
     this.container.zIndex = 0;
-    this.spriteContainer.filters = [
+    this.sprite.anchor.set(0.5);
+    this.directionalMirrorFilter.enabled = false;
+    this.quadrantMirrorFilter.enabled = false;
+    this.sprite.filters = [
+      this.directionalMirrorFilter,
+      this.quadrantMirrorFilter,
       this.hslFilter,
       this.crtFilter,
       this.adjustmentFilter,
       this.zoomBlurFilter,
     ];
-    this.container.addChild(this.spriteContainer);
-
-    for (const sprite of this.sprites) {
-      sprite.anchor.set(0.5);
-      this.spriteContainer.addChild(sprite);
-    }
+    this.container.addChild(this.sprite);
   }
 
   protected abstract accepts(media: LoadedMedia): boolean;
+
+  private normalizeReflectionType(value: unknown) {
+    if (typeof value === "number") {
+      if (value === 2) {
+        return "four-way";
+      }
+
+      if (value === 1) {
+        return "two-way";
+      }
+
+      return "none";
+    }
+
+    const normalized = String(value ?? "none").trim().toLowerCase();
+
+    if (normalized.includes("4") || normalized.includes("four")) {
+      return "four-way";
+    }
+
+    if (normalized.includes("2") || normalized.includes("two")) {
+      return "two-way";
+    }
+
+    return "none";
+  }
+
+  private normalizeReflectionDirection(value: unknown) {
+    if (typeof value === "number" && value >= 0 && value <= 3) {
+      return value;
+    }
+
+    const normalized = String(value ?? "down").trim().toLowerCase();
+
+    if (normalized.includes("left")) {
+      return 3;
+    }
+
+    if (normalized.includes("right")) {
+      return 1;
+    }
+
+    if (normalized.includes("up") || normalized.includes("bottom")) {
+      return 2;
+    }
+
+    return 0;
+  }
+
+  private updateReflectionFilters(
+    layer: BackdropLayer,
+    width: number,
+    height: number,
+  ) {
+    const reflectionType = this.normalizeReflectionType(layer.props.reflection.type);
+    const reflectionDirection = this.normalizeReflectionDirection(
+      layer.props.reflection.direction,
+    );
+
+    if (reflectionType === "two-way") {
+      updateDirectionalMirrorFilter(this.directionalMirrorFilter, {
+        boundary: 0.5,
+        direction: reflectionDirection,
+        enabled: true,
+        height,
+        width,
+      });
+      updateQuadrantMirrorFilter(this.quadrantMirrorFilter, {
+        direction: reflectionDirection,
+        enabled: false,
+        height,
+        width,
+      });
+      return;
+    }
+
+    if (reflectionType === "four-way") {
+      updateQuadrantMirrorFilter(this.quadrantMirrorFilter, {
+        direction: reflectionDirection,
+        enabled: true,
+        height,
+        width,
+      });
+      updateDirectionalMirrorFilter(this.directionalMirrorFilter, {
+        boundary: 0.5,
+        direction: reflectionDirection,
+        enabled: false,
+        height,
+        width,
+      });
+      return;
+    }
+
+    updateDirectionalMirrorFilter(this.directionalMirrorFilter, {
+      boundary: 0.5,
+      direction: reflectionDirection,
+      enabled: false,
+      height,
+      width,
+    });
+    updateQuadrantMirrorFilter(this.quadrantMirrorFilter, {
+      direction: reflectionDirection,
+      enabled: false,
+      height,
+      width,
+    });
+  }
 
   protected async ensureTexture(layer: BackdropLayer) {
     if (!layer.props.source) {
@@ -157,11 +271,11 @@ export abstract class ReactiveMedia {
     const loaded = await this.ensureTexture(layer);
 
     if (!loaded) {
-      this.spriteContainer.visible = false;
+      this.sprite.visible = false;
       return;
     }
 
-    this.spriteContainer.visible = true;
+    this.sprite.visible = true;
     this.syncDynamicTexture(input.frameContext.timeMs);
 
     const mediaWidth =
@@ -224,11 +338,6 @@ export abstract class ReactiveMedia {
             normalizedBassAmplitude,
         }
       : { x: 0, y: 0 };
-    const reflectionAngles =
-      layer.props.reflection.type === "none"
-        ? [0]
-        : getReflectionAngles(layer.props.reflection.type);
-    const mirrorAxes = getBackdropMirrorAxes(layer.props.reflection.direction);
     const contrast = layer.props.contrastEnabled
       ? Math.min(
           Math.max(1, layer.props.maxContrast),
@@ -255,6 +364,7 @@ export abstract class ReactiveMedia {
       lightness: layer.props.hlsAdjustment.lightness,
       saturation: layer.props.hlsAdjustment.saturation,
     });
+    this.updateReflectionFilters(layer, input.surface.width, input.surface.height);
     this.adjustmentFilter.contrast = contrast;
     this.crtFilter.vignetting = vignette;
     this.zoomBlurFilter.center = {
@@ -264,35 +374,17 @@ export abstract class ReactiveMedia {
     this.zoomBlurFilter.strength = zoomBlurStrength;
     this.zoomBlurFilter.innerRadius = 0;
     this.zoomBlurFilter.radius = input.surface.height / 2;
-    this.spriteContainer.position.set(
+    this.sprite.position.set(
       input.surface.width / 2 + (drift?.translateX ?? 0) + shake.x,
       input.surface.height / 2 + (drift?.translateY ?? 0) + shake.y,
     );
-    this.spriteContainer.rotation =
+    this.sprite.rotation =
       toRadians(layer.props.rotation) + (drift?.rotationRad ?? 0);
-
-    for (let index = 0; index < this.sprites.length; index += 1) {
-      const sprite = this.sprites[index]!;
-      const angle = reflectionAngles[index];
-
-      if (angle === undefined) {
-        sprite.visible = false;
-        continue;
-      }
-
-      sprite.visible = true;
-      sprite.texture = loaded.texture;
-      sprite.width = baseWidth;
-      sprite.height = baseHeight;
-      sprite.rotation = angle;
-      sprite.alpha = index === 0 ? 1 : 0.4;
-
-      if (index === 0) {
-        sprite.scale.set(1, 1);
-      } else {
-        sprite.scale.set(mirrorAxes.x, mirrorAxes.y);
-      }
-    }
+    this.sprite.texture = loaded.texture;
+    this.sprite.width = baseWidth;
+    this.sprite.height = baseHeight;
+    this.sprite.alpha = 1;
+    this.sprite.scale.set(1, 1);
   }
 
   destroy() {
