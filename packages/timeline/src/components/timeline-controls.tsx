@@ -21,6 +21,21 @@ export function TimelineControls({
   onDuplicateSelected,
   onDeleteSelected,
 }: TimelineControlsProps) {
+  const buttonStyle: React.CSSProperties = {
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    minWidth: 28,
+    height: 28,
+    paddingInline: 10,
+    borderRadius: 999,
+    border: "1px solid rgba(255,255,255,0.08)",
+    background: "rgba(255,255,255,0.03)",
+    color: "#e4e4e7",
+    fontSize: 12,
+    fontWeight: 600,
+  };
+
   return (
     <div
       style={{
@@ -30,21 +45,36 @@ export function TimelineControls({
         padding: "8px 12px",
         borderBottom: "1px solid rgba(255,255,255,0.08)",
         color: "#f4f4f5",
-        background: "#121316",
+        background: "linear-gradient(180deg, #14171d 0%, #101319 100%)",
       }}
     >
       <button
         type="button"
-        onClick={() => onZoomChange?.(Math.max(minPxPerSecond, pxPerSecond * 0.9))}
+        onClick={() =>
+          onZoomChange?.(Math.max(minPxPerSecond, pxPerSecond * 0.9))
+        }
+        style={buttonStyle}
       >
         -
       </button>
-      <span style={{ minWidth: 72, textAlign: "center", fontSize: 12 }}>
+      <span
+        style={{
+          minWidth: 86,
+          textAlign: "center",
+          fontSize: 12,
+          fontWeight: 600,
+          letterSpacing: "0.04em",
+          color: "#cbd5e1",
+        }}
+      >
         {Math.round(pxPerSecond)} px/s
       </span>
       <button
         type="button"
-        onClick={() => onZoomChange?.(Math.min(maxPxPerSecond, pxPerSecond * 1.1))}
+        onClick={() =>
+          onZoomChange?.(Math.min(maxPxPerSecond, pxPerSecond * 1.1))
+        }
+        style={buttonStyle}
       >
         +
       </button>
@@ -63,13 +93,17 @@ export function TimelineControls({
           >
             {selectedSegmentLabel}
           </span>
-          <button type="button" onClick={onSplitSelected}>
+          <button type="button" onClick={onSplitSelected} style={buttonStyle}>
             Split
           </button>
-          <button type="button" onClick={onDuplicateSelected}>
+          <button
+            type="button"
+            onClick={onDuplicateSelected}
+            style={buttonStyle}
+          >
             Duplicate
           </button>
-          <button type="button" onClick={onDeleteSelected}>
+          <button type="button" onClick={onDeleteSelected} style={buttonStyle}>
             Delete
           </button>
         </>

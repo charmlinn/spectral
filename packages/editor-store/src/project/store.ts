@@ -1,6 +1,8 @@
 import {
   createDefaultVideoProject,
+  getAspectRatioDimensions,
   normalizeVideoProject,
+  type SupportedAspectRatio,
   type VideoProject,
 } from "@spectral/project-schema";
 import { create } from "zustand";
@@ -22,6 +24,7 @@ export type ProjectStoreState = {
   future: VideoProject[];
   setProject(project: VideoProject, snapshotVersion?: string | null): void;
   applyPatch(patch: ProjectPatch): void;
+  setAspectRatio(aspectRatio: SupportedAspectRatio): void;
   updateAtPath(path: string | string[], value: unknown): void;
   markSaved(snapshotVersion?: string | null): void;
   reset(project?: VideoProject): void;
@@ -29,12 +32,18 @@ export type ProjectStoreState = {
   redo(): void;
 };
 
-function pushHistory(history: VideoProject[], project: VideoProject): VideoProject[] {
+function pushHistory(
+  history: VideoProject[],
+  project: VideoProject,
+): VideoProject[] {
   const nextHistory = [...history, cloneValue(project)];
   return nextHistory.slice(Math.max(0, nextHistory.length - HISTORY_LIMIT));
 }
 
-function resolveProjectPatch(project: VideoProject, patch: ProjectPatch): VideoProject {
+function resolveProjectPatch(
+  project: VideoProject,
+  patch: ProjectPatch,
+): VideoProject {
   if (typeof patch === "function") {
     return normalizeVideoProject(patch(cloneValue(project)));
   }
@@ -69,9 +78,36 @@ export const useProjectStore = create<ProjectStoreState>()(
         future: [],
       }));
     },
+    setAspectRatio(aspectRatio) {
+      const current = get().project;
+      const dimensions = getAspectRatioDimensions(aspectRatio);
+      const nextProject = normalizeVideoProject({
+        ...current,
+        viewport: {
+          ...current.viewport,
+          width: dimensions.width,
+          height: dimensions.height,
+          aspectRatio,
+        },
+        export: {
+          ...current.export,
+          width: dimensions.width,
+          height: dimensions.height,
+        },
+      });
+
+      set((state) => ({
+        project: nextProject,
+        dirty: true,
+        history: pushHistory(state.history, current),
+        future: [],
+      }));
+    },
     updateAtPath(path, value) {
       const current = get().project;
-      const nextProject = normalizeVideoProject(setValueAtPath(current, path, value));
+      const nextProject = normalizeVideoProject(
+        setValueAtPath(current, path, value),
+      );
 
       set((state) => ({
         project: nextProject,
@@ -130,7 +166,9 @@ export const useProjectStore = create<ProjectStoreState>()(
 
 export const projectSelectors = {
   selectProject: (state: ProjectStoreState) => state.project,
-  selectDurationMs: (state: ProjectStoreState) => state.project.timing.durationMs,
-  selectLyricsSegments: (state: ProjectStoreState) => state.project.lyrics.segments,
+  selectDurationMs: (state: ProjectStoreState) =>
+    state.project.timing.durationMs,
+  selectLyricsSegments: (state: ProjectStoreState) =>
+    state.project.lyrics.segments,
   selectDirty: (state: ProjectStoreState) => state.dirty,
 };

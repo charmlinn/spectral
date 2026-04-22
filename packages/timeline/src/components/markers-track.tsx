@@ -22,7 +22,8 @@ export function MarkersTrack({
         position: "relative",
         width,
         height: 28,
-        background: "#121316",
+        background:
+          "linear-gradient(180deg, rgba(18,20,25,0.98) 0%, rgba(15,17,22,0.98) 100%)",
         borderTop: "1px solid rgba(255,255,255,0.05)",
       }}
     >

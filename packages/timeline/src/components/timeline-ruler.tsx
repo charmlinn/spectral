@@ -1,7 +1,12 @@
 import React from "react";
 
 import type { TimelineRulerProps } from "../types";
-import { formatTimelineTime, getNiceTickStepMs, getTimelineWidth, msToPixels } from "../lib/time";
+import {
+  formatTimelineTime,
+  getNiceTickStepMs,
+  getTimelineWidth,
+  msToPixels,
+} from "../lib/time";
 
 export function TimelineRuler({ durationMs, pxPerSecond }: TimelineRulerProps) {
   const tickStepMs = getNiceTickStepMs(pxPerSecond);
@@ -19,7 +24,7 @@ export function TimelineRuler({ durationMs, pxPerSecond }: TimelineRulerProps) {
         width,
         height: 28,
         borderBottom: "1px solid rgba(255,255,255,0.08)",
-        background: "#17181d",
+        background: "linear-gradient(180deg, #171b22 0%, #13161d 100%)",
       }}
     >
       {ticks.map((timeMs) => (
@@ -30,16 +35,17 @@ export function TimelineRuler({ durationMs, pxPerSecond }: TimelineRulerProps) {
             insetBlock: 0,
             left: msToPixels(timeMs, pxPerSecond),
             width: 1,
-            background: "rgba(255,255,255,0.14)",
+            background: "rgba(255,255,255,0.12)",
           }}
         >
           <span
             style={{
               position: "absolute",
-              top: 6,
+              top: 7,
               left: 6,
               fontSize: 11,
-              color: "#a1a1aa",
+              color: "#94a3b8",
+              letterSpacing: "0.04em",
               whiteSpace: "nowrap",
             }}
           >

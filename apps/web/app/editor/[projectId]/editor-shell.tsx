@@ -59,20 +59,27 @@ const exportEventTypes = [
 
 function pickCurrentJobId(jobs: ExportJobDto[]) {
   return (
-    jobs.find((job) => job.status === "queued" || job.status === "running")?.id ??
+    jobs.find((job) => job.status === "queued" || job.status === "running")
+      ?.id ??
     jobs[0]?.id ??
     null
   );
 }
 
-export function EditorShell({ projectId, initialProjectDetail, initialExportJobs }: EditorShellProps) {
+export function EditorShell({
+  projectId,
+  initialProjectDetail,
+  initialExportJobs,
+}: EditorShellProps) {
   const [hydrated, setHydrated] = useState(false);
   const [mobileInspectorOpen, setMobileInspectorOpen] = useState(false);
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [saveError, setSaveError] = useState<string | null>(null);
   const [exportState, setExportState] = useState<ExportState>("idle");
   const [exportError, setExportError] = useState<string | null>(null);
-  const [lastSavedAt, setLastSavedAt] = useState(initialProjectDetail.activeSnapshot?.createdAt ?? null);
+  const [lastSavedAt, setLastSavedAt] = useState(
+    initialProjectDetail.activeSnapshot?.createdAt ?? null,
+  );
 
   const setProject = useProjectStore((state) => state.setProject);
   const project = useProjectStore((state) => state.project);
@@ -80,7 +87,9 @@ export function EditorShell({ projectId, initialProjectDetail, initialExportJobs
   const setJobs = useExportStore((state) => state.setJobs);
   const setCurrentJobId = useExportStore((state) => state.setCurrentJobId);
   const currentJobId = useExportStore((state) => state.currentJobId);
-  const setSseConnectionState = useExportStore((state) => state.setSseConnectionState);
+  const setSseConnectionState = useExportStore(
+    (state) => state.setSseConnectionState,
+  );
   const appendEvent = useExportStore((state) => state.appendEvent);
   const upsertJob = useExportStore((state) => state.upsertJob);
   const inspectorOpen = useEditorUiStore((state) => state.panels.inspectorOpen);
@@ -91,7 +100,7 @@ export function EditorShell({ projectId, initialProjectDetail, initialExportJobs
   const setMuted = usePlaybackStore((state) => state.setMuted);
   const setPlaybackRate = usePlaybackStore((state) => state.setPlaybackRate);
   const setLoopRegion = usePlaybackStore((state) => state.setLoopRegion);
-  const setAspectRatio = usePreviewStore((state) => state.setAspectRatio);
+  const syncViewport = usePreviewStore((state) => state.syncViewport);
   const setRuntimeHealth = usePreviewStore((state) => state.setRuntimeHealth);
   const analysis = useProjectAudioAnalysis({
     analysisId: project.audio.analysisId,
@@ -99,11 +108,17 @@ export function EditorShell({ projectId, initialProjectDetail, initialExportJobs
   });
 
   useEffect(() => {
-    if (!initialProjectDetail.activeProject || !initialProjectDetail.activeSnapshot) {
+    if (
+      !initialProjectDetail.activeProject ||
+      !initialProjectDetail.activeSnapshot
+    ) {
       return;
     }
 
-    setProject(initialProjectDetail.activeProject, initialProjectDetail.activeSnapshot.id);
+    setProject(
+      initialProjectDetail.activeProject,
+      initialProjectDetail.activeSnapshot.id,
+    );
     setJobs(initialExportJobs.map(mapExportJobToSummary));
     setCurrentJobId(pickCurrentJobId(initialExportJobs));
     setCurrentTab("general");
@@ -113,7 +128,11 @@ export function EditorShell({ projectId, initialProjectDetail, initialExportJobs
     setMuted(false);
     setPlaybackRate(1);
     setLoopRegion(null);
-    setAspectRatio(initialProjectDetail.activeProject.viewport.aspectRatio);
+    syncViewport(
+      initialProjectDetail.activeProject.viewport.width,
+      initialProjectDetail.activeProject.viewport.height,
+      initialProjectDetail.activeProject.viewport.aspectRatio,
+    );
     setRuntimeHealth("idle");
     setLastSavedAt(initialProjectDetail.activeSnapshot.createdAt);
     setSaveState("idle");
@@ -126,7 +145,6 @@ export function EditorShell({ projectId, initialProjectDetail, initialExportJobs
     initialProjectDetail,
     pause,
     seekToMs,
-    setAspectRatio,
     setCurrentJobId,
     setCurrentTab,
     setJobs,
@@ -136,6 +154,20 @@ export function EditorShell({ projectId, initialProjectDetail, initialExportJobs
     setPlaybackRate,
     setProject,
     setRuntimeHealth,
+    syncViewport,
+  ]);
+
+  useEffect(() => {
+    syncViewport(
+      project.viewport.width,
+      project.viewport.height,
+      project.viewport.aspectRatio,
+    );
+  }, [
+    project.viewport.aspectRatio,
+    project.viewport.height,
+    project.viewport.width,
+    syncViewport,
   ]);
 
   useEffect(() => {
@@ -175,7 +207,8 @@ export function EditorShell({ projectId, initialProjectDetail, initialExportJobs
       setSaveState("saved");
       return response.snapshot.id;
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Failed to save project.";
+      const message =
+        error instanceof Error ? error.message : "Failed to save project.";
       setSaveState("error");
       setSaveError(message);
       throw error;
@@ -207,7 +240,8 @@ export function EditorShell({ projectId, initialProjectDetail, initialExportJobs
       setCurrentJobId(response.job.id);
       setExportState("idle");
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Failed to create export job.";
+      const message =
+        error instanceof Error ? error.message : "Failed to create export job.";
       setExportState("error");
       setExportError(message);
     }

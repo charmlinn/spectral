@@ -1,9 +1,16 @@
 "use client";
 
 import { useEditorUiStore, useProjectStore } from "@spectral/editor-store";
+import { supportedAspectRatios } from "@spectral/project-schema";
 
 import { Button } from "@spectral/ui/components/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@spectral/ui/components/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@spectral/ui/components/card";
 import { Input } from "@spectral/ui/components/input";
 import { Label } from "@spectral/ui/components/label";
 import { ScrollArea } from "@spectral/ui/components/scroll-area";
@@ -31,6 +38,7 @@ export function EditorSidebar() {
   const currentTab = useEditorUiStore((state) => state.currentTab);
   const setCurrentTab = useEditorUiStore((state) => state.setCurrentTab);
   const project = useProjectStore((state) => state.project);
+  const setAspectRatio = useProjectStore((state) => state.setAspectRatio);
   const updateAtPath = useProjectStore((state) => state.updateAtPath);
 
   return (
@@ -38,7 +46,8 @@ export function EditorSidebar() {
       <CardHeader className="gap-2">
         <CardTitle>Settings</CardTitle>
         <CardDescription>
-          Minimal editing controls now bind directly to the real project document in the shared store.
+          Minimal editing controls now bind directly to the real project
+          document in the shared store.
         </CardDescription>
       </CardHeader>
 
@@ -61,30 +70,70 @@ export function EditorSidebar() {
       <ScrollArea className="min-h-0 flex-1 px-4 pb-4">
         <div className="space-y-6 pb-6">
           <div className="rounded-[24px] border border-border/70 bg-background/70 p-4">
-            <p className="text-xs font-medium uppercase tracking-[0.22em] text-primary">Project document</p>
+            <p className="text-xs font-medium uppercase tracking-[0.22em] text-primary">
+              Project document
+            </p>
             <h2 className="mt-2 font-heading text-2xl font-semibold">
-              {sections.find((section) => section.id === currentTab)?.label ?? "General"}
+              {sections.find((section) => section.id === currentTab)?.label ??
+                "General"}
             </h2>
             <p className="mt-2 text-sm leading-6 text-muted-foreground">
-              These inputs patch the live `VideoProject` store. There is no mock field layer between the UI and the
-              saved document now.
+              These inputs patch the live `VideoProject` store. There is no mock
+              field layer between the UI and the saved document now.
             </p>
           </div>
 
           {currentTab === "general" ? (
             <div className="grid gap-3">
+              <div className="rounded-[20px] border border-border/70 bg-background/60 p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-medium">Canvas ratio</p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Switching ratio syncs viewport, export, and preview state
+                      together.
+                    </p>
+                  </div>
+                  <div className="rounded-full border border-border/70 px-3 py-1 text-xs text-muted-foreground">
+                    {project.viewport.width} x {project.viewport.height}
+                  </div>
+                </div>
+                <div className="mt-4 grid grid-cols-3 gap-2">
+                  {supportedAspectRatios.map((aspectRatio) => (
+                    <Button
+                      key={aspectRatio}
+                      size="sm"
+                      variant={
+                        project.viewport.aspectRatio === aspectRatio
+                          ? "secondary"
+                          : "outline"
+                      }
+                      onClick={() => setAspectRatio(aspectRatio)}
+                    >
+                      {aspectRatio}
+                    </Button>
+                  ))}
+                </div>
+              </div>
               <label className="grid gap-2">
                 <span className="text-sm font-medium">Project name</span>
                 <Input
                   value={project.meta.name}
-                  onChange={(event) => updateAtPath(["meta", "name"], event.target.value)}
+                  onChange={(event) =>
+                    updateAtPath(["meta", "name"], event.target.value)
+                  }
                 />
               </label>
               <label className="grid gap-2">
                 <span className="text-sm font-medium">Description</span>
                 <Textarea
                   value={project.meta.description ?? ""}
-                  onChange={(event) => updateAtPath(["meta", "description"], event.target.value || null)}
+                  onChange={(event) =>
+                    updateAtPath(
+                      ["meta", "description"],
+                      event.target.value || null,
+                    )
+                  }
                 />
               </label>
               <label className="grid gap-2">
@@ -105,7 +154,12 @@ export function EditorSidebar() {
                 <Input
                   type="color"
                   value={project.viewport.backgroundColor}
-                  onChange={(event) => updateAtPath(["viewport", "backgroundColor"], event.target.value)}
+                  onChange={(event) =>
+                    updateAtPath(
+                      ["viewport", "backgroundColor"],
+                      event.target.value,
+                    )
+                  }
                 />
               </label>
             </div>
@@ -116,11 +170,17 @@ export function EditorSidebar() {
               <AudioUploadPanel projectId={project.projectId} />
               <label className="grid gap-2">
                 <span className="text-sm font-medium">Audio asset</span>
-                <Input readOnly value={project.audio.assetId ?? "No audio asset"} />
+                <Input
+                  readOnly
+                  value={project.audio.assetId ?? "No audio asset"}
+                />
               </label>
               <label className="grid gap-2">
                 <span className="text-sm font-medium">Analysis ID</span>
-                <Input readOnly value={project.audio.analysisId ?? "No audio analysis"} />
+                <Input
+                  readOnly
+                  value={project.audio.analysisId ?? "No audio analysis"}
+                />
               </label>
               <label className="grid gap-2">
                 <span className="text-sm font-medium">Gain</span>
@@ -144,19 +204,25 @@ export function EditorSidebar() {
               <div className="flex items-center justify-between gap-3 rounded-[20px] border border-border/70 p-3">
                 <div>
                   <Label htmlFor="visualizer-enabled">Visualizer enabled</Label>
-                  <p className="text-xs text-muted-foreground">Directly patches `visualizer.enabled`.</p>
+                  <p className="text-xs text-muted-foreground">
+                    Directly patches `visualizer.enabled`.
+                  </p>
                 </div>
                 <Switch
                   checked={project.visualizer.enabled}
                   id="visualizer-enabled"
-                  onCheckedChange={(checked) => updateAtPath(["visualizer", "enabled"], checked)}
+                  onCheckedChange={(checked) =>
+                    updateAtPath(["visualizer", "enabled"], checked)
+                  }
                 />
               </div>
               <label className="grid gap-2">
                 <span className="text-sm font-medium">Pipeline</span>
                 <Input
                   value={project.visualizer.pipeline}
-                  onChange={(event) => updateAtPath(["visualizer", "pipeline"], event.target.value)}
+                  onChange={(event) =>
+                    updateAtPath(["visualizer", "pipeline"], event.target.value)
+                  }
                 />
               </label>
               <label className="grid gap-2">
@@ -179,28 +245,42 @@ export function EditorSidebar() {
             <div className="grid gap-3">
               <label className="grid gap-2">
                 <span className="text-sm font-medium">Backdrop asset</span>
-                <Input readOnly value={project.backdrop.source?.assetId ?? "No backdrop asset"} />
+                <Input
+                  readOnly
+                  value={
+                    project.backdrop.source?.assetId ?? "No backdrop asset"
+                  }
+                />
               </label>
               <div className="flex items-center justify-between gap-3 rounded-[20px] border border-border/70 p-3">
                 <div>
                   <Label htmlFor="backdrop-filter">Filter enabled</Label>
-                  <p className="text-xs text-muted-foreground">Direct store binding for backdrop filter state.</p>
+                  <p className="text-xs text-muted-foreground">
+                    Direct store binding for backdrop filter state.
+                  </p>
                 </div>
                 <Switch
                   checked={project.backdrop.filterEnabled}
                   id="backdrop-filter"
-                  onCheckedChange={(checked) => updateAtPath(["backdrop", "filterEnabled"], checked)}
+                  onCheckedChange={(checked) =>
+                    updateAtPath(["backdrop", "filterEnabled"], checked)
+                  }
                 />
               </div>
               <div className="flex items-center justify-between gap-3 rounded-[20px] border border-border/70 p-3">
                 <div>
                   <Label htmlFor="backdrop-shake">Shake enabled</Label>
-                  <p className="text-xs text-muted-foreground">Uses the real backdrop config instead of placeholder toggles.</p>
+                  <p className="text-xs text-muted-foreground">
+                    Uses the real backdrop config instead of placeholder
+                    toggles.
+                  </p>
                 </div>
                 <Switch
                   checked={project.backdrop.shakeEnabled}
                   id="backdrop-shake"
-                  onCheckedChange={(checked) => updateAtPath(["backdrop", "shakeEnabled"], checked)}
+                  onCheckedChange={(checked) =>
+                    updateAtPath(["backdrop", "shakeEnabled"], checked)
+                  }
                 />
               </div>
             </div>
@@ -210,22 +290,36 @@ export function EditorSidebar() {
             <div className="grid gap-3">
               <label className="grid gap-2">
                 <span className="text-sm font-medium">Segment count</span>
-                <Input readOnly value={String(project.lyrics.segments.length)} />
-              </label>
-              <label className="grid gap-2">
-                <span className="text-sm font-medium">Current lyric style text</span>
-                <Textarea
-                  value={project.lyrics.style.text}
-                  onChange={(event) => updateAtPath(["lyrics", "style", "text"], event.target.value)}
+                <Input
+                  readOnly
+                  value={String(project.lyrics.segments.length)}
                 />
               </label>
               <label className="grid gap-2">
-                <span className="text-sm font-medium">First visible segment preview</span>
+                <span className="text-sm font-medium">
+                  Current lyric style text
+                </span>
+                <Textarea
+                  value={project.lyrics.style.text}
+                  onChange={(event) =>
+                    updateAtPath(
+                      ["lyrics", "style", "text"],
+                      event.target.value,
+                    )
+                  }
+                />
+              </label>
+              <label className="grid gap-2">
+                <span className="text-sm font-medium">
+                  First visible segment preview
+                </span>
                 <Textarea
                   readOnly
                   value={
-                    project.lyrics.segments.slice(0, 5).map((segment) => segment.text).join("\n") ||
-                    "No lyric segments"
+                    project.lyrics.segments
+                      .slice(0, 5)
+                      .map((segment) => segment.text)
+                      .join("\n") || "No lyric segments"
                   }
                 />
               </label>
@@ -239,10 +333,15 @@ export function EditorSidebar() {
                 <Input readOnly value={String(project.textLayers.length)} />
               </label>
               <label className="grid gap-2">
-                <span className="text-sm font-medium">Primary text preview</span>
+                <span className="text-sm font-medium">
+                  Primary text preview
+                </span>
                 <Textarea
                   readOnly
-                  value={project.textLayers[0]?.style.text ?? "No text layer configured"}
+                  value={
+                    project.textLayers[0]?.style.text ??
+                    "No text layer configured"
+                  }
                 />
               </label>
             </div>
@@ -254,7 +353,9 @@ export function EditorSidebar() {
                 <span className="text-sm font-medium">Format</span>
                 <Input
                   value={project.export.format}
-                  onChange={(event) => updateAtPath(["export", "format"], event.target.value)}
+                  onChange={(event) =>
+                    updateAtPath(["export", "format"], event.target.value)
+                  }
                 />
               </label>
               <label className="grid gap-2">

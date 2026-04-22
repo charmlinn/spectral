@@ -55,6 +55,7 @@ export type TimelinePlayheadProps = {
 };
 
 export type AudioWaveformTrackProps = {
+  currentTimeMs: number;
   durationMs: number;
   pxPerSecond: number;
   waveform: WaveformOverview | null | undefined;

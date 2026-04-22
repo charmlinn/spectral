@@ -1,19 +1,27 @@
 import { create } from "zustand";
 import { subscribeWithSelector } from "zustand/middleware";
 
+import type { SupportedAspectRatio } from "@spectral/project-schema";
+
 export type PreviewRuntimeHealth = "idle" | "ready" | "warning" | "error";
 export type PreviewRenderQuality = "draft" | "balanced" | "high";
 
 export type PreviewStoreState = {
-  width: number;
-  height: number;
+  surfaceWidth: number;
+  surfaceHeight: number;
   dpr: number;
-  aspectRatio: string;
+  viewportWidth: number;
+  viewportHeight: number;
+  aspectRatio: SupportedAspectRatio;
   renderQuality: PreviewRenderQuality;
   runtimeHealth: PreviewRuntimeHealth;
   refreshToken: number;
   setSurface(width: number, height: number, dpr?: number): void;
-  setAspectRatio(aspectRatio: string): void;
+  syncViewport(
+    width: number,
+    height: number,
+    aspectRatio: SupportedAspectRatio,
+  ): void;
   setRenderQuality(renderQuality: PreviewRenderQuality): void;
   setRuntimeHealth(runtimeHealth: PreviewRuntimeHealth): void;
   bumpRefreshToken(): void;
@@ -21,18 +29,24 @@ export type PreviewStoreState = {
 
 export const usePreviewStore = create<PreviewStoreState>()(
   subscribeWithSelector((set) => ({
-    width: 1080,
-    height: 1080,
+    surfaceWidth: 1080,
+    surfaceHeight: 1080,
     dpr: 1,
+    viewportWidth: 1080,
+    viewportHeight: 1080,
     aspectRatio: "1:1",
     renderQuality: "balanced",
     runtimeHealth: "idle",
     refreshToken: 0,
     setSurface(width, height, dpr = 1) {
-      set({ width, height, dpr });
+      set({ surfaceWidth: width, surfaceHeight: height, dpr });
     },
-    setAspectRatio(aspectRatio) {
-      set({ aspectRatio });
+    syncViewport(width, height, aspectRatio) {
+      set({
+        viewportWidth: width,
+        viewportHeight: height,
+        aspectRatio,
+      });
     },
     setRenderQuality(renderQuality) {
       set({ renderQuality });

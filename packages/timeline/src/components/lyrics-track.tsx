@@ -24,7 +24,8 @@ export function LyricsTrack({
         position: "relative",
         width,
         height: 64,
-        background: "#181a20",
+        background:
+          "linear-gradient(180deg, rgba(23,26,33,0.92) 0%, rgba(19,22,29,0.94) 100%)",
         borderTop: "1px solid rgba(255,255,255,0.05)",
       }}
     >

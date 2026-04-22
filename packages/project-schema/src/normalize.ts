@@ -1,3 +1,4 @@
+import { getAspectRatioDimensions, normalizeAspectRatio } from "./aspect-ratio";
 import { createDefaultVideoProject } from "./defaults";
 import { videoProjectSchema, type VideoProject } from "./schema";
 
@@ -29,7 +30,10 @@ function mergeValue<T>(base: T, incoming: unknown): T {
   return incoming as T;
 }
 
-function normalizeTimestamp(value: string | undefined, fallback: string): string {
+function normalizeTimestamp(
+  value: string | undefined,
+  fallback: string,
+): string {
   if (!value) {
     return fallback;
   }
@@ -43,7 +47,10 @@ function normalizeTimestamp(value: string | undefined, fallback: string): string
   return date.toISOString();
 }
 
-function normalizeHexColor(value: string | undefined, fallback: string): string {
+function normalizeHexColor(
+  value: string | undefined,
+  fallback: string,
+): string {
   if (!value) {
     return fallback;
   }
@@ -58,23 +65,53 @@ function normalizeHexColor(value: string | undefined, fallback: string): string 
 export function normalizeVideoProject(input: unknown): VideoProject {
   const defaults = createDefaultVideoProject();
   const merged = mergeValue(defaults, input);
+  const normalizedAspectRatio = normalizeAspectRatio(
+    merged.viewport.aspectRatio,
+  );
+  const defaultViewportDimensions = getAspectRatioDimensions(
+    normalizedAspectRatio,
+  );
+  const shouldRealignViewport =
+    merged.viewport.aspectRatio !== normalizedAspectRatio ||
+    !Number.isFinite(merged.viewport.width) ||
+    merged.viewport.width <= 0 ||
+    !Number.isFinite(merged.viewport.height) ||
+    merged.viewport.height <= 0;
   const normalized = {
     ...merged,
     createdAt: normalizeTimestamp(merged.createdAt, defaults.createdAt),
     updatedAt: normalizeTimestamp(merged.updatedAt, defaults.updatedAt),
+    viewport: {
+      ...merged.viewport,
+      width: shouldRealignViewport
+        ? defaultViewportDimensions.width
+        : merged.viewport.width,
+      height: shouldRealignViewport
+        ? defaultViewportDimensions.height
+        : merged.viewport.height,
+      aspectRatio: normalizedAspectRatio,
+    },
     lyrics: {
       ...merged.lyrics,
       style: {
         ...merged.lyrics.style,
-        color: normalizeHexColor(merged.lyrics.style.color, defaults.lyrics.style.color),
+        color: normalizeHexColor(
+          merged.lyrics.style.color,
+          defaults.lyrics.style.color,
+        ),
       },
-      segments: [...merged.lyrics.segments].sort((left, right) => left.startMs - right.startMs),
+      segments: [...merged.lyrics.segments].sort(
+        (left, right) => left.startMs - right.startMs,
+      ),
     },
     textLayers: merged.textLayers.map((layer) => ({
       ...layer,
       style: {
         ...layer.style,
-        color: normalizeHexColor(layer.style.color, defaults.lyrics.style.color),
+        color: normalizeHexColor(
+          layer.style.color,
+          defaults.lyrics.style.color,
+        ),
       },
     })),
     visualizer: {
@@ -82,9 +119,15 @@ export function normalizeVideoProject(input: unknown): VideoProject {
       waveCircles: merged.visualizer.waveCircles.map((circle) => ({
         ...circle,
         fillColor: normalizeHexColor(circle.fillColor, "0xffffff"),
-        secondaryFillColor: normalizeHexColor(circle.secondaryFillColor, "0xffffff"),
+        secondaryFillColor: normalizeHexColor(
+          circle.secondaryFillColor,
+          "0xffffff",
+        ),
         lineColor: normalizeHexColor(circle.lineColor, "0xffffff"),
-        secondaryLineColor: normalizeHexColor(circle.secondaryLineColor, "0xffffff"),
+        secondaryLineColor: normalizeHexColor(
+          circle.secondaryLineColor,
+          "0xffffff",
+        ),
       })),
     },
   };

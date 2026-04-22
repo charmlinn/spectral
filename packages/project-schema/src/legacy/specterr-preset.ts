@@ -1,3 +1,7 @@
+import {
+  getAspectRatioDimensions,
+  normalizeLegacySpecterrAspectRatio,
+} from "../aspect-ratio";
 import { LEGACY_SPECTERR_PRESET_VERSION } from "../constants";
 import { createDefaultVideoProject } from "../defaults";
 import { normalizeVideoProject } from "../normalize";
@@ -77,7 +81,9 @@ export type LegacySpecterrPreset = {
   };
 };
 
-export function isLegacySpecterrPreset(value: unknown): value is LegacySpecterrPreset {
+export function isLegacySpecterrPreset(
+  value: unknown,
+): value is LegacySpecterrPreset {
   return (
     typeof value === "object" &&
     value !== null &&
@@ -104,9 +110,9 @@ function legacyMediaSourceToReference(
     mediaSource?.data?.originalImageUrl ??
     fallbackUrl ??
     null;
-  const kind =
-    mediaSource?.mediaResourceType === 1 ? "video" : defaultKind;
-  const url = kind === "video" ? videoUrl ?? imageUrl : imageUrl ?? videoUrl;
+  const kind = mediaSource?.mediaResourceType === 1 ? "video" : defaultKind;
+  const url =
+    kind === "video" ? (videoUrl ?? imageUrl) : (imageUrl ?? videoUrl);
 
   if (!mediaSource?.mediaId && !url) {
     return null;
@@ -123,18 +129,13 @@ function legacyMediaSourceToReference(
 }
 
 function legacyAspectRatioToViewport(code: number | undefined) {
-  if (code === 0 || code === undefined) {
-    return {
-      width: 1080,
-      height: 1080,
-      aspectRatio: "1:1",
-    };
-  }
+  const aspectRatio = normalizeLegacySpecterrAspectRatio(code);
+  const dimensions = getAspectRatioDimensions(aspectRatio);
 
   return {
-    width: 1080,
-    height: 1080,
-    aspectRatio: `legacy-${code}`,
+    width: dimensions.width,
+    height: dimensions.height,
+    aspectRatio,
   };
 }
 
@@ -184,11 +185,10 @@ function sanitizeVisualizerSettings(
   defaults: VideoProject["visualizer"],
   settings: LegacySpecterrPreset["settings"],
 ): VideoProject["visualizer"] {
-  const {
-    mediaSource: _mediaSource,
-    logoUrl: _logoUrl,
-    ...visualizerRest
-  } = settings?.visualizer ?? {};
+  const { mediaSource, logoUrl, ...visualizerRest } =
+    settings?.visualizer ?? {};
+  void mediaSource;
+  void logoUrl;
 
   return {
     ...defaults,
@@ -205,11 +205,14 @@ function sanitizeBackdropSettings(
   settings: LegacySpecterrPreset["settings"],
 ): VideoProject["backdrop"] {
   const {
-    mediaSource: _mediaSource,
-    url: _url,
-    reflection: _reflection,
+    mediaSource,
+    url,
+    reflection: ignoredReflection,
     ...backgroundRest
   } = settings?.background ?? {};
+  void mediaSource;
+  void url;
+  void ignoredReflection;
   const reflection = settings?.background?.reflection as
     | {
         type?: unknown;
@@ -240,11 +243,14 @@ function sanitizeLyricsStyle(
 ): VideoProject["lyrics"]["style"] {
   const style = settings?.lyrics?.style;
   const {
-    shadow: _shadow,
-    position: _position,
-    drift: _drift,
+    shadow: ignoredShadow,
+    position: ignoredPosition,
+    drift: ignoredDrift,
     ...styleRest
   } = style ?? {};
+  void ignoredShadow;
+  void ignoredPosition;
+  void ignoredDrift;
   const shadow =
     style && typeof style.shadow === "object" && style.shadow !== null
       ? style.shadow
@@ -286,7 +292,8 @@ function sanitizeParticleSettings(
   return {
     ...defaults,
     ...(particles ?? {}),
-    items: typeof particles?.items === "string" ? particles.items : defaults.items,
+    items:
+      typeof particles?.items === "string" ? particles.items : defaults.items,
   };
 }
 
@@ -306,9 +313,12 @@ function sanitizeYouTubeCtaSettings(
   };
 }
 
-export function legacyPresetToVideoProject(preset: LegacySpecterrPreset): VideoProject {
+export function legacyPresetToVideoProject(
+  preset: LegacySpecterrPreset,
+): VideoProject {
   const settings = preset.settings ?? {};
   const defaults = createDefaultVideoProject();
+  const viewport = legacyAspectRatioToViewport(settings.aspectRatio);
   const visualizerMedia = legacyMediaSourceToReference(
     settings.visualizer?.mediaSource,
     undefined,
@@ -342,7 +352,7 @@ export function legacyPresetToVideoProject(preset: LegacySpecterrPreset): VideoP
     },
     viewport: {
       ...defaults.viewport,
-      ...legacyAspectRatioToViewport(settings.aspectRatio),
+      ...viewport,
     },
     visualizer: {
       ...sanitizeVisualizerSettings(defaults.visualizer, settings),
@@ -376,17 +386,26 @@ export function legacyPresetToVideoProject(preset: LegacySpecterrPreset): VideoP
     },
     textLayers: (settings.text?.textElements ?? []).map(toTextLayer),
     overlays: {
-      particles: sanitizeParticleSettings(defaults.overlays.particles, settings),
-      youTubeCta: sanitizeYouTubeCtaSettings(defaults.overlays.youTubeCta, settings),
+      particles: sanitizeParticleSettings(
+        defaults.overlays.particles,
+        settings,
+      ),
+      youTubeCta: sanitizeYouTubeCtaSettings(
+        defaults.overlays.youTubeCta,
+        settings,
+      ),
       emojiImages: settings.emojiImages ?? [],
     },
     export: {
       ...defaults.export,
       ...(settings.export ?? {}),
+      width: viewport.width,
+      height: viewport.height,
     },
     source: {
       legacyPresetId: preset.id,
-      legacyPresetVersion: settings.version ?? String(LEGACY_SPECTERR_PRESET_VERSION),
+      legacyPresetVersion:
+        settings.version ?? String(LEGACY_SPECTERR_PRESET_VERSION),
       legacyAspectRatioCode: settings.aspectRatio ?? null,
     },
   });

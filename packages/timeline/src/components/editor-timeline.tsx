@@ -48,7 +48,9 @@ export function EditorTimeline({
   );
   const selectedSegment = useMemo(
     () =>
-      segments.find((segment) => selection?.selectedSegmentIds.includes(segment.id)) ?? null,
+      segments.find((segment) =>
+        selection?.selectedSegmentIds.includes(segment.id),
+      ) ?? null,
     [segments, selection?.selectedSegmentIds],
   );
   const handleWheelZoom = useTimelineZoom({
@@ -100,7 +102,9 @@ export function EditorTimeline({
           );
           onSegmentsChange(
             segments.flatMap((segment) =>
-              segment.id === selectedSegment.id ? [leftSegment, rightSegment] : [segment],
+              segment.id === selectedSegment.id
+                ? [leftSegment, rightSegment]
+                : [segment],
             ),
           );
           onSelectionChange?.({ selectedSegmentIds: [rightSegment.id] });
@@ -142,8 +146,11 @@ export function EditorTimeline({
         width: viewportWidth,
         borderRadius: 16,
         overflow: "hidden",
-        background: "#0e1013",
+        background:
+          "linear-gradient(180deg, rgba(15,18,24,0.98) 0%, rgba(10,12,16,0.98) 100%)",
         border: "1px solid rgba(255,255,255,0.08)",
+        boxShadow:
+          "inset 0 1px 0 rgba(255,255,255,0.04), 0 20px 44px -28px rgba(0,0,0,0.78)",
       }}
     >
       <TimelineControls
@@ -163,7 +170,9 @@ export function EditorTimeline({
           );
           onSegmentsChange(
             segments.flatMap((segment) =>
-              segment.id === selectedSegment.id ? [leftSegment, rightSegment] : [segment],
+              segment.id === selectedSegment.id
+                ? [leftSegment, rightSegment]
+                : [segment],
             ),
           );
           onSelectionChange?.({ selectedSegmentIds: [rightSegment.id] });
@@ -173,7 +182,10 @@ export function EditorTimeline({
             return;
           }
 
-          const duplicate = duplicateTimelineSegment(selectedSegment, durationMs);
+          const duplicate = duplicateTimelineSegment(
+            selectedSegment,
+            durationMs,
+          );
           onSegmentsChange([...segments, duplicate]);
           onSelectionChange?.({ selectedSegmentIds: [duplicate.id] });
         }}
@@ -200,7 +212,9 @@ export function EditorTimeline({
           cursor: "pointer",
         }}
       >
-        <div style={{ position: "relative", width: timelineWidth, minHeight: 216 }}>
+        <div
+          style={{ position: "relative", width: timelineWidth, minHeight: 224 }}
+        >
           <TimelineRuler durationMs={durationMs} pxPerSecond={pxPerSecond} />
           <div style={{ position: "relative" }}>
             <div
@@ -210,12 +224,18 @@ export function EditorTimeline({
                 pointerEvents: "none",
               }}
             >
-              <TimelineGrid durationMs={durationMs} pxPerSecond={pxPerSecond} height={188} />
+              <TimelineGrid
+                durationMs={durationMs}
+                pxPerSecond={pxPerSecond}
+                height={196}
+              />
             </div>
             <AudioWaveformTrack
+              currentTimeMs={currentTimeMs}
               durationMs={durationMs}
               pxPerSecond={pxPerSecond}
               waveform={waveform}
+              height={104}
             />
             <LyricsTrack
               durationMs={durationMs}

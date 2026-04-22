@@ -1,3 +1,4 @@
+export * from "./aspect-ratio";
 export * from "./constants";
 export * from "./defaults";
 export * from "./schema";

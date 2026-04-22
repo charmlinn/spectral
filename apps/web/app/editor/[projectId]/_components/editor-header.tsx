@@ -1,9 +1,17 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowLeft, LoaderCircle, MoreHorizontal, PanelRight, Rocket, Save } from "lucide-react";
+import {
+  ArrowLeft,
+  LoaderCircle,
+  MoreHorizontal,
+  PanelRight,
+  Rocket,
+  Save,
+} from "lucide-react";
 
 import { useExportStore, useProjectStore } from "@spectral/editor-store";
+import { supportedAspectRatios } from "@spectral/project-schema";
 import { Badge } from "@spectral/ui/components/badge";
 import { Button } from "@spectral/ui/components/button";
 import { Card } from "@spectral/ui/components/card";
@@ -45,6 +53,7 @@ export function EditorHeader({
 }: EditorHeaderProps) {
   const project = useProjectStore((state) => state.project);
   const dirty = useProjectStore((state) => state.dirty);
+  const setAspectRatio = useProjectStore((state) => state.setAspectRatio);
   const snapshotVersion = useProjectStore((state) => state.snapshotVersion);
   const currentJobId = useExportStore((state) => state.currentJobId);
 
@@ -79,15 +88,47 @@ export function EditorHeader({
                 Projects
               </Link>
             </Button>
-            <Badge variant={saveState === "error" ? "destructive" : "secondary"}>{saveStatusLabel}</Badge>
+            <Badge
+              variant={saveState === "error" ? "destructive" : "secondary"}
+            >
+              {saveStatusLabel}
+            </Badge>
             <Badge variant="outline">
               {project.viewport.width} x {project.viewport.height}
             </Badge>
-            <Badge variant="outline">{project.export.format.toUpperCase()}</Badge>
-            {snapshotVersion ? <Badge variant="outline">Snapshot {snapshotVersion.slice(0, 8)}</Badge> : null}
+            <Badge variant="outline">{project.viewport.aspectRatio}</Badge>
+            <Badge variant="outline">
+              {project.export.format.toUpperCase()}
+            </Badge>
+            {snapshotVersion ? (
+              <Badge variant="outline">
+                Snapshot {snapshotVersion.slice(0, 8)}
+              </Badge>
+            ) : null}
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-[11px] font-medium uppercase tracking-[0.22em] text-muted-foreground">
+              Canvas ratio
+            </span>
+            {supportedAspectRatios.map((aspectRatio) => (
+              <Button
+                key={aspectRatio}
+                size="sm"
+                variant={
+                  project.viewport.aspectRatio === aspectRatio
+                    ? "secondary"
+                    : "outline"
+                }
+                onClick={() => setAspectRatio(aspectRatio)}
+              >
+                {aspectRatio}
+              </Button>
+            ))}
           </div>
           <div className="min-w-0">
-            <h1 className="truncate font-heading text-3xl font-semibold tracking-tight">{project.meta.name}</h1>
+            <h1 className="truncate font-heading text-3xl font-semibold tracking-tight">
+              {project.meta.name}
+            </h1>
             <p className="text-sm text-muted-foreground">
               Project ID: {projectId} · Last checkpoint {formattedSaveTime}
             </p>
@@ -96,14 +137,31 @@ export function EditorHeader({
 
         <div className="flex flex-wrap items-center gap-2">
           <Button size="sm" variant="outline" onClick={onSave}>
-            {saveState === "saving" ? <LoaderCircle className="size-4 animate-spin" /> : <Save className="size-4" />}
+            {saveState === "saving" ? (
+              <LoaderCircle className="size-4 animate-spin" />
+            ) : (
+              <Save className="size-4" />
+            )}
             Save draft
           </Button>
-          <Button disabled={exportState === "creating"} size="sm" onClick={onStartExport}>
-            {exportState === "creating" ? <LoaderCircle className="size-4 animate-spin" /> : <Rocket className="size-4" />}
+          <Button
+            disabled={exportState === "creating"}
+            size="sm"
+            onClick={onStartExport}
+          >
+            {exportState === "creating" ? (
+              <LoaderCircle className="size-4 animate-spin" />
+            ) : (
+              <Rocket className="size-4" />
+            )}
             Export
           </Button>
-          <Button className="xl:hidden" size="icon" variant="outline" onClick={onOpenMobileInspector}>
+          <Button
+            className="xl:hidden"
+            size="icon"
+            variant="outline"
+            onClick={onOpenMobileInspector}
+          >
             <PanelRight className="size-4" />
             <span className="sr-only">Open mobile inspector</span>
           </Button>
@@ -127,18 +185,30 @@ export function EditorHeader({
             <DropdownMenuContent align="end">
               <DropdownMenuLabel>Project Actions</DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onSelect={onSave}>Save current snapshot</DropdownMenuItem>
-              <DropdownMenuItem onSelect={onStartExport}>Create export job</DropdownMenuItem>
-              <DropdownMenuItem disabled={!currentJobId}>Current export: {currentJobId?.slice(0, 8) ?? "none"}</DropdownMenuItem>
+              <DropdownMenuItem onSelect={onSave}>
+                Save current snapshot
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={onStartExport}>
+                Create export job
+              </DropdownMenuItem>
+              <DropdownMenuItem disabled={!currentJobId}>
+                Current export: {currentJobId?.slice(0, 8) ?? "none"}
+              </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem variant="destructive">No destructive shell actions wired</DropdownMenuItem>
+              <DropdownMenuItem variant="destructive">
+                No destructive shell actions wired
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
       </div>
 
-      {saveError ? <p className="text-sm text-destructive">{saveError}</p> : null}
-      {exportError ? <p className="text-sm text-destructive">{exportError}</p> : null}
+      {saveError ? (
+        <p className="text-sm text-destructive">{saveError}</p>
+      ) : null}
+      {exportError ? (
+        <p className="text-sm text-destructive">{exportError}</p>
+      ) : null}
     </Card>
   );
 }
