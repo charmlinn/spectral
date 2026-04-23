@@ -3,6 +3,8 @@ import type { BrowserRenderRuntime, PreviewStageRuntimeOptions } from "../contra
 import { createSpectralPixiRenderAdapter } from "../pixi/spectral-pixi-render-adapter";
 import { createBrowserRenderRuntime } from "./browser-render-runtime";
 
+const SPECTERR_PREVIEW_FRAME_CONTEXT_FPS = 60;
+
 export async function bootstrapPreviewStageRuntime(
   options: PreviewStageRuntimeOptions,
 ): Promise<BrowserRenderRuntime> {
@@ -11,10 +13,14 @@ export async function bootstrapPreviewStageRuntime(
       options.adapter ??
       createSpectralPixiRenderAdapter({
         assetResolver: options.assetResolver,
-      }),
+    }),
     project: options.project,
     surface: options.surface,
-    clock: createHtmlMediaElementClock(options.audioElement, options.project.timing.fps),
+    clock: createHtmlMediaElementClock(
+      options.audioElement,
+      SPECTERR_PREVIEW_FRAME_CONTEXT_FPS,
+    ),
+    frameContextFps: SPECTERR_PREVIEW_FRAME_CONTEXT_FPS,
     analysisProvider: options.analysisProvider,
     assetResolver: options.assetResolver ?? null,
     autoStart: options.autoStart,

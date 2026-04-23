@@ -38,6 +38,7 @@ export type BrowserRenderRuntimeOptions = {
   project: VideoProject;
   surface: RenderSurface;
   clock?: RenderClock | null;
+  frameContextFps?: number;
   analysisProvider?: AudioAnalysisProvider | null;
   historyProvider?: AudioAnalysisProvider | null;
   assetResolver?: RenderAssetResolver | null;

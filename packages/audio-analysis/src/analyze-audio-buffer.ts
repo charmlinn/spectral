@@ -119,6 +119,70 @@ function createRawSpectrumSlice(
   return byteFrequencyData.slice(start, end);
 }
 
+function collectMaxMagnitudes(
+  samples: Float32Array,
+  sampleRate: number,
+  durationMs: number,
+): {
+  bass: number;
+  wide: number;
+} {
+  const analyzeByteFrequencyData = createFFTAnalyzer(
+    AUDIO_ANALYZER_OPTIONS.fftSize,
+    AUDIO_ANALYZER_OPTIONS.minDecibels,
+    AUDIO_ANALYZER_OPTIONS.maxDecibels,
+    AUDIO_ANALYZER_OPTIONS.smoothingTime,
+  );
+  const frameCount = Math.max(
+    1,
+    Math.ceil(
+      (durationMs / 1000) * AUDIO_ANALYZER_CONSTANTS.maxMagnitudeAnalysisFps,
+    ),
+  );
+  const bassMagnitudes: number[] = [];
+  const wideMagnitudes: number[] = [];
+
+  for (let frameIndex = 0; frameIndex < frameCount; frameIndex += 1) {
+    const frameWindow = createFrameWindow(
+      samples,
+      frameIndex,
+      sampleRate,
+      AUDIO_ANALYZER_CONSTANTS.maxMagnitudeAnalysisFps,
+      AUDIO_ANALYZER_OPTIONS.fftSize,
+    );
+    const byteFrequencyData = analyzeByteFrequencyData(
+      frameWindow,
+      AUDIO_ANALYZER_OPTIONS.clearFrequencyMaxLength,
+    );
+    const rawBassSpectrum = createRawSpectrumSlice(
+      byteFrequencyData,
+      BASS_SPECTRUM_OPTIONS.spectrumStart,
+      BASS_SPECTRUM_OPTIONS.spectrumEnd,
+    );
+    const rawWideSpectrum = createRawSpectrumSlice(
+      byteFrequencyData,
+      WIDE_SPECTRUM_OPTIONS.spectrumStart,
+      WIDE_SPECTRUM_OPTIONS.spectrumEnd,
+    );
+
+    bassMagnitudes.push(Math.max(...rawBassSpectrum, 0));
+    wideMagnitudes.push(Math.max(...rawWideSpectrum, 0));
+  }
+
+  return {
+    bass:
+      calculateCumulativeMaxMagnitude(
+        bassMagnitudes,
+        AUDIO_ANALYZER_CONSTANTS.maxMagnitudeCalculationPercentile,
+      ) ?? AUDIO_ANALYZER_CONSTANTS.defaultBassMaxMagnitude,
+    wide:
+      calculateCumulativeMaxMagnitude(
+        wideMagnitudes,
+        AUDIO_ANALYZER_CONSTANTS.maxMagnitudeCalculationPercentile,
+      ) ?? AUDIO_ANALYZER_CONSTANTS.defaultWideMaxMagnitude,
+  };
+}
+
 export function analyzeAudioBuffer(
   audioBuffer: AudioBuffer,
   options: AnalyzeAudioBufferOptions = {},
@@ -160,8 +224,6 @@ export function analyzeAudioChannelData(
   );
   const rawBassSpectrums: Float32Array[] = [];
   const rawWideSpectrums: Float32Array[] = [];
-  const bassMagnitudes: number[] = [];
-  const wideMagnitudes: number[] = [];
 
   for (let frameIndex = 0; frameIndex < frameCount; frameIndex += 1) {
     const frameWindow = createFrameWindow(
@@ -188,20 +250,13 @@ export function analyzeAudioChannelData(
 
     rawBassSpectrums.push(rawBassSpectrum);
     rawWideSpectrums.push(rawWideSpectrum);
-    bassMagnitudes.push(Math.max(...rawBassSpectrum, 0));
-    wideMagnitudes.push(Math.max(...rawWideSpectrum, 0));
   }
 
-  const cumulativeBassMaxMagnitude =
-    calculateCumulativeMaxMagnitude(
-      bassMagnitudes,
-      AUDIO_ANALYZER_CONSTANTS.maxMagnitudeCalculationPercentile,
-    ) ?? AUDIO_ANALYZER_CONSTANTS.defaultBassMaxMagnitude;
-  const cumulativeWideMaxMagnitude =
-    calculateCumulativeMaxMagnitude(
-      wideMagnitudes,
-      AUDIO_ANALYZER_CONSTANTS.maxMagnitudeCalculationPercentile,
-    ) ?? AUDIO_ANALYZER_CONSTANTS.defaultWideMaxMagnitude;
+  const cumulativeMaxMagnitudes = collectMaxMagnitudes(
+    mixedSamples,
+    input.sampleRate,
+    durationMs,
+  );
 
   const spectrumFrames: SpectrumFrame[] = rawWideSpectrums.map(
     (rawWideSpectrum, frame) => ({
@@ -209,7 +264,7 @@ export function analyzeAudioChannelData(
       timeMs: Math.round((frame / fps) * 1000),
       values: createWideSpectrumFrame(
         rawWideSpectrum,
-        cumulativeWideMaxMagnitude,
+        cumulativeMaxMagnitudes.wide,
       ),
     }),
   );
@@ -220,8 +275,8 @@ export function analyzeAudioChannelData(
     waveform,
     spectrumFrames,
     magnitudes: {
-      bass: cumulativeBassMaxMagnitude,
-      wide: cumulativeWideMaxMagnitude,
+      bass: cumulativeMaxMagnitudes.bass,
+      wide: cumulativeMaxMagnitudes.wide,
     },
   };
 }

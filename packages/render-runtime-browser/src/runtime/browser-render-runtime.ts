@@ -15,6 +15,7 @@ export function createBrowserRenderRuntime(
 ): BrowserRenderRuntime {
   const PREVIEW_TARGET_FPS = 60;
   const MIN_FRAME_INTERVAL_MS = 1000 / PREVIEW_TARGET_FPS;
+  let frameContextFps = options.frameContextFps ?? options.project.timing.fps;
   let mountedTarget: HTMLElement | HTMLCanvasElement | null = null;
   let project = options.project;
   let surface = options.surface;
@@ -35,7 +36,7 @@ export function createBrowserRenderRuntime(
   ): Promise<BrowserRenderAdapterRenderInput> {
     const frameContext = createFrameContext(
       timeMs,
-      project.timing.fps,
+      frameContextFps,
       project.timing.durationMs,
     );
     const sceneGraph = buildScene({
@@ -129,6 +130,10 @@ export function createBrowserRenderRuntime(
     },
     setProject(nextProject) {
       project = nextProject;
+
+      if (options.frameContextFps === undefined) {
+        frameContextFps = nextProject.timing.fps;
+      }
     },
     setClock(nextClock) {
       clock = nextClock;

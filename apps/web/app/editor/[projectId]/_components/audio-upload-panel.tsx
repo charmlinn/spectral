@@ -14,7 +14,10 @@ import {
   createAudioAnalysis,
   uploadFileToSignedUrl,
 } from "@/src/lib/editor-api";
+import { AUDIO_ANALYZER_CONSTANTS } from "@spectral/audio-analysis";
+
 import { analyzeAudioBufferOffThread } from "@/src/lib/analyze-audio-off-thread";
+import { EDITOR_AUDIO_ANALYZER_VERSION } from "@/src/lib/audio-analysis-profile";
 import { serializeAudioAnalysisSnapshot } from "@/src/lib/editor-runtime";
 
 type AudioUploadPanelProps = {
@@ -131,7 +134,7 @@ export function AudioUploadPanel({ projectId }: AudioUploadPanelProps) {
       setPhase("analyzing");
       const analysisResponse = await createAudioAnalysis({
         assetId: asset.id,
-        analyzerVersion: "spectral-browser-v1",
+        analyzerVersion: EDITOR_AUDIO_ANALYZER_VERSION,
         force: true,
         durationMs,
         sampleRate: audioBuffer.sampleRate,
@@ -145,6 +148,8 @@ export function AudioUploadPanel({ projectId }: AudioUploadPanelProps) {
           originalFilename: file.name,
           bassMaxMagnitude: snapshot.magnitudes.bass,
           wideMaxMagnitude: snapshot.magnitudes.wide,
+          maxMagnitudeAnalysisFps:
+            AUDIO_ANALYZER_CONSTANTS.maxMagnitudeAnalysisFps,
         },
       });
 

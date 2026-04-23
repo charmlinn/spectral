@@ -45,6 +45,8 @@ type PreviewStageProps = {
   analysisSnapshot: AudioAnalysisSnapshot | null;
 };
 
+const SPECTERR_PREVIEW_FRAME_CONTEXT_FPS = 60;
+
 function toAspectRatioValue(aspectRatio: SupportedAspectRatio) {
   if (aspectRatio === "9:16") {
     return "9 / 16";
@@ -143,7 +145,7 @@ export function PreviewStage({
   );
   const realtimeAnalysisReadyRef = useRef(false);
   const manualClockRef = useRef(
-    createManualRenderClock({ fps: project.timing.fps }),
+    createManualRenderClock({ fps: SPECTERR_PREVIEW_FRAME_CONTEXT_FPS }),
   );
   const assetResolverRef = useRef(createProjectAssetResolver());
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
@@ -153,12 +155,6 @@ export function PreviewStage({
     renderQuality,
   );
   const effectiveDpr = Math.max(1, Math.min(deviceDpr || 1, 2));
-
-  useEffect(() => {
-    manualClockRef.current = createManualRenderClock({
-      fps: project.timing.fps,
-    });
-  }, [project.timing.fps]);
 
   useEffect(() => {
     const element = frameRef.current;
@@ -233,7 +229,7 @@ export function PreviewStage({
 
     const controller = createRealtimeAudioAnalysisController({
       audioElement,
-      fps: project.timing.fps,
+      fps: SPECTERR_PREVIEW_FRAME_CONTEXT_FPS,
       waveform: analysisSnapshot.waveform,
       volume: muted ? 0 : 1,
     });
@@ -253,7 +249,7 @@ export function PreviewStage({
       runtimeRef.current?.setHistoryProvider(analysisProvider);
       void controller.destroy().catch(() => undefined);
     };
-  }, [analysisProvider, analysisSnapshot, audioUrl, muted, project.timing.fps]);
+  }, [analysisProvider, analysisSnapshot, audioUrl, muted]);
 
   useEffect(() => {
     if (runtimeRef.current) {
@@ -282,10 +278,11 @@ export function PreviewStage({
             height: renderSurface.height,
             dpr: effectiveDpr,
           },
+          frameContextFps: SPECTERR_PREVIEW_FRAME_CONTEXT_FPS,
           clock: createPreviewClock(
             audioRef.current,
             audioUrl,
-            project.timing.fps,
+            SPECTERR_PREVIEW_FRAME_CONTEXT_FPS,
             manualClockRef.current,
           ),
           analysisProvider,
@@ -327,7 +324,6 @@ export function PreviewStage({
     audioUrl,
     effectiveDpr,
     project.projectId,
-    project.timing.fps,
     renderSurface.height,
     renderSurface.width,
     setRuntimeHealth,
@@ -351,11 +347,11 @@ export function PreviewStage({
       createPreviewClock(
         audioRef.current,
         audioUrl,
-        project.timing.fps,
+        SPECTERR_PREVIEW_FRAME_CONTEXT_FPS,
         manualClockRef.current,
       ),
     );
-  }, [audioUrl, project.timing.fps]);
+  }, [audioUrl]);
 
   useEffect(() => {
     if (!runtimeRef.current) {

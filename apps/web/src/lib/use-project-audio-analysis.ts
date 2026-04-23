@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 
 import {
+  AUDIO_ANALYZER_CONSTANTS,
   createArrayAudioAnalysisProvider,
   type AudioAnalysisSnapshot,
   type AudioAnalysisProvider,
@@ -15,6 +16,10 @@ import {
   resolveProjectAudioUrl,
   serializeAudioAnalysisSnapshot,
 } from "./editor-runtime";
+import {
+  EDITOR_AUDIO_ANALYZER_VERSION,
+  isCompatibleEditorAudioAnalysis,
+} from "./audio-analysis-profile";
 import { useProjectStore } from "@spectral/editor-store";
 import type { VideoProject } from "@spectral/project-schema";
 
@@ -31,8 +36,6 @@ const emptyState: AnalysisState = {
   loading: false,
   error: null,
 };
-
-const CLIENT_ANALYZER_VERSION = "spectral-browser-v1";
 
 type UseProjectAudioAnalysisInput = {
   analysisId: string | null | undefined;
@@ -103,7 +106,7 @@ export function useProjectAudioAnalysis({
         });
         const persisted = await createAudioAnalysis({
           assetId,
-          analyzerVersion: CLIENT_ANALYZER_VERSION,
+          analyzerVersion: EDITOR_AUDIO_ANALYZER_VERSION,
           force: true,
           durationMs: Math.round(snapshot.waveform.durationMs),
           sampleRate: audioBuffer.sampleRate,
@@ -116,6 +119,8 @@ export function useProjectAudioAnalysis({
             fps,
             bassMaxMagnitude: snapshot.magnitudes.bass,
             wideMaxMagnitude: snapshot.magnitudes.wide,
+            maxMagnitudeAnalysisFps:
+              AUDIO_ANALYZER_CONSTANTS.maxMagnitudeAnalysisFps,
           },
         });
 
@@ -138,6 +143,14 @@ export function useProjectAudioAnalysis({
             const analysis = await getAudioAnalysis(analysisId);
 
             if (cancelled) {
+              return;
+            }
+
+            if (
+              assetId &&
+              !isCompatibleEditorAudioAnalysis(analysis, fps)
+            ) {
+              await generateAndPersistAnalysis();
               return;
             }
 
