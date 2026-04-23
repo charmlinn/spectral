@@ -3,7 +3,14 @@ import type {
   RenderLayer,
   RenderSceneGraph,
 } from "../contracts/render";
+import { getSpectrumMagnitude, processSpectrum } from "@spectral/audio-analysis";
 import { getSpectrumForFrame, getAverageAmplitude } from "../visualizer/analysis";
+
+const SPECTERR_BACKDROP_BASS_SPECTRUM_OPTIONS = {
+  smoothed: true,
+  smoothingPasses: 4,
+  smoothingPoints: 5,
+} as const;
 
 function getBassSpectrum(spectrum: Float32Array): Float32Array {
   return spectrum.slice(0, Math.max(12, Math.floor(spectrum.length * 0.18)));
@@ -51,6 +58,12 @@ export function buildSceneGraph(input: BuildSceneGraphInput): RenderSceneGraph {
   const bassSpectrum = getBassSpectrum(spectrum);
   const amplitude = getAverageAmplitude(spectrum);
   const bassAmplitude = getAverageAmplitude(bassSpectrum);
+  const backdropBassAmplitude = getSpectrumMagnitude(
+    processSpectrum(
+      Array.from(bassSpectrum),
+      SPECTERR_BACKDROP_BASS_SPECTRUM_OPTIONS,
+    ),
+  );
   const layers: RenderLayer[] = [
     {
       id: "backdrop",
@@ -89,7 +102,7 @@ export function buildSceneGraph(input: BuildSceneGraphInput): RenderSceneGraph {
         maxZoomBlur: input.project.backdrop.maxZoomBlur,
         zoomBlurFactor: input.project.backdrop.zoomBlurFactor,
         amplitude,
-        bassAmplitude,
+        bassAmplitude: backdropBassAmplitude,
         drift: input.project.backdrop.drift,
       },
     },

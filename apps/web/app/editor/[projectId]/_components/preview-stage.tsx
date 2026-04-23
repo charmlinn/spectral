@@ -362,7 +362,6 @@ export function PreviewStage({
       return;
     }
 
-    runtimeRef.current.setPlaybackState(playing);
     runtimeRef.current.setProject(project);
     runtimeRef.current.setAudioAnalysisProvider(analysisProvider);
     runtimeRef.current.setHistoryProvider(
@@ -371,11 +370,23 @@ export function PreviewStage({
         : analysisProvider,
     );
     runtimeRef.current.setAssetResolver(assetResolverRef.current);
+  }, [analysisProvider, project]);
 
-    if (!playing) {
-      void runtimeRef.current.renderFrameAt(currentTimeMs);
+  useEffect(() => {
+    if (!runtimeRef.current) {
+      return;
     }
-  }, [analysisProvider, currentTimeMs, playing, project]);
+
+    runtimeRef.current.setPlaybackState(playing);
+  }, [playing]);
+
+  useEffect(() => {
+    if (!runtimeRef.current || playing) {
+      return;
+    }
+
+    void runtimeRef.current.renderFrameAt(currentTimeMs);
+  }, [currentTimeMs, playing]);
 
   useEffect(() => {
     if (!runtimeRef.current || runtimeError) {

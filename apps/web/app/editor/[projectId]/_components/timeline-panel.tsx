@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef } from "react";
+import { useDeferredValue, useEffect, useMemo, useRef } from "react";
 
 import type { AudioAnalysisProvider } from "@spectral/audio-analysis";
 import {
@@ -37,6 +37,7 @@ export function TimelinePanel({
   const project = useProjectStore((state) => state.project);
   const updateAtPath = useProjectStore((state) => state.updateAtPath);
   const currentTimeMs = usePlaybackStore((state) => state.currentTimeMs);
+  const deferredCurrentTimeMs = useDeferredValue(currentTimeMs);
   const seekToMs = usePlaybackStore((state) => state.seekToMs);
   const pxPerSecond = useTimelineStore((state) => state.pxPerSecond);
   const scrollLeft = useTimelineStore((state) => state.scrollLeft);
@@ -81,7 +82,7 @@ export function TimelinePanel({
 
   const timelineProps = createTimelinePropsFromVideoProject({
     project,
-    currentTimeMs,
+    currentTimeMs: deferredCurrentTimeMs,
     pxPerSecond,
     scrollLeft,
     viewportWidth,
