@@ -7,6 +7,7 @@ import { getSpectrumMagnitude, processSpectrum } from "@spectral/audio-analysis"
 import { getSpectrumForFrame, getAverageAmplitude } from "../visualizer/analysis";
 
 const SPECTERR_BACKDROP_BASS_SPECTRUM_OPTIONS = {
+  loop: true,
   smoothed: true,
   smoothingPasses: 4,
   smoothingPoints: 5,
