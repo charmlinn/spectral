@@ -1,4 +1,5 @@
 import {
+  buildExportRenderJobData,
   closeQueueResources,
   createExportJobQueue,
   createQueueConnection,
@@ -8,7 +9,10 @@ import {
 
 import { getServerEnv } from "./env";
 
-export async function enqueueExportRenderJob(message: ExportRenderJobData): Promise<void> {
+export async function enqueueExportRenderJob(
+  message: Pick<ExportRenderJobData, "exportJobId" | "requestedAt"> &
+    Partial<Pick<ExportRenderJobData, "dispatchClass" | "priority" | "requestedAttempt">>,
+): Promise<void> {
   const env = getServerEnv();
   const connection = createQueueConnection(env.redisUrl);
   const queue = createExportJobQueue({
@@ -17,7 +21,7 @@ export async function enqueueExportRenderJob(message: ExportRenderJobData): Prom
   });
 
   try {
-    await enqueueExportJob(queue, message, {
+    await enqueueExportJob(queue, buildExportRenderJobData(message), {
       attempts: env.exportMaxAttempts,
       backoffMs: env.exportRetryDelayMs,
     });

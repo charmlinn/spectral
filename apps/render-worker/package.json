@@ -13,7 +13,8 @@
   },
   "dependencies": {
     "@spectral/db": "workspace:*",
-    "@spectral/queue": "workspace:*"
+    "@spectral/queue": "workspace:*",
+    "@spectral/render-session": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^22.14.1"

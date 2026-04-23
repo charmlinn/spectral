@@ -1,8 +1,4 @@
 import {
-  disconnectDataLayer,
-  getDataLayer,
-} from "@spectral/db";
-import {
   closeQueueResources,
   createExportJobWorker,
   createQueueConnection,
@@ -10,180 +6,37 @@ import {
   isExportRenderJob,
 } from "@spectral/queue";
 
-import { NonRetryableWorkerError, RetryableWorkerError } from "./errors";
+import { isRetryableWorkerError, toWorkerError } from "./errors";
 import { getWorkerEnv } from "./env";
-import { HttpRenderExecutor, type RenderExecutor } from "./render-executor";
-
-function buildRenderPageUrl(exportJobId: string, webBaseUrl: string): string {
-  return new URL(`/render/export/${exportJobId}`, webBaseUrl).toString();
-}
-
-function buildRenderBootstrapUrl(exportJobId: string, webBaseUrl: string): string {
-  return new URL(`/render/export/${exportJobId}/bootstrap`, webBaseUrl).toString();
-}
+import { runExportJobAttempt } from "./job-runner";
+import {
+  PipelineRenderExecutor,
+  type RenderExecutor,
+} from "./render-executor";
+import { createRenderWorkerSessionClient } from "./session-client";
 
 function toErrorDetails(error: unknown) {
-  if (error instanceof RetryableWorkerError || error instanceof NonRetryableWorkerError) {
-    return {
-      code: error.code,
-      message: error.message,
-    };
-  }
-
-  if (error instanceof Error) {
-    return {
-      code: "UNEXPECTED_WORKER_ERROR",
-      message: error.message,
-    };
-  }
+  const workerError = toWorkerError(error);
 
   return {
-    code: "UNKNOWN_WORKER_ERROR",
-    message: String(error),
+    code: workerError.code,
+    message: workerError.message,
+    retryable: workerError.retryable,
+    stage: workerError.stage,
+    details: workerError.details,
   };
 }
 
-async function handleExportJobMessage(
-  input: {
-    exportJobId: string;
-    attemptNumber: number;
-    maxAttempts: number;
-  },
-  dependencies: {
-    executor: RenderExecutor;
-    webBaseUrl: string;
-  },
-): Promise<void> {
-  const dataLayer = getDataLayer();
-  const jobDetail = await dataLayer.exportJobRepository.getJobById(input.exportJobId);
-
-  if (!jobDetail) {
-    return;
-  }
-
-  const job = jobDetail.job;
-
-  if (job.status === "completed" || job.status === "cancelled") {
-    return;
-  }
-
-  if (job.attempts >= input.maxAttempts) {
-    await dataLayer.exportJobRepository.updateJobStatus(job.id, {
-      status: "failed",
-      attempts: job.attempts,
-      errorCode: "MAX_ATTEMPTS_REACHED",
-      errorMessage: "Export job exceeded maximum attempts before worker execution.",
-    });
-    await dataLayer.exportJobRepository.appendEvent(job.id, {
-      projectId: job.projectId,
-      level: "error",
-      type: "failed",
-      message: "Export job exceeded maximum attempts.",
-      progress: job.progress,
-    });
-
-    return;
-  }
-
-  const currentAttempt = Math.max(job.attempts + 1, input.attemptNumber);
-
-  await dataLayer.exportJobRepository.updateJobStatus(job.id, {
-    status: "running",
-    progress: 5,
-    attempts: currentAttempt,
-  });
-  await dataLayer.exportJobRepository.appendEvent(job.id, {
-    projectId: job.projectId,
-    type: "started",
-    message: "Render worker started processing export job.",
-    progress: 5,
-    payload: {
-      attempt: currentAttempt,
-      maxAttempts: input.maxAttempts,
-    },
-  });
-
-  try {
-    const result = await dependencies.executor.execute({
-      exportJobId: job.id,
-      renderPageUrl: buildRenderPageUrl(job.id, dependencies.webBaseUrl),
-      renderBootstrapUrl: buildRenderBootstrapUrl(job.id, dependencies.webBaseUrl),
-    });
-
-    await dataLayer.exportJobRepository.updateJobStatus(job.id, {
-      status: "completed",
-      progress: 100,
-      attempts: currentAttempt,
-      outputStorageKey: result.outputStorageKey ?? null,
-      posterStorageKey: result.posterStorageKey ?? null,
-      metadata: result.metadata,
-    });
-    await dataLayer.exportJobRepository.appendEvent(job.id, {
-      projectId: job.projectId,
-      type: "completed",
-      message: "Export job completed.",
-      progress: 100,
-      payload: result.metadata,
-    });
-  } catch (error) {
-    const details = toErrorDetails(error);
-    const canRetry =
-      error instanceof RetryableWorkerError &&
-      currentAttempt < input.maxAttempts;
-
-    if (canRetry) {
-      await dataLayer.exportJobRepository.updateJobStatus(job.id, {
-        status: "queued",
-        progress: 0,
-        attempts: currentAttempt,
-        errorCode: details.code,
-        errorMessage: details.message,
-      });
-      await dataLayer.exportJobRepository.appendEvent(job.id, {
-        projectId: job.projectId,
-        level: "warning",
-        type: "retry_scheduled",
-        message: details.message,
-        progress: job.progress,
-        payload: {
-          attempt: currentAttempt,
-          maxAttempts: input.maxAttempts,
-          errorCode: details.code,
-        },
-      });
-
-      throw error;
-    }
-
-    await dataLayer.exportJobRepository.updateJobStatus(job.id, {
-      status: "failed",
-      progress: job.progress,
-      attempts: currentAttempt,
-      errorCode: details.code,
-      errorMessage: details.message,
-    });
-    await dataLayer.exportJobRepository.appendEvent(job.id, {
-      projectId: job.projectId,
-      level: "error",
-      type: "failed",
-      message: details.message,
-      progress: job.progress,
-      payload: {
-        attempt: currentAttempt,
-        maxAttempts: input.maxAttempts,
-        errorCode: details.code,
-      },
-    });
-
-    throw createUnrecoverableQueueError(`${details.code}: ${details.message}`);
-  }
-}
-
 export async function startRenderWorker(
-  executor: RenderExecutor = new HttpRenderExecutor(),
+  executor: RenderExecutor = new PipelineRenderExecutor(),
 ) {
   const env = getWorkerEnv();
   const connection = createQueueConnection(env.redisUrl);
+  const sessionClient = createRenderWorkerSessionClient({
+    baseUrl: env.webBaseUrl,
+    internalToken: env.internalExportsToken,
+  });
+
   const worker = createExportJobWorker({
     connection,
     prefix: env.redisQueuePrefix,
@@ -193,17 +46,37 @@ export async function startRenderWorker(
         throw createUnrecoverableQueueError(`Unsupported queue job name: ${job.name}`);
       }
 
-      await handleExportJobMessage(
-        {
-          exportJobId: message.exportJobId,
-          attemptNumber,
-          maxAttempts,
-        },
-        {
-          executor,
-          webBaseUrl: env.webBaseUrl,
-        },
-      );
+      try {
+        const result = await runExportJobAttempt(
+          {
+            message,
+            attemptNumber,
+            maxAttempts,
+            workerId: env.workerId,
+          },
+          {
+            executor,
+            sessionClient,
+            heartbeatIntervalMs: env.heartbeatIntervalMs,
+            cancelPollIntervalMs: env.cancelPollIntervalMs,
+            workRootDir: env.workRootDir,
+          },
+        );
+
+        if (result.status === "retry") {
+          throw result.error;
+        }
+      } catch (error) {
+        const workerError = toWorkerError(error);
+
+        if (isRetryableWorkerError(workerError)) {
+          throw workerError;
+        }
+
+        throw createUnrecoverableQueueError(
+          `${workerError.code}: ${workerError.message}`,
+        );
+      }
     },
   });
 
@@ -216,13 +89,21 @@ export async function startRenderWorker(
       "Render job attempt failed.",
       {
         exportJobId: job?.data.exportJobId ?? null,
+        dispatchClass: job?.data.dispatchClass ?? null,
+        priority: job?.data.priority ?? null,
+        requestedAttempt: job?.data.requestedAttempt ?? null,
         attemptsMade: job?.attemptsMade ?? null,
+        workerId: env.workerId,
+        error: toErrorDetails(error),
       },
-      error,
     );
   });
 
-  console.log("Render worker is consuming export jobs.");
+  console.log("Render worker is consuming export jobs.", {
+    workerId: env.workerId,
+    concurrency: env.exportWorkerConcurrency,
+    workRootDir: env.workRootDir,
+  });
 
   await worker.waitUntilReady();
 
@@ -231,7 +112,6 @@ export async function startRenderWorker(
       worker,
       connection,
     });
-    await disconnectDataLayer();
   };
 
   process.once("SIGINT", () => {

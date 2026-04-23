@@ -2,6 +2,8 @@ import { Queue } from "bullmq";
 
 import type { QueueRedisConnection } from "./connection";
 import {
+  DEFAULT_EXPORT_DISPATCH_CLASS,
+  DEFAULT_EXPORT_JOB_PRIORITY,
   EXPORT_RENDER_JOB_NAME,
   EXPORT_RENDER_QUEUE_NAME,
   type ExportRenderJobData,
@@ -34,7 +36,23 @@ export async function enqueueExportJob(
       delay: Math.max(0, options?.backoffMs ?? 0),
     },
     jobId: message.exportJobId,
+    priority: message.priority ?? DEFAULT_EXPORT_JOB_PRIORITY,
     removeOnComplete: true,
     removeOnFail: false,
   });
+}
+
+export function buildExportRenderJobData(
+  input: Pick<ExportRenderJobData, "exportJobId" | "requestedAt"> &
+    Partial<
+      Pick<ExportRenderJobData, "dispatchClass" | "priority" | "requestedAttempt">
+    >,
+): ExportRenderJobData {
+  return {
+    exportJobId: input.exportJobId,
+    requestedAt: input.requestedAt,
+    dispatchClass: input.dispatchClass ?? DEFAULT_EXPORT_DISPATCH_CLASS,
+    priority: input.priority ?? DEFAULT_EXPORT_JOB_PRIORITY,
+    requestedAttempt: Math.max(1, input.requestedAttempt ?? 1),
+  };
 }
