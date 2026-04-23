@@ -17,6 +17,7 @@ export class HeartbeatReporter {
   private readonly intervalMs: number;
   private readonly state: HeartbeatActivity;
   private lastActivityAt = Date.now();
+  private lastHeartbeatAt = 0;
   private timer: NodeJS.Timeout | null = null;
   private inflight: Promise<void> | null = null;
   private pendingError: unknown = null;
@@ -83,7 +84,9 @@ export class HeartbeatReporter {
   async flush(force = false): Promise<void> {
     this.ensureHealthy();
 
-    if (!force && Date.now() - this.lastActivityAt < this.intervalMs) {
+    const now = Date.now();
+
+    if (!force && now - this.lastHeartbeatAt < this.intervalMs) {
       return;
     }
 
@@ -103,7 +106,7 @@ export class HeartbeatReporter {
         details: this.state.details ?? {},
       })
       .then(() => {
-        this.lastActivityAt = Date.now();
+        this.lastHeartbeatAt = Date.now();
       })
       .catch((error) => {
         this.pendingError = error;
@@ -125,5 +128,7 @@ export class HeartbeatReporter {
     if (this.inflight) {
       await this.inflight;
     }
+
+    this.ensureHealthy();
   }
 }

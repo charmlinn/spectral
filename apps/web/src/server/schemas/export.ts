@@ -5,7 +5,7 @@ import {
   exportJobFinalizePayloadSchema,
   exportJobStageUpdatePayloadSchema,
   workerHeartbeatPayloadSchema,
-} from "@spectral/render-session";
+} from "../render-session";
 
 export const createExportJobSchema = z.object({
   projectId: z.string().uuid(),
