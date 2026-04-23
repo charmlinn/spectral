@@ -9,10 +9,7 @@ import {
 import { isRetryableWorkerError, toWorkerError } from "./errors";
 import { getWorkerEnv } from "./env";
 import { runExportJobAttempt } from "./job-runner";
-import {
-  PipelineRenderExecutor,
-  type RenderExecutor,
-} from "./render-executor";
+import { PipelineRenderExecutor, type RenderExecutor } from "./render-executor";
 import { createRenderWorkerSessionClient } from "./session-client";
 
 function toErrorDetails(error: unknown) {
@@ -43,7 +40,9 @@ export async function startRenderWorker(
     concurrency: env.exportWorkerConcurrency,
     onJob: async ({ job, message, attemptNumber, maxAttempts }) => {
       if (!isExportRenderJob(job)) {
-        throw createUnrecoverableQueueError(`Unsupported queue job name: ${job.name}`);
+        throw createUnrecoverableQueueError(
+          `Unsupported queue job name: ${job.name}`,
+        );
       }
 
       try {
@@ -68,14 +67,13 @@ export async function startRenderWorker(
         }
       } catch (error) {
         const workerError = toWorkerError(error);
+        const unrecoverableMessage = `${workerError.code}: ${workerError.message}`;
 
         if (isRetryableWorkerError(workerError)) {
           throw workerError;
         }
 
-        throw createUnrecoverableQueueError(
-          `${workerError.code}: ${workerError.message}`,
-        );
+        throw createUnrecoverableQueueError(unrecoverableMessage);
       }
     },
   });
@@ -85,19 +83,18 @@ export async function startRenderWorker(
   });
 
   worker.on("failed", (job, error) => {
-    console.error(
-      "Render job attempt failed.",
-      {
-        exportJobId: job?.data.exportJobId ?? null,
-        dispatchClass: job?.data.dispatchClass ?? null,
-        priority: job?.data.priority ?? null,
-        requestedAttempt: job?.data.requestedAttempt ?? null,
-        attemptsMade: job?.attemptsMade ?? null,
-        workerId: env.workerId,
-        error: toErrorDetails(error),
-      },
-    );
+    console.error("Render job attempt failed.", {
+      exportJobId: job?.data.exportJobId ?? null,
+      dispatchClass: job?.data.dispatchClass ?? null,
+      priority: job?.data.priority ?? null,
+      requestedAttempt: job?.data.requestedAttempt ?? null,
+      attemptsMade: job?.attemptsMade ?? null,
+      workerId: env.workerId,
+      error: toErrorDetails(error),
+    });
   });
+
+  await worker.waitUntilReady();
 
   console.log("Render worker is consuming export jobs.", {
     workerId: env.workerId,
@@ -105,13 +102,14 @@ export async function startRenderWorker(
     workRootDir: env.workRootDir,
   });
 
-  await worker.waitUntilReady();
-
+  let shutdownPromise: Promise<void> | null = null;
   const shutdown = async () => {
-    await closeQueueResources({
+    shutdownPromise ??= closeQueueResources({
       worker,
       connection,
     });
+
+    await shutdownPromise;
   };
 
   process.once("SIGINT", () => {

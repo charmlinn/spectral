@@ -14,7 +14,11 @@ export class WorkerExecutionError extends Error {
   readonly details: Record<string, unknown> | undefined;
   readonly cause: unknown;
 
-  constructor(message: string, retryable: boolean, options: WorkerErrorOptions = {}) {
+  constructor(
+    message: string,
+    retryable: boolean,
+    options: WorkerErrorOptions = {},
+  ) {
     super(message);
     this.name = "WorkerExecutionError";
     this.code = options.code ?? "WORKER_EXECUTION_ERROR";
@@ -46,7 +50,11 @@ export class NonRetryableWorkerError extends WorkerExecutionError {
 }
 
 export class WorkerCancelledError extends NonRetryableWorkerError {
-  constructor(message: string, stage: ExportJobStage | null, details?: Record<string, unknown>) {
+  constructor(
+    message: string,
+    stage: ExportJobStage | null,
+    details?: Record<string, unknown>,
+  ) {
     super(message, {
       code: "EXPORT_CANCELLED",
       stage,
@@ -56,8 +64,28 @@ export class WorkerCancelledError extends NonRetryableWorkerError {
   }
 }
 
-export function isRetryableWorkerError(error: unknown): error is WorkerExecutionError {
-  return error instanceof WorkerExecutionError && error.retryable;
+export class WorkerJobTerminatedError extends NonRetryableWorkerError {
+  constructor(
+    message: string,
+    stage: ExportJobStage | null,
+    details?: Record<string, unknown>,
+  ) {
+    super(message, {
+      code: "EXPORT_JOB_TERMINATED",
+      stage,
+      details,
+    });
+    this.name = "WorkerJobTerminatedError";
+  }
+}
+
+export function isRetryableWorkerError(
+  error: unknown,
+): error is RetryableWorkerError {
+  return (
+    error instanceof RetryableWorkerError ||
+    (error instanceof WorkerExecutionError && error.retryable)
+  );
 }
 
 export function toWorkerError(

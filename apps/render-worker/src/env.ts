@@ -27,6 +27,16 @@ function readNumber(name: string, fallback: number): number {
   return parsed;
 }
 
+function resolveChromiumExecutablePath(): string {
+  return (
+    process.env.CHROMIUM_BIN ??
+    process.env.CHROME_BIN ??
+    (process.platform === "darwin"
+      ? "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+      : "google-chrome")
+  );
+}
+
 let cachedEnv: {
   redisUrl: string;
   redisQueuePrefix?: string;
@@ -37,6 +47,8 @@ let cachedEnv: {
   heartbeatIntervalMs: number;
   cancelPollIntervalMs: number;
   workRootDir: string;
+  chromiumExecutablePath: string;
+  ffmpegBin: string;
 } | null = null;
 
 export function getWorkerEnv() {
@@ -59,7 +71,10 @@ export function getWorkerEnv() {
       1_000,
       readNumber("EXPORT_CANCEL_POLL_INTERVAL_MS", 5_000),
     ),
-    workRootDir: process.env.EXPORT_WORK_ROOT ?? join(tmpdir(), "spectral-renders"),
+    workRootDir:
+      process.env.EXPORT_WORK_ROOT ?? join(tmpdir(), "spectral-renders"),
+    chromiumExecutablePath: resolveChromiumExecutablePath(),
+    ffmpegBin: process.env.FFMPEG_BIN ?? "ffmpeg",
   };
 
   return cachedEnv;

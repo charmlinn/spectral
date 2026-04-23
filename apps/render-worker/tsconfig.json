@@ -7,7 +7,14 @@
     "types": ["node"],
     "paths": {
       "@spectral/db": ["../../packages/db/src/index.ts"],
+      "@spectral/media": ["../../packages/media/src/index.ts"],
       "@spectral/queue": ["../../packages/queue/src/index.ts"],
+      "@spectral/render-assets": ["../../packages/render-assets/src/index.ts"],
+      "@spectral/render-encode": ["../../packages/render-encode/src/index.ts"],
+      "@spectral/render-parity": ["../../packages/render-parity/src/index.ts"],
+      "@spectral/render-runtime-browser": [
+        "../../packages/render-runtime-browser/src/index.ts"
+      ],
       "@spectral/render-session": ["../../packages/render-session/src/index.ts"]
     }
   },

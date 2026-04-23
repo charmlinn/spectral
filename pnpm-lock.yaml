@@ -41,6 +41,9 @@ importers:
       '@spectral/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@spectral/media':
+        specifier: workspace:*
+        version: link:../../packages/media
       '@spectral/queue':
         specifier: workspace:*
         version: link:../../packages/queue
@@ -53,6 +56,9 @@ importers:
       '@spectral/render-parity':
         specifier: workspace:*
         version: link:../../packages/render-parity
+      '@spectral/render-runtime-browser':
+        specifier: workspace:*
+        version: link:../../packages/render-runtime-browser
       '@spectral/render-session':
         specifier: workspace:*
         version: link:../../packages/render-session
@@ -272,6 +278,9 @@ importers:
       '@spectral/render-core':
         specifier: workspace:*
         version: link:../render-core
+      '@spectral/render-session':
+        specifier: workspace:*
+        version: link:../render-session
       '@types/chroma-js':
         specifier: ^3.1.2
         version: 3.1.2

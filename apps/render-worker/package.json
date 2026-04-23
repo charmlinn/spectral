@@ -13,10 +13,12 @@
   },
   "dependencies": {
     "@spectral/db": "workspace:*",
+    "@spectral/media": "workspace:*",
     "@spectral/queue": "workspace:*",
     "@spectral/render-assets": "workspace:*",
     "@spectral/render-encode": "workspace:*",
     "@spectral/render-parity": "workspace:*",
+    "@spectral/render-runtime-browser": "workspace:*",
     "@spectral/render-session": "workspace:*"
   },
   "devDependencies": {
