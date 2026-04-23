@@ -16,6 +16,7 @@
     "@spectral/media": "workspace:*",
     "@spectral/project-schema": "workspace:*",
     "@spectral/queue": "workspace:*",
+    "@spectral/render-session": "workspace:*",
     "@spectral/render-runtime-browser": "workspace:*",
     "@spectral/timeline": "workspace:*",
     "@spectral/ui": "workspace:*",

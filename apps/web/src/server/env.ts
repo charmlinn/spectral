@@ -3,6 +3,7 @@ import { badRequest } from "./errors";
 type ServerEnv = {
   redisUrl: string;
   redisQueuePrefix?: string;
+  internalExportsToken?: string;
   exportMaxAttempts: number;
   exportRetryDelayMs: number;
   r2AccountId?: string;
@@ -53,6 +54,7 @@ export function getServerEnv(): ServerEnv {
   cachedEnv = {
     redisUrl: readRequired("REDIS_URL"),
     redisQueuePrefix: process.env.REDIS_QUEUE_PREFIX,
+    internalExportsToken: process.env.INTERNAL_EXPORTS_TOKEN,
     exportMaxAttempts: readNumber("EXPORT_MAX_ATTEMPTS", 3),
     exportRetryDelayMs: readNumber("EXPORT_RETRY_DELAY_MS", 30_000),
     r2AccountId: process.env.R2_ACCOUNT_ID,
