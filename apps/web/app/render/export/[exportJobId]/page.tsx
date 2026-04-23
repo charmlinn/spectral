@@ -1,7 +1,10 @@
 import type { Metadata } from "next";
 
+import type { RenderPageBootstrapPayload } from "@spectral/render-runtime-browser";
+
 import { serializeForJson } from "@/src/server/http";
 import { getRenderPayload } from "@/src/server/services";
+import { RenderPageClient } from "./render-page-client";
 
 type RenderExportPageProps = {
   params: Promise<{
@@ -26,7 +29,7 @@ export async function generateMetadata({
 export default async function RenderExportPage({ params }: RenderExportPageProps) {
   const { exportJobId } = await params;
   const payload = await getRenderPayload(exportJobId);
-  const serializedPayload = serializeForJson(payload);
+  const serializedPayload = serializeForJson(payload) as RenderPageBootstrapPayload;
   const bootstrapUrl = payload.routes.bootstrapPath;
 
   return (
@@ -104,6 +107,7 @@ export default async function RenderExportPage({ params }: RenderExportPageProps
           </pre>
         </section>
       </div>
+      <RenderPageClient payload={serializedPayload} />
     </main>
   );
 }

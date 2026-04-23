@@ -39,6 +39,7 @@ export type BrowserRenderRuntimeOptions = {
   surface: RenderSurface;
   clock?: RenderClock | null;
   frameContextFps?: number;
+  frameContextDurationMs?: number;
   analysisProvider?: AudioAnalysisProvider | null;
   historyProvider?: AudioAnalysisProvider | null;
   assetResolver?: RenderAssetResolver | null;
@@ -77,7 +78,9 @@ export type RenderPageRuntimeOptions = {
   target: BrowserRenderAdapterMountTarget;
   project: VideoProject;
   surface: RenderSurface;
-  analysisProvider: AudioAnalysisProvider;
+  fps?: number;
+  durationMs?: number;
+  analysisProvider?: AudioAnalysisProvider | null;
   assetResolver?: RenderAssetResolver | null;
   adapter?: BrowserRenderAdapter;
   clock?: RenderClock | null;
