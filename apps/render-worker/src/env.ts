@@ -30,6 +30,8 @@ let cachedEnv: {
   exportWorkerConcurrency: number;
   databaseUrl: string;
   webBaseUrl: string;
+  internalExportsToken?: string;
+  renderFramesDir?: string;
 } | null = null;
 
 export function getWorkerEnv() {
@@ -43,6 +45,8 @@ export function getWorkerEnv() {
     exportWorkerConcurrency: readNumber("EXPORT_WORKER_CONCURRENCY", 1),
     databaseUrl: readRequired("DATABASE_URL"),
     webBaseUrl: readRequired("WEB_BASE_URL"),
+    internalExportsToken: process.env.INTERNAL_EXPORTS_TOKEN,
+    renderFramesDir: process.env.RENDER_FRAMES_DIR,
   };
 
   return cachedEnv;

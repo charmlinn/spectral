@@ -10,16 +10,17 @@ import {
   isExportRenderJob,
 } from "@spectral/queue";
 
+import { ChromiumRenderExecutor } from "./chromium-renderer";
 import { NonRetryableWorkerError, RetryableWorkerError } from "./errors";
 import { getWorkerEnv } from "./env";
-import { HttpRenderExecutor, type RenderExecutor } from "./render-executor";
+import type { RenderExecutor } from "./render-executor";
 
 function buildRenderPageUrl(exportJobId: string, webBaseUrl: string): string {
   return new URL(`/render/export/${exportJobId}`, webBaseUrl).toString();
 }
 
-function buildRenderBootstrapUrl(exportJobId: string, webBaseUrl: string): string {
-  return new URL(`/render/export/${exportJobId}/bootstrap`, webBaseUrl).toString();
+function buildInternalRenderSessionUrl(exportJobId: string, webBaseUrl: string): string {
+  return new URL(`/api/internal/exports/${exportJobId}/session`, webBaseUrl).toString();
 }
 
 function toErrorDetails(error: unknown) {
@@ -52,6 +53,8 @@ async function handleExportJobMessage(
   dependencies: {
     executor: RenderExecutor;
     webBaseUrl: string;
+    internalExportsToken?: string;
+    renderFramesDir?: string;
   },
 ): Promise<void> {
   const dataLayer = getDataLayer();
@@ -86,6 +89,7 @@ async function handleExportJobMessage(
   }
 
   const currentAttempt = Math.max(job.attempts + 1, input.attemptNumber);
+  const workerId = `render-worker:${process.pid}`;
 
   await dataLayer.exportJobRepository.updateJobStatus(job.id, {
     status: "running",
@@ -107,7 +111,11 @@ async function handleExportJobMessage(
     const result = await dependencies.executor.execute({
       exportJobId: job.id,
       renderPageUrl: buildRenderPageUrl(job.id, dependencies.webBaseUrl),
-      renderBootstrapUrl: buildRenderBootstrapUrl(job.id, dependencies.webBaseUrl),
+      renderSessionUrl: buildInternalRenderSessionUrl(job.id, dependencies.webBaseUrl),
+      internalToken: dependencies.internalExportsToken,
+      workerId,
+      attempt: currentAttempt,
+      framesRootDir: dependencies.renderFramesDir,
     });
 
     await dataLayer.exportJobRepository.updateJobStatus(job.id, {
@@ -180,7 +188,7 @@ async function handleExportJobMessage(
 }
 
 export async function startRenderWorker(
-  executor: RenderExecutor = new HttpRenderExecutor(),
+  executor: RenderExecutor = new ChromiumRenderExecutor(),
 ) {
   const env = getWorkerEnv();
   const connection = createQueueConnection(env.redisUrl);
@@ -202,6 +210,8 @@ export async function startRenderWorker(
         {
           executor,
           webBaseUrl: env.webBaseUrl,
+          internalExportsToken: env.internalExportsToken,
+          renderFramesDir: env.renderFramesDir,
         },
       );
     },

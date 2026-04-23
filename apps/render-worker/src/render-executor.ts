@@ -1,4 +1,23 @@
+import {
+  exportJobStageUpdatePayloadSchema,
+  renderSessionSchema,
+  workerHeartbeatPayloadSchema,
+  type ExportJobStage,
+  type RenderSession,
+  type WorkerHeartbeatPayload,
+} from "@spectral/render-session";
+
 import { NonRetryableWorkerError, RetryableWorkerError } from "./errors";
+
+export type RenderExecutionInput = {
+  exportJobId: string;
+  renderPageUrl: string;
+  renderSessionUrl: string;
+  internalToken?: string | null;
+  workerId: string;
+  attempt: number;
+  framesRootDir?: string | null;
+};
 
 export type RenderExecutionResult = {
   outputStorageKey?: string | null;
@@ -6,59 +25,28 @@ export type RenderExecutionResult = {
   metadata?: Record<string, unknown>;
 };
 
-export type RenderPageBootstrapPayload = {
-  protocolVersion: string;
-  exportJob: {
-    id: string;
-    projectId: string;
-    status: string;
-    format: string;
-    width: number;
-    height: number;
-    fps: number;
-    durationMs: number | null;
-  };
-  runtime: {
-    mode: string;
-    fps: number;
-    durationMs: number;
-    frameCount: number;
-    targetElementId: string;
-  };
-  media: {
-    analysisId: string | null;
-    analysis: unknown;
-    assetBindings: Array<{
-      role: string;
-      assetId: string;
-      kind: string;
-      status: string;
-      resolvedUrl: string | null;
-    }>;
-  };
-  routes: {
-    pagePath: string;
-    bootstrapPath: string;
-    projectEventsPath: string;
-    exportEventsPath: string;
-  };
-};
-
 export type RenderExecutor = {
-  execute(input: {
-    exportJobId: string;
-    renderPageUrl: string;
-    renderBootstrapUrl: string;
-  }): Promise<RenderExecutionResult>;
+  execute(input: RenderExecutionInput): Promise<RenderExecutionResult>;
 };
 
-function buildRenderRequestInit(): RequestInit {
-  return {
-    headers: {
-      accept: "text/html,application/json",
-      "user-agent": "spectral-render-worker/1.0",
-    },
+function buildHeaders(
+  internalToken?: string | null,
+  contentType?: string,
+): Record<string, string> {
+  const headers: Record<string, string> = {
+    accept: "application/json",
+    "user-agent": "spectral-render-worker/1.0",
   };
+
+  if (contentType) {
+    headers["content-type"] = contentType;
+  }
+
+  if (internalToken) {
+    headers.authorization = `Bearer ${internalToken}`;
+  }
+
+  return headers;
 }
 
 async function readResponseText(response: Response): Promise<string> {
@@ -69,103 +57,138 @@ async function readResponseText(response: Response): Promise<string> {
   }
 }
 
-function assertBootstrapPayload(
-  payload: unknown,
-  exportJobId: string,
-): RenderPageBootstrapPayload {
-  if (typeof payload !== "object" || payload === null) {
-    throw new NonRetryableWorkerError(
-      `Render bootstrap payload for ${exportJobId} is not an object.`,
-      "INVALID_RENDER_BOOTSTRAP",
-    );
-  }
-
-  const candidate = payload as Partial<RenderPageBootstrapPayload>;
-
-  if (
-    candidate.protocolVersion !== "spectral.render-page-bootstrap.v1" ||
-    !candidate.exportJob ||
-    candidate.exportJob.id !== exportJobId ||
-    !candidate.runtime ||
-    !candidate.media ||
-    !candidate.routes
-  ) {
-    throw new NonRetryableWorkerError(
-      `Render bootstrap payload for ${exportJobId} is missing required fields.`,
-      "INVALID_RENDER_BOOTSTRAP",
-    );
-  }
-
-  return candidate as RenderPageBootstrapPayload;
+function resolveInternalUrl(pathOrUrl: string, baseUrl: string): string {
+  return new URL(pathOrUrl, baseUrl).toString();
 }
 
-export class HttpRenderExecutor implements RenderExecutor {
-  async execute(input: {
-    exportJobId: string;
-    renderPageUrl: string;
-    renderBootstrapUrl: string;
-  }): Promise<RenderExecutionResult> {
-    let renderPageResponse: Response;
+export async function fetchRenderSession(
+  url: string,
+  exportJobId: string,
+  internalToken?: string | null,
+): Promise<RenderSession> {
+  let response: Response;
 
-    try {
-      renderPageResponse = await fetch(input.renderPageUrl, buildRenderRequestInit());
-    } catch (error) {
-      throw new RetryableWorkerError(
-        `Failed to reach render page ${input.renderPageUrl}: ${error instanceof Error ? error.message : String(error)}`,
-        "RENDER_PAGE_UNREACHABLE",
-      );
-    }
-
-    if (!renderPageResponse.ok) {
-      throw new RetryableWorkerError(
-        `Render page ${input.renderPageUrl} responded with ${renderPageResponse.status}.`,
-        "RENDER_PAGE_BAD_STATUS",
-      );
-    }
-
-    const renderPageHtml = await readResponseText(renderPageResponse);
-
-    if (!renderPageHtml.includes("spectral-render-page-bootstrap")) {
-      throw new NonRetryableWorkerError(
-        `Render page ${input.renderPageUrl} did not expose the bootstrap script tag.`,
-        "RENDER_PAGE_BOOTSTRAP_TAG_MISSING",
-      );
-    }
-
-    let renderBootstrapResponse: Response;
-
-    try {
-      renderBootstrapResponse = await fetch(input.renderBootstrapUrl, buildRenderRequestInit());
-    } catch (error) {
-      throw new RetryableWorkerError(
-        `Failed to reach render bootstrap ${input.renderBootstrapUrl}: ${error instanceof Error ? error.message : String(error)}`,
-        "RENDER_BOOTSTRAP_UNREACHABLE",
-      );
-    }
-
-    if (!renderBootstrapResponse.ok) {
-      throw new RetryableWorkerError(
-        `Render bootstrap ${input.renderBootstrapUrl} responded with ${renderBootstrapResponse.status}.`,
-        "RENDER_BOOTSTRAP_BAD_STATUS",
-      );
-    }
-
-    let payload: unknown;
-
-    try {
-      payload = await renderBootstrapResponse.json();
-    } catch (error) {
-      throw new NonRetryableWorkerError(
-        `Render bootstrap ${input.renderBootstrapUrl} returned invalid JSON: ${error instanceof Error ? error.message : String(error)}`,
-        "INVALID_RENDER_BOOTSTRAP",
-      );
-    }
-
-    const bootstrap = assertBootstrapPayload(payload, input.exportJobId);
-
-    throw new NonRetryableWorkerError(
-      `Render page bootstrap loaded for ${input.exportJobId}, but browser rendering and video encoding are not wired yet. Bootstrap path: ${bootstrap.routes.bootstrapPath}.`,
-      "RENDER_EXECUTION_NOT_IMPLEMENTED",
+  try {
+    response = await fetch(url, {
+      headers: buildHeaders(internalToken),
+    });
+  } catch (error) {
+    throw new RetryableWorkerError(
+      `Failed to reach render session ${url}: ${error instanceof Error ? error.message : String(error)}`,
+      "RENDER_SESSION_UNREACHABLE",
     );
   }
+
+  if (!response.ok) {
+    throw new RetryableWorkerError(
+      `Render session ${url} responded with ${response.status}.`,
+      "RENDER_SESSION_BAD_STATUS",
+    );
+  }
+
+  let payload: unknown;
+
+  try {
+    payload = await response.json();
+  } catch (error) {
+    throw new NonRetryableWorkerError(
+      `Render session ${url} returned invalid JSON: ${error instanceof Error ? error.message : String(error)}`,
+      "INVALID_RENDER_SESSION",
+    );
+  }
+
+  const session = renderSessionSchema.safeParse(payload);
+
+  if (!session.success || session.data.exportJobId !== exportJobId) {
+    throw new NonRetryableWorkerError(
+      `Render session payload for ${exportJobId} is missing required fields.`,
+      "INVALID_RENDER_SESSION",
+    );
+  }
+
+  return session.data;
+}
+
+async function postInternalMutation(
+  url: string,
+  payload: Record<string, unknown>,
+  internalToken?: string | null,
+): Promise<void> {
+  let response: Response;
+
+  try {
+    response = await fetch(url, {
+      method: "POST",
+      headers: buildHeaders(internalToken, "application/json"),
+      body: JSON.stringify(payload),
+    });
+  } catch (error) {
+    throw new RetryableWorkerError(
+      `Failed to reach internal render API ${url}: ${error instanceof Error ? error.message : String(error)}`,
+      "INTERNAL_RENDER_API_UNREACHABLE",
+    );
+  }
+
+  if (!response.ok) {
+    const responseText = await readResponseText(response);
+    throw new RetryableWorkerError(
+      `Internal render API ${url} responded with ${response.status}${responseText ? `: ${responseText}` : "."}`,
+      "INTERNAL_RENDER_API_BAD_STATUS",
+    );
+  }
+}
+
+export async function postRenderStage(input: {
+  session: RenderSession;
+  webBaseUrl: string;
+  internalToken?: string | null;
+  workerId: string;
+  attempt: number;
+  stage: ExportJobStage;
+  progressPct?: number | null;
+  message?: string | null;
+  details?: Record<string, unknown>;
+}): Promise<void> {
+  const payload = exportJobStageUpdatePayloadSchema.parse({
+    workerId: input.workerId,
+    attempt: input.attempt,
+    stage: input.stage,
+    progressPct: input.progressPct,
+    message: input.message,
+    details: input.details,
+  });
+
+  await postInternalMutation(
+    resolveInternalUrl(input.session.routes.internal.stagePath, input.webBaseUrl),
+    payload,
+    input.internalToken,
+  );
+}
+
+export async function postRenderHeartbeat(input: {
+  session: RenderSession;
+  webBaseUrl: string;
+  internalToken?: string | null;
+  workerId: string;
+  attempt: number;
+  stage?: ExportJobStage | null;
+  progressPct?: number | null;
+  message?: string | null;
+  details?: WorkerHeartbeatPayload["details"];
+}): Promise<void> {
+  const payload = workerHeartbeatPayloadSchema.parse({
+    workerId: input.workerId,
+    attempt: input.attempt,
+    heartbeatAt: new Date().toISOString(),
+    stage: input.stage,
+    progressPct: input.progressPct,
+    message: input.message,
+    details: input.details,
+  });
+
+  await postInternalMutation(
+    resolveInternalUrl(input.session.routes.internal.heartbeatPath, input.webBaseUrl),
+    payload,
+    input.internalToken,
+  );
 }

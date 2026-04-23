@@ -7,7 +7,8 @@
     "types": ["node"],
     "paths": {
       "@spectral/db": ["../../packages/db/src/index.ts"],
-      "@spectral/queue": ["../../packages/queue/src/index.ts"]
+      "@spectral/queue": ["../../packages/queue/src/index.ts"],
+      "@spectral/render-session": ["../../packages/render-session/src/index.ts"]
     }
   },
   "include": ["src/**/*.ts"]

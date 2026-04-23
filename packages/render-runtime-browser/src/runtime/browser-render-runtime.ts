@@ -16,6 +16,8 @@ export function createBrowserRenderRuntime(
   const PREVIEW_TARGET_FPS = 60;
   const MIN_FRAME_INTERVAL_MS = 1000 / PREVIEW_TARGET_FPS;
   let frameContextFps = options.frameContextFps ?? options.project.timing.fps;
+  let frameContextDurationMs =
+    options.frameContextDurationMs ?? options.project.timing.durationMs;
   let mountedTarget: HTMLElement | HTMLCanvasElement | null = null;
   let project = options.project;
   let surface = options.surface;
@@ -37,7 +39,7 @@ export function createBrowserRenderRuntime(
     const frameContext = createFrameContext(
       timeMs,
       frameContextFps,
-      project.timing.durationMs,
+      frameContextDurationMs,
     );
     const sceneGraph = buildScene({
       project,
@@ -49,7 +51,7 @@ export function createBrowserRenderRuntime(
     const visibleLayers = resolveVisibleLayers(sceneGraph.layers, frameContext);
     const input = {
       analysisProvider,
-      animationTimeMs: performance.now(),
+      animationTimeMs: timeMs,
       historyProvider,
       playing: playbackState,
       sceneGraph,
@@ -133,6 +135,10 @@ export function createBrowserRenderRuntime(
 
       if (options.frameContextFps === undefined) {
         frameContextFps = nextProject.timing.fps;
+      }
+
+      if (options.frameContextDurationMs === undefined) {
+        frameContextDurationMs = nextProject.timing.durationMs;
       }
     },
     setClock(nextClock) {
