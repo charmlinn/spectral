@@ -106,6 +106,8 @@ async function handleExportJobMessage(
   try {
     const result = await dependencies.executor.execute({
       exportJobId: job.id,
+      attempt: currentAttempt,
+      workerId: `${process.env.HOSTNAME ?? "render-worker"}:${process.pid}`,
       renderPageUrl: buildRenderPageUrl(job.id, dependencies.webBaseUrl),
       renderBootstrapUrl: buildRenderBootstrapUrl(job.id, dependencies.webBaseUrl),
     });

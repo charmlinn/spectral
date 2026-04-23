@@ -44,6 +44,18 @@ importers:
       '@spectral/queue':
         specifier: workspace:*
         version: link:../../packages/queue
+      '@spectral/render-assets':
+        specifier: workspace:*
+        version: link:../../packages/render-assets
+      '@spectral/render-encode':
+        specifier: workspace:*
+        version: link:../../packages/render-encode
+      '@spectral/render-parity':
+        specifier: workspace:*
+        version: link:../../packages/render-parity
+      '@spectral/render-session':
+        specifier: workspace:*
+        version: link:../../packages/render-session
     devDependencies:
       '@types/node':
         specifier: ^22.14.1
@@ -72,6 +84,9 @@ importers:
       '@spectral/render-runtime-browser':
         specifier: workspace:*
         version: link:../../packages/render-runtime-browser
+      '@spectral/render-session':
+        specifier: workspace:*
+        version: link:../../packages/render-session
       '@spectral/timeline':
         specifier: workspace:*
         version: link:../../packages/timeline
@@ -201,6 +216,19 @@ importers:
         specifier: ^22.14.1
         version: 22.19.17
 
+  packages/render-assets:
+    dependencies:
+      '@spectral/media':
+        specifier: workspace:*
+        version: link:../media
+      '@spectral/render-session':
+        specifier: workspace:*
+        version: link:../render-session
+    devDependencies:
+      '@types/node':
+        specifier: ^22.14.1
+        version: 22.19.17
+
   packages/render-core:
     dependencies:
       '@spectral/audio-analysis':
@@ -209,6 +237,29 @@ importers:
       '@spectral/project-schema':
         specifier: workspace:*
         version: link:../project-schema
+
+  packages/render-encode:
+    dependencies:
+      '@spectral/media':
+        specifier: workspace:*
+        version: link:../media
+      '@spectral/render-session':
+        specifier: workspace:*
+        version: link:../render-session
+    devDependencies:
+      '@types/node':
+        specifier: ^22.14.1
+        version: 22.19.17
+
+  packages/render-parity:
+    dependencies:
+      '@spectral/render-session':
+        specifier: workspace:*
+        version: link:../render-session
+    devDependencies:
+      '@types/node':
+        specifier: ^22.14.1
+        version: 22.19.17
 
   packages/render-runtime-browser:
     dependencies:
@@ -239,6 +290,15 @@ importers:
       pixi.js:
         specifier: ^8.18.1
         version: 8.18.1
+
+  packages/render-session:
+    dependencies:
+      '@spectral/project-schema':
+        specifier: workspace:*
+        version: link:../project-schema
+      zod:
+        specifier: ^4.1.12
+        version: 4.3.6
 
   packages/timeline:
     dependencies:
