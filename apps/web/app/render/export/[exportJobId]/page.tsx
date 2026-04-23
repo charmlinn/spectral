@@ -1,7 +1,10 @@
 import type { Metadata } from "next";
 
+import type { RenderPageBootstrapPayload } from "@spectral/render-runtime-browser";
+
 import { serializeForJson } from "@/src/server/http";
 import { getRenderPayload } from "@/src/server/services";
+import { RenderPageClient } from "./render-page-client";
 
 type RenderExportPageProps = {
   params: Promise<{
@@ -26,7 +29,7 @@ export async function generateMetadata({
 export default async function RenderExportPage({ params }: RenderExportPageProps) {
   const { exportJobId } = await params;
   const payload = await getRenderPayload(exportJobId);
-  const serializedPayload = serializeForJson(payload);
+  const serializedPayload = serializeForJson(payload) as RenderPageBootstrapPayload;
   const bootstrapUrl = payload.routes.bootstrapPath;
 
   return (
@@ -41,12 +44,13 @@ export default async function RenderExportPage({ params }: RenderExportPageProps
           </h1>
           <p className="max-w-3xl text-sm text-neutral-400">
             This page is intended for the render worker and Playwright-driven Chromium
-            sessions. It exposes a deterministic bootstrap contract that codex2 runtime
-            code can consume through <code className="mx-1 rounded bg-black/40 px-1 py-0.5">{bootstrapUrl}</code>.
+            sessions. It exposes a deterministic render-session bootstrap contract that
+            codex2 runtime code can consume through{" "}
+            <code className="mx-1 rounded bg-black/40 px-1 py-0.5">{bootstrapUrl}</code>.
           </p>
         </header>
 
-        <section className="grid gap-4 rounded-3xl border border-neutral-800 bg-neutral-900/80 p-6 md:grid-cols-4">
+        <section className="grid gap-4 rounded-3xl border border-neutral-800 bg-neutral-900/80 p-6 md:grid-cols-5">
           <div>
             <p className="text-xs uppercase tracking-[0.25em] text-neutral-500">Status</p>
             <p className="mt-2 text-lg font-medium">{payload.exportJob.status}</p>
@@ -65,6 +69,10 @@ export default async function RenderExportPage({ params }: RenderExportPageProps
             <p className="text-xs uppercase tracking-[0.25em] text-neutral-500">FPS</p>
             <p className="mt-2 text-lg font-medium">{payload.exportJob.fps}</p>
           </div>
+          <div>
+            <p className="text-xs uppercase tracking-[0.25em] text-neutral-500">Session</p>
+            <p className="mt-2 text-sm font-medium">{payload.session.protocolVersion}</p>
+          </div>
         </section>
 
         <section className="rounded-3xl border border-neutral-800 bg-neutral-900/80 p-6">
@@ -82,7 +90,7 @@ export default async function RenderExportPage({ params }: RenderExportPageProps
         </section>
 
         <section className="rounded-3xl border border-neutral-800 bg-neutral-900/80 p-6">
-          <h2 className="font-heading text-xl font-semibold">Bootstrap payload</h2>
+          <h2 className="font-heading text-xl font-semibold">Bootstrap Payload</h2>
           <p className="mt-2 text-sm text-neutral-400">
             The payload below is also embedded in a script tag with the id
             <code className="mx-1 rounded bg-black/40 px-1 py-0.5">spectral-render-page-bootstrap</code>.
@@ -99,6 +107,7 @@ export default async function RenderExportPage({ params }: RenderExportPageProps
           </pre>
         </section>
       </div>
+      <RenderPageClient payload={serializedPayload} />
     </main>
   );
 }

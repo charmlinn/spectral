@@ -7,7 +7,8 @@
     "paths": {
       "@spectral/audio-analysis": ["../audio-analysis/src/index.ts"],
       "@spectral/project-schema": ["../project-schema/src/index.ts"],
-      "@spectral/render-core": ["../render-core/src/index.ts"]
+      "@spectral/render-core": ["../render-core/src/index.ts"],
+      "@spectral/render-session": ["../render-session/src/index.ts"]
     }
   },
   "include": ["src/**/*.ts"]

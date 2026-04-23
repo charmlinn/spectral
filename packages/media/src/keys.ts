@@ -93,6 +93,38 @@ export function buildExportPosterStorageKey(input: {
   ].join("/");
 }
 
+export function buildExportThumbnailStorageKey(input: {
+  projectId: string;
+  exportJobId: string;
+  frame: number;
+  extension?: string;
+}): string {
+  return [
+    "projects",
+    sanitizeSegment(input.projectId),
+    "exports",
+    sanitizeSegment(input.exportJobId),
+    "thumb",
+    `${Math.max(0, Math.floor(input.frame))}.${normalizeExtension(input.extension ?? "jpg")}`,
+  ].join("/");
+}
+
+export function buildExportPreviewFrameStorageKey(input: {
+  projectId: string;
+  exportJobId: string;
+  frame: number;
+  extension?: string;
+}): string {
+  return [
+    "projects",
+    sanitizeSegment(input.projectId),
+    "exports",
+    sanitizeSegment(input.exportJobId),
+    "preview",
+    `${Math.max(0, Math.floor(input.frame))}.${normalizeExtension(input.extension ?? "png")}`,
+  ].join("/");
+}
+
 export function inferExtensionFromFilename(filename: string, fallback = "bin"): string {
   const lastSegment = filename.split(".").pop();
 
