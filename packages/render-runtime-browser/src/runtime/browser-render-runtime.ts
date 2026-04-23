@@ -13,6 +13,8 @@ import type {
 export function createBrowserRenderRuntime(
   options: BrowserRenderRuntimeOptions,
 ): BrowserRenderRuntime {
+  const PREVIEW_TARGET_FPS = 60;
+  const MIN_FRAME_INTERVAL_MS = 1000 / PREVIEW_TARGET_FPS;
   let mountedTarget: HTMLElement | HTMLCanvasElement | null = null;
   let project = options.project;
   let surface = options.surface;
@@ -24,6 +26,7 @@ export function createBrowserRenderRuntime(
   let running = false;
   let renderInFlight = false;
   let playbackState = false;
+  let lastRenderAtMs = 0;
 
   const buildScene = options.buildSceneGraph ?? buildSceneGraph;
 
@@ -40,6 +43,7 @@ export function createBrowserRenderRuntime(
       frameContext,
       surface,
       analysisProvider,
+      historyProvider,
     });
     const visibleLayers = resolveVisibleLayers(sceneGraph.layers, frameContext);
     const input = {
@@ -66,14 +70,25 @@ export function createBrowserRenderRuntime(
     }
   }
 
-  async function tick(): Promise<void> {
+  async function tick(nowMs = performance.now()): Promise<void> {
     if (!running) {
       return;
     }
 
+    if (
+      playbackState &&
+      lastRenderAtMs > 0 &&
+      nowMs - lastRenderAtMs < MIN_FRAME_INTERVAL_MS
+    ) {
+      rafId = requestAnimationFrame((nextNowMs) => {
+        void tick(nextNowMs);
+      });
+      return;
+    }
+
     if (renderInFlight) {
-      rafId = requestAnimationFrame(() => {
-        void tick();
+      rafId = requestAnimationFrame((nextNowMs) => {
+        void tick(nextNowMs);
       });
       return;
     }
@@ -83,6 +98,7 @@ export function createBrowserRenderRuntime(
 
     try {
       await renderFrameAt(currentTimeMs);
+      lastRenderAtMs = nowMs;
     } finally {
       renderInFlight = false;
     }
@@ -91,8 +107,8 @@ export function createBrowserRenderRuntime(
       return;
     }
 
-    rafId = requestAnimationFrame(() => {
-      void tick();
+    rafId = requestAnimationFrame((nextNowMs) => {
+      void tick(nextNowMs);
     });
   }
 
@@ -143,10 +159,12 @@ export function createBrowserRenderRuntime(
       }
 
       running = true;
+      lastRenderAtMs = 0;
       void tick();
     },
     stop() {
       running = false;
+      lastRenderAtMs = 0;
       stopLoop();
     },
     renderFrameAt,

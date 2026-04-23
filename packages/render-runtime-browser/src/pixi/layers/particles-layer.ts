@@ -21,6 +21,7 @@ const SPECTERR_PARTICLE_BASS_SPECTRUM_OPTIONS: ProcessSpectrumOptions = {
   smoothingPasses: 4,
   smoothingPoints: 5,
 };
+const SPECTERR_PREVIEW_PARTICLE_FPS = 60;
 
 function hasRenderableParticles(layer: ParticleLayer | null) {
   if (!layer) {
@@ -79,7 +80,7 @@ export class PixiParticlesLayer {
         spectrumOptions: SPECTERR_PARTICLE_BASS_SPECTRUM_OPTIONS,
         speedUpEnabled: Boolean(layer?.props.particles.speedUpEnabled),
       },
-      input.frameContext.fps,
+      SPECTERR_PREVIEW_PARTICLE_FPS,
     );
     this.renderer.draw(layer?.props.bassSpectrum ?? new Float32Array());
   }

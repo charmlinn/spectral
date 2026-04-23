@@ -22,6 +22,36 @@ import type {
   VisualizerRingRenderConfig,
 } from "./types";
 
+type VisualizerHistoryCache = {
+  bassHistory: number[][] | null;
+  waveformHistoryByPointCount: Map<number, number[][]>;
+  wideHistory: number[][] | null;
+};
+
+const VISUALIZER_HISTORY_CACHE = new WeakMap<
+  BrowserRenderAdapterRenderInput,
+  VisualizerHistoryCache
+>();
+
+function getVisualizerHistoryCache(
+  input: BrowserRenderAdapterRenderInput,
+): VisualizerHistoryCache {
+  const existing = VISUALIZER_HISTORY_CACHE.get(input);
+
+  if (existing) {
+    return existing;
+  }
+
+  const created: VisualizerHistoryCache = {
+    bassHistory: null,
+    waveformHistoryByPointCount: new Map(),
+    wideHistory: null,
+  };
+
+  VISUALIZER_HISTORY_CACHE.set(input, created);
+  return created;
+}
+
 function normalizeVisualizerWaveType(value: string | null | undefined) {
   const normalized = value?.toLowerCase() ?? "wide spectrum";
 
@@ -107,6 +137,13 @@ function getWaveformHistory(
   input: BrowserRenderAdapterRenderInput,
   targetPoints: number,
 ) {
+  const cachedHistory = getVisualizerHistoryCache(input);
+  const existing = cachedHistory.waveformHistoryByPointCount.get(targetPoints);
+
+  if (existing) {
+    return existing;
+  }
+
   const provider = input.historyProvider ?? input.analysisProvider;
   const history: number[][] = [];
   const frameMs = 1000 / Math.max(1, input.frameContext.fps);
@@ -127,6 +164,7 @@ function getWaveformHistory(
     );
   }
 
+  cachedHistory.waveformHistoryByPointCount.set(targetPoints, history);
   return history;
 }
 
@@ -144,15 +182,21 @@ function getSpectrumHistory(
     | undefined;
   const fallbackProvider = input.analysisProvider ?? input.historyProvider;
   const normalizedWaveType = normalizeVisualizerWaveType(waveType);
+  const cachedHistory = getVisualizerHistoryCache(input);
 
   if (normalizedWaveType === "waveform") {
     return getWaveformHistory(input, targetPoints);
   }
 
   if (normalizedWaveType.includes("bass")) {
+    if (cachedHistory.bassHistory) {
+      return cachedHistory.bassHistory;
+    }
+
     try {
       if (historyProvider?.getHistoricalBassFrequencies) {
-        return historyProvider.getHistoricalBassFrequencies(true);
+        cachedHistory.bassHistory = historyProvider.getHistoricalBassFrequencies(true);
+        return cachedHistory.bassHistory;
       }
     } catch {
       // Fall back to frame-based history when realtime history is unavailable.
@@ -172,12 +216,18 @@ function getSpectrumHistory(
       );
     }
 
+    cachedHistory.bassHistory = history;
     return history;
+  }
+
+  if (cachedHistory.wideHistory) {
+    return cachedHistory.wideHistory;
   }
 
   try {
     if (historyProvider?.getHistoricalWideFrequencies) {
-      return historyProvider.getHistoricalWideFrequencies(true);
+      cachedHistory.wideHistory = historyProvider.getHistoricalWideFrequencies(true);
+      return cachedHistory.wideHistory;
     }
   } catch {
     // Fall back to frame-based history when realtime history is unavailable.
@@ -195,6 +245,7 @@ function getSpectrumHistory(
     history.push(Array.from(spectrum ?? new Float32Array()));
   }
 
+  cachedHistory.wideHistory = history;
   return history;
 }
 

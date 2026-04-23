@@ -46,6 +46,8 @@ type EditorShellProps = {
 type SaveState = "idle" | "saving" | "saved" | "error";
 type ExportState = "idle" | "creating" | "error";
 
+const TEMP_HIDE_TIMELINE_PANEL = true;
+
 const exportEventTypes = [
   "queued",
   "started",
@@ -403,11 +405,13 @@ export function EditorShell({
             analysisProvider={analysis.provider}
             analysisSnapshot={analysis.snapshot}
           />
-          <TimelinePanel
-            analysisError={analysis.error}
-            analysisLoading={analysis.loading}
-            analysisProvider={analysis.provider}
-          />
+          {TEMP_HIDE_TIMELINE_PANEL ? null : (
+            <TimelinePanel
+              analysisError={analysis.error}
+              analysisLoading={analysis.loading}
+              analysisProvider={analysis.provider}
+            />
+          )}
         </div>
 
         <InspectorPanel

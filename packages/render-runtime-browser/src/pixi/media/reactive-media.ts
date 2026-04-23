@@ -381,6 +381,8 @@ export abstract class ReactiveMedia {
           normalizedBassAmplitude * Math.max(0, layer.props.zoomBlurFactor),
         )
       : 0;
+    const effectiveZoomBlurStrength =
+      zoomBlurStrength > 0.12 ? zoomBlurStrength * 0.18 : 0;
     const vignette = layer.props.vignetteEnabled
       ? Math.min(
           Math.max(0, layer.props.maxVignette),
@@ -398,13 +400,16 @@ export abstract class ReactiveMedia {
     this.updateReflectionFilters(layer, input.surface.width, input.surface.height);
     this.adjustmentFilter.contrast = contrast;
     this.crtFilter.vignetting = vignette;
+    this.zoomBlurFilter.enabled = effectiveZoomBlurStrength > 0.001;
     this.zoomBlurFilter.center = {
       x: input.surface.width / 2,
       y: input.surface.height / 2,
     };
-    this.zoomBlurFilter.strength = zoomBlurStrength;
-    this.zoomBlurFilter.innerRadius = 0;
-    this.zoomBlurFilter.radius = input.surface.height / 2;
+    this.zoomBlurFilter.strength = effectiveZoomBlurStrength;
+    this.zoomBlurFilter.innerRadius =
+      Math.min(input.surface.width, input.surface.height) * 0.58;
+    this.zoomBlurFilter.radius =
+      Math.max(input.surface.width, input.surface.height) * 0.72;
     this.sprite.position.set(
       input.surface.width / 2 + (drift?.translateX ?? 0) + shake.x,
       input.surface.height / 2 + (drift?.translateY ?? 0) + shake.y,

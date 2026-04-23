@@ -156,4 +156,5 @@ export type BuildSceneGraphInput = {
   frameContext: RenderFrameContext;
   surface: RenderSurface;
   analysisProvider?: AudioAnalysisProvider | null;
+  historyProvider?: AudioAnalysisProvider | null;
 };

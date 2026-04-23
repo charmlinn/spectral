@@ -17,6 +17,21 @@ function getBassSpectrum(spectrum: Float32Array): Float32Array {
   return spectrum.slice(0, Math.max(12, Math.floor(spectrum.length * 0.18)));
 }
 
+function getCurrentBassSpectrum(input: BuildSceneGraphInput, spectrum: Float32Array) {
+  const provider = (input.historyProvider ?? input.analysisProvider) as
+    | ((BuildSceneGraphInput["historyProvider"] | BuildSceneGraphInput["analysisProvider"]) & {
+        getCurrentBassFrequency?(): ArrayLike<number>;
+      })
+    | null
+    | undefined;
+
+  if (provider?.getCurrentBassFrequency) {
+    return new Float32Array(provider.getCurrentBassFrequency());
+  }
+
+  return getBassSpectrum(spectrum);
+}
+
 function hasRenderableParticles(
   particles: BuildSceneGraphInput["project"]["overlays"]["particles"],
 ) {
@@ -56,7 +71,7 @@ function getActiveLyricsProps(input: BuildSceneGraphInput) {
 
 export function buildSceneGraph(input: BuildSceneGraphInput): RenderSceneGraph {
   const spectrum = getSpectrumForFrame(input.analysisProvider, input.frameContext);
-  const bassSpectrum = getBassSpectrum(spectrum);
+  const bassSpectrum = getCurrentBassSpectrum(input, spectrum);
   const amplitude = getAverageAmplitude(spectrum);
   const bassAmplitude = getAverageAmplitude(bassSpectrum);
   const backdropBassAmplitude = getSpectrumMagnitude(

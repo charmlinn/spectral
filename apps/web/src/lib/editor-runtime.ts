@@ -33,18 +33,35 @@ function toAudioAnalysisMagnitudes(value: unknown): AudioAnalysisMagnitudes {
 
   const candidate = value as {
     bassMaxMagnitude?: unknown;
+    bass?: unknown;
+    magnitudes?: {
+      bass?: unknown;
+      wide?: unknown;
+    } | null;
     wideMaxMagnitude?: unknown;
+    wide?: unknown;
   };
 
+  const bass =
+    typeof candidate.bassMaxMagnitude === "number"
+      ? candidate.bassMaxMagnitude
+      : typeof candidate.bass === "number"
+        ? candidate.bass
+        : typeof candidate.magnitudes?.bass === "number"
+          ? candidate.magnitudes.bass
+          : 250;
+  const wide =
+    typeof candidate.wideMaxMagnitude === "number"
+      ? candidate.wideMaxMagnitude
+      : typeof candidate.wide === "number"
+        ? candidate.wide
+        : typeof candidate.magnitudes?.wide === "number"
+          ? candidate.magnitudes.wide
+          : 250;
+
   return {
-    bass:
-      typeof candidate.bassMaxMagnitude === "number"
-        ? candidate.bassMaxMagnitude
-        : 250,
-    wide:
-      typeof candidate.wideMaxMagnitude === "number"
-        ? candidate.wideMaxMagnitude
-        : 250,
+    bass,
+    wide,
   };
 }
 
