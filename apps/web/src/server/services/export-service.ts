@@ -19,14 +19,23 @@ import type {
   RenderSessionAudioAnalysisSnapshot,
   RenderSessionFontManifestItem,
   WorkerHeartbeatPayload,
-} from "@spectral/render-session";
-import { RENDER_SESSION_PROTOCOL_VERSION } from "@spectral/render-session";
+} from "../render-session";
+import { RENDER_SESSION_PROTOCOL_VERSION } from "../render-session";
 
-import { AppError, badRequest, conflict, notFound, serviceUnavailable } from "../errors";
+import { AppError, badRequest, notFound, serviceUnavailable } from "../errors";
 import { getServerEnv } from "../env";
 import { getAssetResolver, resolveAssetRecordUrl } from "../media";
 import { enqueueExportRenderJob } from "../queue";
 import { getServerRepositories } from "../repositories";
+import {
+  assertHeartbeatStageAllowed,
+  assertStageTransitionAllowed,
+  assertWorkerMutationAllowed,
+  getOrCreateRenderArtifact,
+  isStageUpdateIdempotent,
+  planFinalizeMutation,
+  toFinalizeEventLevel,
+} from "./export-control-plane";
 
 const RENDER_PAGE_BOOTSTRAP_PROTOCOL_VERSION = "spectral.render-page-bootstrap.v1" as const;
 const RENDER_PAGE_TARGET_ELEMENT_ID = "spectral-render-surface";
@@ -260,10 +269,6 @@ function normalizeProgressPct(value: number | null | undefined): number | null |
   return Math.max(0, Math.min(100, Math.round(value)));
 }
 
-function isUniqueConstraintError(error: unknown): error is { code: string } {
-  return typeof error === "object" && error !== null && "code" in error;
-}
-
 function isWaveformShape(value: unknown): value is RenderPageAudioAnalysisSnapshot["waveform"] {
   if (typeof value !== "object" || value === null) {
     return false;
@@ -396,15 +401,6 @@ function withExecutionState(detail: ExportJobDetailRecord): ExportJobDetailView 
     ...detail,
     execution: toExecutionState(detail.job),
   };
-}
-
-function assertJobIsMutable(job: ExportJobRecord, action: string) {
-  if (job.status === "completed" || job.status === "failed" || job.status === "cancelled") {
-    throw badRequest(`Cannot ${action} for a terminal export job.`, {
-      exportJobId: job.id,
-      status: job.status,
-    });
-  }
 }
 
 async function getSnapshotForExport(projectId: string, snapshotId?: string) {
@@ -615,105 +611,6 @@ async function appendStructuredEvent(input: {
   });
 }
 
-async function getOrCreateRenderArtifact(input: {
-  exportJobId: string;
-  projectId: string;
-  payload: ExportArtifactCreatedPayload["artifact"];
-}): Promise<{
-  artifact: RenderArtifactRecord;
-  created: boolean;
-}> {
-  const repositories = getServerRepositories();
-  const existingArtifact =
-    await repositories.renderArtifactRepository.getArtifactByStorageKey(input.payload.storageKey);
-
-  if (existingArtifact) {
-    if (
-      existingArtifact.exportJobId !== input.exportJobId ||
-      existingArtifact.projectId !== input.projectId
-    ) {
-      throw conflict("Render artifact storage key is already registered to another export job.", {
-        exportJobId: input.exportJobId,
-        storageKey: input.payload.storageKey,
-        existingArtifactId: existingArtifact.id,
-        existingExportJobId: existingArtifact.exportJobId,
-      });
-    }
-
-    if (existingArtifact.kind !== input.payload.kind) {
-      throw conflict("Render artifact storage key is already registered with another kind.", {
-        exportJobId: input.exportJobId,
-        storageKey: input.payload.storageKey,
-        existingArtifactId: existingArtifact.id,
-        existingKind: existingArtifact.kind,
-        requestedKind: input.payload.kind,
-      });
-    }
-
-    return {
-      artifact: existingArtifact,
-      created: false,
-    };
-  }
-
-  let artifact: RenderArtifactRecord;
-
-  try {
-    artifact = await repositories.renderArtifactRepository.createArtifact({
-      projectId: input.projectId,
-      exportJobId: input.exportJobId,
-      kind: input.payload.kind,
-      storageKey: input.payload.storageKey,
-      mimeType: input.payload.mimeType ?? null,
-      byteSize: input.payload.byteSize ?? null,
-      metadata: input.payload.metadata ?? {},
-    });
-  } catch (error) {
-    if (!isUniqueConstraintError(error) || error.code !== "P2002") {
-      throw error;
-    }
-
-    const concurrentArtifact =
-      await repositories.renderArtifactRepository.getArtifactByStorageKey(input.payload.storageKey);
-
-    if (!concurrentArtifact) {
-      throw error;
-    }
-
-    if (
-      concurrentArtifact.exportJobId !== input.exportJobId ||
-      concurrentArtifact.projectId !== input.projectId
-    ) {
-      throw conflict("Render artifact storage key is already registered to another export job.", {
-        exportJobId: input.exportJobId,
-        storageKey: input.payload.storageKey,
-        existingArtifactId: concurrentArtifact.id,
-        existingExportJobId: concurrentArtifact.exportJobId,
-      });
-    }
-
-    if (concurrentArtifact.kind !== input.payload.kind) {
-      throw conflict("Render artifact storage key is already registered with another kind.", {
-        exportJobId: input.exportJobId,
-        storageKey: input.payload.storageKey,
-        existingArtifactId: concurrentArtifact.id,
-        existingKind: concurrentArtifact.kind,
-        requestedKind: input.payload.kind,
-      });
-    }
-
-    return {
-      artifact: concurrentArtifact,
-      created: false,
-    };
-  }
-
-  return {
-    artifact,
-    created: true,
-  };
-}
-
 export function assertInternalExportRequest(request: Request) {
   const env = getServerEnv();
 
@@ -871,7 +768,20 @@ export async function recordExportHeartbeat(
   const repositories = getServerRepositories();
   const detail = await getExportJob(exportJobId);
   const job = getExportJobRecord(detail);
-  assertJobIsMutable(job, "record a worker heartbeat");
+
+  assertWorkerMutationAllowed({
+    job,
+    execution: detail.execution,
+    workerId: input.workerId,
+    attempt: input.attempt,
+    action: "record a worker heartbeat",
+  });
+  assertHeartbeatStageAllowed({
+    exportJobId,
+    currentAttempt: detail.execution.attempt,
+    currentStage: detail.execution.stage,
+    payload: input,
+  });
 
   const normalizedProgress = normalizeProgressPct(input.progressPct);
   const status = job.status === "queued" ? "running" : job.status;
@@ -918,9 +828,34 @@ export async function updateExportJobStage(
   const repositories = getServerRepositories();
   const detail = await getExportJob(exportJobId);
   const job = getExportJobRecord(detail);
-  assertJobIsMutable(job, "update the export stage");
+
+  assertWorkerMutationAllowed({
+    job,
+    execution: detail.execution,
+    workerId: input.workerId,
+    attempt: input.attempt,
+    action: "update the export stage",
+  });
 
   const normalizedProgress = normalizeProgressPct(input.progressPct);
+  assertStageTransitionAllowed({
+    exportJobId,
+    currentStage: detail.execution.stage,
+    currentAttempt: detail.execution.attempt,
+    nextAttempt: input.attempt,
+    nextStage: input.stage,
+  });
+
+  if (
+    isStageUpdateIdempotent({
+      execution: detail.execution,
+      payload: input,
+      normalizedProgress,
+    })
+  ) {
+    return detail;
+  }
+
   const now = new Date().toISOString();
 
   await repositories.exportJobRepository.updateJobStatus(exportJobId, {
@@ -961,11 +896,20 @@ export async function createExportArtifact(
   exportJobId: string,
   input: ExportArtifactCreatedPayload,
 ) {
+  const repositories = getServerRepositories();
   const detail = await getExportJob(exportJobId);
   const job = getExportJobRecord(detail);
-  assertJobIsMutable(job, "register a render artifact");
+
+  assertWorkerMutationAllowed({
+    job,
+    execution: detail.execution,
+    workerId: input.workerId,
+    attempt: input.attempt,
+    action: "register a render artifact",
+  });
 
   const { artifact, created } = await getOrCreateRenderArtifact({
+    repository: repositories.renderArtifactRepository,
     exportJobId,
     projectId: job.projectId,
     payload: input.artifact,
@@ -991,6 +935,7 @@ export async function createExportArtifact(
 
   return {
     artifact,
+    created,
     job: await getExportJob(exportJobId),
   };
 }
@@ -1003,11 +948,15 @@ export async function finalizeExportJob(
   const detail = await getExportJob(exportJobId);
   const job = getExportJobRecord(detail);
 
-  if (job.status === input.status) {
+  if (
+    planFinalizeMutation({
+      job,
+      execution: detail.execution,
+      payload: input,
+    }).kind === "noop"
+  ) {
     return detail;
   }
-
-  assertJobIsMutable(job, "finalize the export job");
 
   const normalizedProgress =
     normalizeProgressPct(input.progressPct) ??
@@ -1050,7 +999,7 @@ export async function finalizeExportJob(
     stage: "finalizing",
     progressPct: normalizedProgress,
     message,
-    level: input.status === "failed" ? "error" : "info",
+    level: toFinalizeEventLevel(input.status),
     payload: {
       workerId: input.workerId,
       attempt: input.attempt,

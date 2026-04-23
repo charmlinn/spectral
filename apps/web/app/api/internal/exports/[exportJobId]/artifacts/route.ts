@@ -22,7 +22,7 @@ export async function POST(request: Request, { params }: InternalExportArtifacts
     const result = await createExportArtifact(exportJobId, body);
 
     return jsonResponse(result, {
-      status: 201,
+      status: result.created ? 201 : 200,
     });
   } catch (error) {
     return handleRouteError(error);
