@@ -265,7 +265,18 @@ export function createRenderWorkerSessionClient(input: {
         "session_ready",
       );
 
-      return renderSessionSchema.parse(payload);
+      try {
+        return renderSessionSchema.parse(payload);
+      } catch (error) {
+        throw new NonRetryableWorkerError(
+          `Export session payload for ${exportJobId} is invalid.`,
+          {
+            code: "INVALID_RENDER_SESSION",
+            stage: "session_ready",
+            cause: error,
+          },
+        );
+      }
     },
 
     async getJobSnapshot(session: RenderSession) {

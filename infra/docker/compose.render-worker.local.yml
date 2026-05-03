@@ -1,0 +1,39 @@
+services:
+  render-worker:
+    build:
+      context: ../..
+      dockerfile: apps/render-worker/Dockerfile
+    container_name: spectral-render-worker-local
+    depends_on:
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    restart: unless-stopped
+    environment:
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379/0
+      REDIS_QUEUE_PREFIX: ${REDIS_QUEUE_PREFIX:-spectral}
+      WEB_BASE_URL: http://host.docker.internal:3000
+      INTERNAL_EXPORTS_TOKEN: ${INTERNAL_EXPORTS_TOKEN}
+      EXPORT_WORKER_CONCURRENCY: ${EXPORT_WORKER_CONCURRENCY:-1}
+      EXPORT_HEARTBEAT_INTERVAL_MS: ${EXPORT_HEARTBEAT_INTERVAL_MS:-15000}
+      EXPORT_CANCEL_POLL_INTERVAL_MS: ${EXPORT_CANCEL_POLL_INTERVAL_MS:-5000}
+      EXPORT_WORK_ROOT: /tmp/spectral-renders
+      CHROMIUM_BIN: /usr/bin/chromium
+      FFMPEG_BIN: /usr/bin/ffmpeg
+      R2_BUCKET: ${R2_BUCKET}
+      R2_ACCESS_KEY_ID: ${R2_ACCESS_KEY_ID}
+      R2_SECRET_ACCESS_KEY: ${R2_SECRET_ACCESS_KEY}
+      R2_ACCOUNT_ID: ${R2_ACCOUNT_ID:-}
+      R2_REGION: ${R2_REGION:-us-east-1}
+      R2_ENDPOINT: http://minio:9000
+      R2_FORCE_PATH_STYLE: ${R2_FORCE_PATH_STYLE:-true}
+      R2_PUBLIC_BASE_URL: ${R2_PUBLIC_BASE_URL}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - spectral-render-worker-tmp:/tmp/spectral-renders
+
+volumes:
+  spectral-render-worker-tmp:
+    name: spectral-render-worker-tmp

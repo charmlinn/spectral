@@ -5,8 +5,8 @@ import type { ExportArtifactDescriptor, ExportJobStage } from "@spectral/render-
 import type { ExportRenderJobData } from "@spectral/queue";
 
 import {
-  NonRetryableWorkerError,
   WorkerCancelledError,
+  WorkerJobTerminatedError,
   isRetryableWorkerError,
   toWorkerError,
 } from "./errors";
@@ -136,6 +136,8 @@ export async function runExportJobAttempt(
   heartbeat.start();
 
   const ensureNotCancelled = async (reason: string, options: { force?: boolean } = {}) => {
+    heartbeat.ensureHealthy();
+
     const now = Date.now();
 
     if (
@@ -157,21 +159,20 @@ export async function runExportJobAttempt(
     }
 
     if (status.status === "completed" || status.status === "failed") {
-      throw new NonRetryableWorkerError(
+      throw new WorkerJobTerminatedError(
         `Export job became terminal (${status.status}) while ${reason}.`,
+        currentStage,
         {
-          code: "EXPORT_JOB_TERMINATED",
-          stage: currentStage,
-          details: {
-            exportJobId: session.exportJobId,
-            status: status.status,
-          },
+          exportJobId: session.exportJobId,
+          status: status.status,
         },
       );
     }
   };
 
   const setStage = async (update: RenderExecutorStageUpdate) => {
+    await ensureNotCancelled(`updating stage to ${update.stage}`);
+
     currentStage = update.stage;
 
     if (update.progressPct !== undefined && update.progressPct !== null) {
@@ -194,6 +195,15 @@ export async function runExportJobAttempt(
       details: currentDetails,
     });
 
+    console.log("Render job stage changed.", {
+      exportJobId: session.exportJobId,
+      workerId: input.workerId,
+      attempt: input.attemptNumber,
+      stage: update.stage,
+      progressPct: update.progressPct ?? currentProgressPct,
+      message: update.message ?? null,
+    });
+
     const activity: HeartbeatActivity = {
       stage: update.stage,
       progressPct: update.progressPct ?? currentProgressPct,
@@ -208,11 +218,21 @@ export async function runExportJobAttempt(
     artifact: ExportArtifactDescriptor,
     message?: string | null,
   ) => {
+    await ensureNotCancelled(`registering ${artifact.kind} artifact`);
+
     await dependencies.sessionClient.createArtifact(session, {
       workerId: input.workerId,
       attempt: input.attemptNumber,
       artifact,
       message: message ?? null,
+    });
+
+    console.log("Render job artifact registered.", {
+      exportJobId: session.exportJobId,
+      workerId: input.workerId,
+      attempt: input.attemptNumber,
+      kind: artifact.kind,
+      storageKey: artifact.storageKey,
     });
 
     heartbeat.noteActivity(
@@ -232,6 +252,35 @@ export async function runExportJobAttempt(
         activeSignal: true,
       },
     );
+  };
+
+  const finalizeTerminalState = async (
+    payload: Parameters<RenderWorkerSessionClient["finalize"]>[1],
+    resultStatus: "cancelled" | "failed",
+  ): Promise<JobRunnerOutcome> => {
+    try {
+      await dependencies.sessionClient.finalize(session, payload);
+    } catch (finalizeError) {
+      const workerError = toWorkerError(finalizeError, {
+        stage: "finalizing",
+      });
+
+      if (
+        isRetryableWorkerError(workerError) &&
+        input.attemptNumber < input.maxAttempts
+      ) {
+        return {
+          status: "retry",
+          error: workerError,
+        };
+      }
+
+      throw workerError;
+    }
+
+    return {
+      status: resultStatus,
+    };
   };
 
   let finalizationAttempted = false;
@@ -288,6 +337,14 @@ export async function runExportJobAttempt(
       },
     });
 
+    console.log("Render job completed.", {
+      exportJobId: session.exportJobId,
+      workerId: input.workerId,
+      attempt: input.attemptNumber,
+      outputStorageKey: result.outputStorageKey ?? null,
+      posterStorageKey: result.posterStorageKey ?? null,
+    });
+
     return {
       status: "completed",
     };
@@ -311,35 +368,57 @@ export async function runExportJobAttempt(
       throw workerError;
     }
 
-    if (workerError instanceof WorkerCancelledError) {
-      await setStage({
-        stage: "finalizing",
-        progressPct: currentProgressPct,
-        message: "Cancellation acknowledged. Finalizing export job.",
-        details: {
-          ...currentDetails,
-          cancellation: true,
-        },
-      });
+    if (workerError instanceof WorkerJobTerminatedError) {
+      return {
+        status: "noop",
+      };
+    }
 
-      await dependencies.sessionClient.finalize(session, {
+    if (workerError instanceof WorkerCancelledError) {
+      currentStage = "finalizing";
+      currentDetails = {
+        ...currentDetails,
+        cancellation: true,
+      };
+      heartbeat.noteActivity(
+        {
+          stage: currentStage,
+          progressPct: currentProgressPct,
+          message: "Cancellation acknowledged. Finalizing export job.",
+          details: currentDetails,
+        },
+        {
+          activeSignal: false,
+        },
+      );
+
+      const outcome = await finalizeTerminalState(
+        {
+          workerId: input.workerId,
+          attempt: input.attemptNumber,
+          status: "cancelled",
+          progressPct: currentProgressPct,
+          message: workerError.message,
+          errorCode: workerError.code,
+          errorMessage: workerError.message,
+          metadata: buildFailureMetadata(
+            workerError,
+            input.attemptNumber,
+            input.maxAttempts,
+          ),
+        },
+        "cancelled",
+      );
+
+      console.log("Render job cancelled.", {
+        exportJobId: session.exportJobId,
         workerId: input.workerId,
         attempt: input.attemptNumber,
-        status: "cancelled",
-        progressPct: currentProgressPct,
+        code: workerError.code,
         message: workerError.message,
-        errorCode: workerError.code,
-        errorMessage: workerError.message,
-        metadata: buildFailureMetadata(
-          workerError,
-          input.attemptNumber,
-          input.maxAttempts,
-        ),
       });
 
-      return {
-        status: "cancelled",
-      };
+      return outcome;
     }
 
     if (canRetry) {
@@ -349,33 +428,51 @@ export async function runExportJobAttempt(
       };
     }
 
-    await setStage({
-      stage: "finalizing",
-      progressPct: currentProgressPct,
-      message: "Attempt failed. Finalizing export job as failed.",
-      details: {
-        ...currentDetails,
-        failureCode: workerError.code,
+    currentStage = "finalizing";
+    currentDetails = {
+      ...currentDetails,
+      failureCode: workerError.code,
+    };
+    heartbeat.noteActivity(
+      {
+        stage: currentStage,
+        progressPct: currentProgressPct,
+        message: "Attempt failed. Finalizing export job as failed.",
+        details: currentDetails,
       },
-    });
+      {
+        activeSignal: false,
+      },
+    );
 
-    await dependencies.sessionClient.finalize(session, {
+    const outcome = await finalizeTerminalState(
+      {
+        workerId: input.workerId,
+        attempt: input.attemptNumber,
+        status: "failed",
+        progressPct: currentProgressPct,
+        message: workerError.message,
+        errorCode: workerError.code,
+        errorMessage: workerError.message,
+        metadata: buildFailureMetadata(
+          workerError,
+          input.attemptNumber,
+          input.maxAttempts,
+        ),
+      },
+      "failed",
+    );
+
+    console.error("Render job failed.", {
+      exportJobId: session.exportJobId,
       workerId: input.workerId,
       attempt: input.attemptNumber,
-      status: "failed",
-      progressPct: currentProgressPct,
+      code: workerError.code,
+      stage: workerError.stage,
+      retryable: workerError.retryable,
       message: workerError.message,
-      errorCode: workerError.code,
-      errorMessage: workerError.message,
-      metadata: buildFailureMetadata(
-        workerError,
-        input.attemptNumber,
-        input.maxAttempts,
-      ),
     });
 
-    return {
-      status: "failed",
-    };
+    return outcome;
   }
 }

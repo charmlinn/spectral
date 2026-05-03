@@ -19,11 +19,15 @@ async function putSignedObject(input: {
   uploadUrl: string;
   headers: Record<string, string>;
   filePath: string;
+  contentLength: number;
 }) {
   const bodyStream = Readable.toWeb(createReadStream(input.filePath));
   const requestInit: RequestInit & { duplex: "half" } = {
     method: "PUT",
-    headers: input.headers,
+    headers: {
+      ...input.headers,
+      "content-length": String(input.contentLength),
+    },
     body: bodyStream as unknown as BodyInit,
     duplex: "half",
   };
@@ -51,6 +55,7 @@ export async function uploadArtifactToStorage(
     uploadUrl: signedUpload.uploadUrl,
     headers: signedUpload.headers,
     filePath: input.filePath,
+    contentLength: fileStat.size,
   });
 
   return {
