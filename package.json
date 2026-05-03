@@ -7,14 +7,27 @@
   },
   "scripts": {
     "build": "turbo run build",
-    "dev": "turbo run dev --filter=@spectral/web",
+    "db:generate": "dotenvx run -f .env -- pnpm --filter @spectral/db prisma:generate",
+    "db:push": "dotenvx run -f .env -- pnpm --filter @spectral/db exec prisma db push --config ./prisma.config.ts",
+    "dev": "pnpm dev:web",
+    "dev:all": "pnpm --filter @spectral/render-runtime-browser build:offline && dotenvx run -f .env -f apps/web/.env.local -- pnpm --parallel --filter @spectral/web --filter @spectral/render-worker dev",
+    "dev:web": "dotenvx run -f .env -f apps/web/.env.local -- pnpm --filter @spectral/web dev",
+    "dev:worker": "pnpm --filter @spectral/render-runtime-browser build:offline && dotenvx run -f .env -- pnpm --filter @spectral/render-worker dev",
     "format": "prettier --write .",
+    "infra:down": "dotenvx run -f .env -- docker compose --env-file .env -f infra/docker/compose.local.yml down",
+    "infra:ps": "dotenvx run -f .env -- docker compose --env-file .env -f infra/docker/compose.local.yml ps",
+    "infra:up": "dotenvx run -f .env -- docker compose --env-file .env -f infra/docker/compose.local.yml up -d",
+    "infra:worker:up": "dotenvx run -f .env -- docker compose --env-file .env -f infra/docker/compose.local.yml -f infra/docker/compose.render-worker.local.yml up render-worker",
     "lint": "turbo run lint",
+    "setup:local": "pnpm infra:up && pnpm db:generate && pnpm db:push",
+    "smoke:export": "dotenvx run -f .env -f apps/web/.env.local -- pnpm --filter @spectral/web smoke:export",
     "typecheck": "turbo run typecheck"
   },
   "devDependencies": {
+    "@dotenvx/dotenvx": "^1.64.0",
     "@eslint/js": "^9.25.1",
     "@next/eslint-plugin-next": "^16.0.0",
+    "esbuild": "^0.28.0",
     "eslint": "^9.25.1",
     "eslint-config-prettier": "^10.1.2",
     "globals": "^16.0.0",
@@ -24,4 +37,3 @@
     "typescript-eslint": "^8.30.1"
   }
 }
-

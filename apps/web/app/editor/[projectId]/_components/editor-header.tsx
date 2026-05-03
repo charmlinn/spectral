@@ -3,6 +3,7 @@
 import Link from "next/link";
 import {
   ArrowLeft,
+  FileJson,
   LoaderCircle,
   MoreHorizontal,
   PanelRight,
@@ -32,6 +33,7 @@ type EditorHeaderProps = {
   projectId: string;
   saveError: string | null;
   saveState: "idle" | "saving" | "saved" | "error";
+  onDownloadMockJson: () => void;
   onOpenMobileInspector: () => void;
   onSave: () => void;
   onStartExport: () => void;
@@ -46,6 +48,7 @@ export function EditorHeader({
   projectId,
   saveError,
   saveState,
+  onDownloadMockJson,
   onOpenMobileInspector,
   onSave,
   onStartExport,
@@ -144,6 +147,10 @@ export function EditorHeader({
             )}
             Save draft
           </Button>
+          <Button size="sm" variant="outline" onClick={onDownloadMockJson}>
+            <FileJson className="size-4" />
+            Mock JSON
+          </Button>
           <Button
             disabled={exportState === "creating"}
             size="sm"
@@ -187,6 +194,9 @@ export function EditorHeader({
               <DropdownMenuSeparator />
               <DropdownMenuItem onSelect={onSave}>
                 Save current snapshot
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={onDownloadMockJson}>
+                Download mock JSON
               </DropdownMenuItem>
               <DropdownMenuItem onSelect={onStartExport}>
                 Create export job

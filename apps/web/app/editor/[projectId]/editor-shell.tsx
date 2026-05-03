@@ -47,6 +47,7 @@ type SaveState = "idle" | "saving" | "saved" | "error";
 type ExportState = "idle" | "creating" | "error";
 
 const TEMP_HIDE_TIMELINE_PANEL = true;
+const MOCK_EXPORT_DURATION_MS = 15_000;
 
 const exportEventTypes = [
   "queued",
@@ -66,6 +67,37 @@ function pickCurrentJobId(jobs: ExportJobDto[]) {
     jobs[0]?.id ??
     null
   );
+}
+
+function createMockExportProjectJson() {
+  const project = structuredClone(useProjectStore.getState().project);
+
+  project.timing.durationMs = MOCK_EXPORT_DURATION_MS;
+  project.updatedAt = new Date().toISOString();
+
+  if (
+    project.audio.trimEndMs === null ||
+    project.audio.trimEndMs > MOCK_EXPORT_DURATION_MS
+  ) {
+    project.audio.trimEndMs = MOCK_EXPORT_DURATION_MS;
+  }
+
+  return project;
+}
+
+function downloadJsonFile(input: { filename: string; payload: unknown }) {
+  const blob = new Blob([`${JSON.stringify(input.payload, null, 2)}\n`], {
+    type: "application/json",
+  });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+
+  anchor.href = url;
+  anchor.download = input.filename;
+  document.body.append(anchor);
+  anchor.click();
+  anchor.remove();
+  URL.revokeObjectURL(url);
 }
 
 export function EditorShell({
@@ -256,6 +288,15 @@ export function EditorShell({
     }
   });
 
+  const downloadMockExportJson = useEffectEvent(() => {
+    const payload = createMockExportProjectJson();
+
+    downloadJsonFile({
+      filename: `spectral-${projectId}-mock-15s.json`,
+      payload,
+    });
+  });
+
   useEffect(() => {
     if (!dirty) {
       return;
@@ -357,6 +398,9 @@ export function EditorShell({
         onOpenMobileInspector={() => setMobileInspectorOpen(true)}
         onSave={() => {
           void saveCurrentProject("manual-save");
+        }}
+        onDownloadMockJson={() => {
+          downloadMockExportJson();
         }}
         onStartExport={() => {
           void createExportRequest();

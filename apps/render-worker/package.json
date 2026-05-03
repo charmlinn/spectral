@@ -6,9 +6,9 @@
   "main": "./src/index.ts",
   "types": "./src/index.ts",
   "scripts": {
-    "dev": "node --enable-source-maps ./src/index.ts",
+    "dev": "node --import tsx --enable-source-maps ./src/index.ts",
     "lint": "eslint src --ext .ts",
-    "start": "node --enable-source-maps ./src/index.ts",
+    "start": "node --import tsx --enable-source-maps ./src/index.ts",
     "typecheck": "tsc --project tsconfig.json --noEmit"
   },
   "dependencies": {
@@ -22,6 +22,7 @@
     "@spectral/render-session": "workspace:*"
   },
   "devDependencies": {
-    "@types/node": "^22.14.1"
+    "@types/node": "^22.14.1",
+    "tsx": "^4.20.5"
   }
 }
