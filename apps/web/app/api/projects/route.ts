@@ -1,7 +1,15 @@
 import { createProjectSchema } from "@/src/server/schemas/project";
-import { createProject } from "@/src/server/services";
+import { createProject, listProjects } from "@/src/server/services";
 import { handleRouteError, jsonResponse } from "@/src/server/http";
 export const runtime = "nodejs";
+
+export async function GET() {
+  try {
+    return jsonResponse(await listProjects());
+  } catch (error) {
+    return handleRouteError(error);
+  }
+}
 
 export async function POST(request: Request) {
   try {

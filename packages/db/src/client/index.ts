@@ -24,6 +24,10 @@ function buildDataLayer(
   };
 }
 
+function isCurrentDataLayer(dataLayer: SpectralDataLayer | undefined): dataLayer is SpectralDataLayer {
+  return typeof dataLayer?.projectRepository.listProjects === "function";
+}
+
 export function createDataLayer(input: DatabaseUrlInput = {}): SpectralDataLayer {
   const prisma = createPrismaClient(input);
   const repositories = createRepositories(prisma);
@@ -36,7 +40,7 @@ export function createDataLayer(input: DatabaseUrlInput = {}): SpectralDataLayer
 }
 
 export function getDataLayer(input: DatabaseUrlInput = {}): SpectralDataLayer {
-  if (!globalCache.__spectralDataLayer) {
+  if (!isCurrentDataLayer(globalCache.__spectralDataLayer)) {
     const prisma = getPrismaClient(input);
     const repositories = createRepositories(prisma);
     globalCache.__spectralDataLayer = buildDataLayer(repositories, disconnectPrismaClient, (fn) =>

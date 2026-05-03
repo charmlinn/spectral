@@ -72,6 +72,12 @@ export async function createProject(input: {
   return getProject(project.id);
 }
 
+export async function listProjects() {
+  const { projectRepository } = getServerRepositories();
+
+  return projectRepository.listProjects();
+}
+
 export async function getProject(projectId: string) {
   const { presetRepository, projectRepository } = getServerRepositories();
   const project = await projectRepository.getProjectWithActiveSnapshot(projectId);

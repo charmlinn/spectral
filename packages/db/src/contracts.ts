@@ -296,6 +296,7 @@ export type CreateRenderArtifactInput = {
 
 export interface ProjectRepository {
   createProject(input: CreateProjectInput): Promise<ProjectRecord>;
+  listProjects(): Promise<ProjectDetailRecord[]>;
   getProjectById(projectId: string): Promise<ProjectDetailRecord | null>;
   updateProjectMetadata(
     projectId: string,

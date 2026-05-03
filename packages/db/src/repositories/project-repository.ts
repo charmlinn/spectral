@@ -106,6 +106,47 @@ export function createProjectRepository(db: DbClient): ProjectRepository {
       return mapProjectRecord(project);
     },
 
+    async listProjects(): Promise<ProjectDetailRecord[]> {
+      const projects = await db.project.findMany({
+        where: {
+          archivedAt: null,
+        },
+        orderBy: {
+          updatedAt: "desc",
+        },
+        take: 50,
+      });
+      const snapshotIds = projects
+        .map((project) => project.activeSnapshotId)
+        .filter((snapshotId): snapshotId is string => Boolean(snapshotId));
+      const snapshots =
+        snapshotIds.length > 0
+          ? await db.projectSnapshot.findMany({
+              where: {
+                id: {
+                  in: snapshotIds,
+                },
+              },
+            })
+          : [];
+      const snapshotsById = new Map(
+        snapshots.map((snapshot) => [snapshot.id, mapProjectSnapshotRecord(snapshot)]),
+      );
+
+      return projects.map((project) => {
+        const projectRecord = mapProjectRecord(project);
+        const activeSnapshot = project.activeSnapshotId
+          ? (snapshotsById.get(project.activeSnapshotId) ?? null)
+          : null;
+
+        return {
+          project: projectRecord,
+          activeSnapshot,
+          activeProject: activeSnapshot?.projectData ?? null,
+        };
+      });
+    },
+
     async getProjectById(projectId: string): Promise<ProjectDetailRecord | null> {
       return loadProjectDetail(db, projectId);
     },

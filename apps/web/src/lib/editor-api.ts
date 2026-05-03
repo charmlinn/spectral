@@ -260,6 +260,10 @@ export async function getProject(projectId: string): Promise<ProjectDetailDto> {
   return readApiResponse<ProjectDetailDto>(`/api/projects/${projectId}`);
 }
 
+export async function listProjects(): Promise<ProjectDetailDto[]> {
+  return readApiResponse<ProjectDetailDto[]>("/api/projects");
+}
+
 export async function listPresets(): Promise<PresetSummaryDto[]> {
   return readApiResponse<PresetSummaryDto[]>("/api/presets");
 }
