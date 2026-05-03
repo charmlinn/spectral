@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { CheckSquare2, ChevronRight, ImagePlus, Layers3 } from "lucide-react";
+import { CheckSquare2, ImagePlus, Layers3 } from "lucide-react";
 
 import {
   useEditorUiStore,
@@ -755,59 +755,52 @@ export function GeneralSidebar({ projectId }: GeneralSidebarProps) {
       </div>
 
       {stepGuideEnabled ? (
-        <div className="grid gap-4 lg:grid-cols-[12rem_minmax(0,1fr)]">
-          <div className="grid gap-2">
-            {GENERAL_STEPS.map((step, index) => {
-              const active = step.id === activeStepId;
+        <div className="grid gap-0">
+          {GENERAL_STEPS.map((step, index) => {
+            const active = step.id === activeStepId;
 
-              return (
-                <button
-                  key={step.id}
-                  className={`flex items-center gap-3 rounded-[18px] border px-3 py-3 text-left ${
-                    active ? "border-primary bg-primary/10" : "border-border/60"
-                  }`}
-                  type="button"
-                  onClick={() => setActiveStepId(step.id)}
-                >
-                  <span
-                    className={`flex size-8 items-center justify-center rounded-full text-sm ${
-                      active ? "bg-primary text-primary-foreground" : "bg-muted"
+            return (
+              <div
+                key={step.id}
+                className="relative grid grid-cols-[2rem_minmax(0,1fr)] gap-3"
+              >
+                <div className="flex flex-col items-center">
+                  <button
+                    className={`relative z-10 flex size-6 items-center justify-center rounded-full text-xs font-semibold transition ${
+                      active
+                        ? "bg-red-500 text-white"
+                        : "bg-white/65 text-[#202126]"
                     }`}
+                    type="button"
+                    onClick={() => setActiveStepId(step.id)}
                   >
                     {index + 1}
-                  </span>
-                  <span className="text-sm font-medium">{step.label}</span>
-                </button>
-              );
-            })}
-          </div>
+                  </button>
+                  {index < GENERAL_STEPS.length - 1 ? (
+                    <span className="h-full min-h-10 w-px bg-white/22" />
+                  ) : null}
+                </div>
 
-          <div className="grid gap-3 rounded-[20px] border border-border/70 p-4">
-            <div className="flex items-center justify-between gap-3">
-              <p className="text-base font-semibold">
-                {GENERAL_STEPS.find((step) => step.id === activeStepId)?.label}
-              </p>
-              <Button
-                size="sm"
-                type="button"
-                variant="ghost"
-                onClick={() => {
-                  const currentIndex = GENERAL_STEPS.findIndex(
-                    (step) => step.id === activeStepId,
-                  );
-                  const nextStep = GENERAL_STEPS[currentIndex + 1];
+                <div className="pb-4">
+                  <button
+                    className={`flex min-h-8 w-full items-center justify-between rounded-md px-1 text-left transition ${
+                      active ? "text-white" : "text-white/58 hover:text-white"
+                    }`}
+                    type="button"
+                    onClick={() => setActiveStepId(step.id)}
+                  >
+                    <span className="text-sm font-semibold">{step.label}</span>
+                  </button>
 
-                  if (nextStep) {
-                    setActiveStepId(nextStep.id);
-                  }
-                }}
-              >
-                Next
-                <ChevronRight className="ml-1 size-4" />
-              </Button>
-            </div>
-            {stepContent[activeStepId]}
-          </div>
+                  {active ? (
+                    <div className="mt-3 grid gap-3 rounded-md border border-white/12 bg-black/12 p-3">
+                      {stepContent[step.id]}
+                    </div>
+                  ) : null}
+                </div>
+              </div>
+            );
+          })}
         </div>
       ) : (
         <div className="grid gap-4">

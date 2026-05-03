@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useEffectEvent, useState } from "react";
-import { PanelRight } from "lucide-react";
 
 import {
   useEditorUiStore,
@@ -10,15 +9,6 @@ import {
   usePreviewStore,
   useProjectStore,
 } from "@spectral/editor-store";
-import { Button } from "@spectral/ui/components/button";
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-} from "@spectral/ui/components/sheet";
 
 import {
   createExportJob,
@@ -33,7 +23,6 @@ import { useProjectAudioAnalysis } from "@/src/lib/use-project-audio-analysis";
 
 import { EditorHeader } from "./_components/editor-header";
 import { EditorSidebar } from "./_components/editor-sidebar";
-import { InspectorPanel } from "./_components/inspector-panel";
 import { PreviewStage } from "./_components/preview-stage";
 import { TimelinePanel } from "./_components/timeline-panel";
 
@@ -106,7 +95,6 @@ export function EditorShell({
   initialExportJobs,
 }: EditorShellProps) {
   const [hydrated, setHydrated] = useState(false);
-  const [mobileInspectorOpen, setMobileInspectorOpen] = useState(false);
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [saveError, setSaveError] = useState<string | null>(null);
   const [exportState, setExportState] = useState<ExportState>("idle");
@@ -126,8 +114,6 @@ export function EditorShell({
   );
   const appendEvent = useExportStore((state) => state.appendEvent);
   const upsertJob = useExportStore((state) => state.upsertJob);
-  const inspectorOpen = useEditorUiStore((state) => state.panels.inspectorOpen);
-  const setPanel = useEditorUiStore((state) => state.setPanel);
   const setCurrentTab = useEditorUiStore((state) => state.setCurrentTab);
   const pause = usePlaybackStore((state) => state.pause);
   const seekToMs = usePlaybackStore((state) => state.seekToMs);
@@ -156,7 +142,6 @@ export function EditorShell({
     setJobs(initialExportJobs.map(mapExportJobToSummary));
     setCurrentJobId(pickCurrentJobId(initialExportJobs));
     setCurrentTab("general");
-    setPanel("inspectorOpen", true);
     pause();
     seekToMs(0, initialProjectDetail.activeProject.timing.fps);
     setMuted(false);
@@ -184,7 +169,6 @@ export function EditorShell({
     setJobs,
     setLoopRegion,
     setMuted,
-    setPanel,
     setPlaybackRate,
     setProject,
     setRuntimeHealth,
@@ -386,16 +370,14 @@ export function EditorShell({
   }
 
   return (
-    <main className="mx-auto flex min-h-screen w-full max-w-[1800px] flex-col gap-4 px-3 py-3 sm:px-4 sm:py-4 lg:px-5">
+    <main className="flex h-screen min-h-[720px] w-full flex-col overflow-hidden bg-[#1b1d21] text-white">
       <EditorHeader
         exportError={exportError}
         exportState={exportState}
-        inspectorOpen={inspectorOpen}
         lastSavedAt={lastSavedAt}
         projectId={project.projectId}
         saveError={saveError}
         saveState={saveState}
-        onOpenMobileInspector={() => setMobileInspectorOpen(true)}
         onSave={() => {
           void saveCurrentProject("manual-save");
         }}
@@ -405,44 +387,12 @@ export function EditorShell({
         onStartExport={() => {
           void createExportRequest();
         }}
-        onToggleInspector={() => setPanel("inspectorOpen", !inspectorOpen)}
       />
 
-      <div className="xl:hidden">
-        <Sheet open={mobileInspectorOpen} onOpenChange={setMobileInspectorOpen}>
-          <SheetTrigger asChild>
-            <Button className="w-full justify-center" variant="outline">
-              <PanelRight className="size-4" />
-              Open Inspector Drawer
-            </Button>
-          </SheetTrigger>
-          <SheetContent className="w-[92vw] max-w-none overflow-y-auto sm:max-w-xl">
-            <SheetHeader>
-              <SheetTitle>Inspector Drawer</SheetTitle>
-              <SheetDescription>
-                Mobile access to diagnostics, runtime health, and export state.
-              </SheetDescription>
-            </SheetHeader>
-            <div className="px-4 pb-4">
-              <InspectorPanel
-                analysisError={analysis.error}
-                analysisLoading={analysis.loading}
-                analysisProvider={analysis.provider}
-                exportError={exportError}
-                exportState={exportState}
-                projectId={project.projectId}
-                saveError={saveError}
-                saveState={saveState}
-              />
-            </div>
-          </SheetContent>
-        </Sheet>
-      </div>
-
-      <div className="grid flex-1 gap-4 xl:grid-cols-[20rem_minmax(0,1fr)_20rem]">
+      <div className="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[27rem_minmax(0,1fr)]">
         <EditorSidebar projectId={projectId} />
 
-        <div className="flex min-h-0 flex-col gap-4">
+        <div className="flex min-h-0 flex-col">
           <PreviewStage
             analysisError={analysis.error}
             analysisLoading={analysis.loading}
@@ -457,18 +407,6 @@ export function EditorShell({
             />
           )}
         </div>
-
-        <InspectorPanel
-          analysisError={analysis.error}
-          analysisLoading={analysis.loading}
-          analysisProvider={analysis.provider}
-          className={inspectorOpen ? "hidden xl:flex" : "hidden"}
-          projectId={project.projectId}
-          exportError={exportError}
-          exportState={exportState}
-          saveError={saveError}
-          saveState={saveState}
-        />
       </div>
     </main>
   );

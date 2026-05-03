@@ -1,16 +1,19 @@
 "use client";
 
-import { useEditorUiStore, useProjectStore } from "@spectral/editor-store";
-import { supportedAspectRatios } from "@spectral/project-schema";
-
-import { Button } from "@spectral/ui/components/button";
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@spectral/ui/components/card";
+  AudioLines,
+  Captions,
+  FileVideo,
+  Image,
+  Layers3,
+  Music2,
+  SlidersHorizontal,
+  Type,
+  Wand2,
+} from "lucide-react";
+
+import { useEditorUiStore, useProjectStore } from "@spectral/editor-store";
+
 import { Input } from "@spectral/ui/components/input";
 import { Label } from "@spectral/ui/components/label";
 import { ScrollArea } from "@spectral/ui/components/scroll-area";
@@ -23,14 +26,14 @@ import { GeneralSidebar } from "./general-sidebar";
 import { VisualizerSidebar } from "./visualizer-sidebar";
 
 const sections = [
-  { id: "general", label: "General" },
-  { id: "audio", label: "Audio" },
-  { id: "visualizer", label: "Visualizer" },
-  { id: "backdrop", label: "Backdrop" },
-  { id: "lyrics", label: "Lyrics" },
-  { id: "text", label: "Text" },
-  { id: "elements", label: "Elements" },
-  { id: "export", label: "Export" },
+  { id: "general", label: "General", icon: Music2 },
+  { id: "audio", label: "Audio", icon: AudioLines },
+  { id: "visualizer", label: "Visualizer", icon: Wand2 },
+  { id: "backdrop", label: "Backdrop", icon: Image },
+  { id: "lyrics", label: "Lyrics", icon: Captions },
+  { id: "text", label: "Text", icon: Type },
+  { id: "elements", label: "Elements", icon: Layers3 },
+  { id: "export", label: "Export", icon: FileVideo },
 ] as const;
 
 function toNumber(value: string) {
@@ -42,51 +45,52 @@ export function EditorSidebar({ projectId }: { projectId: string }) {
   const currentTab = useEditorUiStore((state) => state.currentTab);
   const setCurrentTab = useEditorUiStore((state) => state.setCurrentTab);
   const project = useProjectStore((state) => state.project);
-  const setAspectRatio = useProjectStore((state) => state.setAspectRatio);
   const updateAtPath = useProjectStore((state) => state.updateAtPath);
+  const currentSection =
+    sections.find((section) => section.id === currentTab) ?? sections[0];
 
   return (
-    <Card className="flex min-h-[32rem] flex-col overflow-hidden">
-      <CardHeader className="gap-2">
-        <CardTitle>Settings</CardTitle>
-        <CardDescription>
-          Minimal editing controls now bind directly to the real project
-          document in the shared store.
-        </CardDescription>
-      </CardHeader>
+    <aside className="grid min-h-0 border-r border-white/10 bg-[#202126] lg:grid-cols-[5.25rem_minmax(0,1fr)]">
+      <nav className="flex gap-2 overflow-x-auto border-b border-white/10 p-3 lg:flex-col lg:overflow-x-visible lg:border-b-0 lg:border-r">
+        {sections.map((section) => {
+          const Icon = section.icon;
+          const selected = section.id === currentTab;
 
-      <CardContent className="grid gap-4 px-4 pt-0">
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 xl:grid-cols-1">
-          {sections.map((section) => (
-            <Button
+          return (
+            <button
               key={section.id}
-              className="justify-start rounded-[22px]"
-              size="sm"
-              variant={section.id === currentTab ? "secondary" : "ghost"}
+              className={`flex h-16 min-w-16 flex-col items-center justify-center gap-1 rounded-md border text-[11px] font-medium transition ${
+                selected
+                  ? "border-red-400/45 bg-white/10 text-white"
+                  : "border-white/10 bg-white/5 text-white/58 hover:bg-white/8 hover:text-white"
+              }`}
+              type="button"
               onClick={() => setCurrentTab(section.id)}
             >
+              <Icon className="size-5" />
               {section.label}
-            </Button>
-          ))}
-        </div>
-      </CardContent>
+            </button>
+          );
+        })}
+      </nav>
 
-      <ScrollArea className="min-h-0 flex-1 px-4 pb-4">
-        <div className="space-y-6 pb-6">
-          <div className="rounded-[24px] border border-border/70 bg-background/70 p-4">
-            <p className="text-xs font-medium uppercase tracking-[0.22em] text-primary">
-              Project document
+      <section className="flex min-h-0 flex-col">
+        <div className="flex h-20 items-center justify-between border-b border-white/10 px-5">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-white/36">
+              Settings
             </p>
-            <h2 className="mt-2 font-heading text-2xl font-semibold">
-              {sections.find((section) => section.id === currentTab)?.label ??
-                "General"}
+            <h2 className="mt-1 font-heading text-2xl font-semibold">
+              {currentSection.label}
             </h2>
-            <p className="mt-2 text-sm leading-6 text-muted-foreground">
-              These inputs patch the live `VideoProject` store. There is no mock
-              field layer between the UI and the saved document now.
-            </p>
           </div>
+          <span className="flex size-9 items-center justify-center rounded-md bg-white/8 text-white/62">
+            <SlidersHorizontal className="size-4" />
+          </span>
+        </div>
 
+        <ScrollArea className="min-h-0 flex-1 px-5 py-5">
+          <div className="space-y-5 pb-8 text-white">
           {currentTab === "general" ? (
             <GeneralSidebar projectId={projectId} />
           ) : null}
@@ -487,8 +491,9 @@ export function EditorSidebar({ projectId }: { projectId: string }) {
               </label>
             </div>
           ) : null}
-        </div>
-      </ScrollArea>
-    </Card>
+          </div>
+        </ScrollArea>
+      </section>
+    </aside>
   );
 }

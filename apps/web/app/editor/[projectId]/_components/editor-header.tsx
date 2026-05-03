@@ -3,10 +3,10 @@
 import Link from "next/link";
 import {
   ArrowLeft,
+  CopyPlus,
   FileJson,
   LoaderCircle,
   MoreHorizontal,
-  PanelRight,
   Rocket,
   Save,
 } from "lucide-react";
@@ -15,7 +15,6 @@ import { useExportStore, useProjectStore } from "@spectral/editor-store";
 import { supportedAspectRatios } from "@spectral/project-schema";
 import { Badge } from "@spectral/ui/components/badge";
 import { Button } from "@spectral/ui/components/button";
-import { Card } from "@spectral/ui/components/card";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -28,31 +27,25 @@ import {
 type EditorHeaderProps = {
   exportError: string | null;
   exportState: "idle" | "creating" | "error";
-  inspectorOpen: boolean;
   lastSavedAt: string | null;
   projectId: string;
   saveError: string | null;
   saveState: "idle" | "saving" | "saved" | "error";
   onDownloadMockJson: () => void;
-  onOpenMobileInspector: () => void;
   onSave: () => void;
   onStartExport: () => void;
-  onToggleInspector: () => void;
 };
 
 export function EditorHeader({
   exportError,
   exportState,
-  inspectorOpen,
   lastSavedAt,
   projectId,
   saveError,
   saveState,
   onDownloadMockJson,
-  onOpenMobileInspector,
   onSave,
   onStartExport,
-  onToggleInspector,
 }: EditorHeaderProps) {
   const project = useProjectStore((state) => state.project);
   const dirty = useProjectStore((state) => state.dirty);
@@ -81,77 +74,72 @@ export function EditorHeader({
             : "Synced";
 
   return (
-    <Card className="flex flex-col gap-4 px-4 py-4 sm:px-6">
-      <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-        <div className="flex min-w-0 flex-col gap-3">
-          <div className="flex flex-wrap items-center gap-2">
-            <Button asChild size="sm" variant="ghost">
-              <Link href="/editor">
-                <ArrowLeft className="size-4" />
-                Projects
-              </Link>
-            </Button>
+    <header className="flex min-h-16 flex-col gap-3 border-b border-white/10 bg-[#2b2d32] px-4 py-3 text-white lg:flex-row lg:items-center lg:justify-between">
+      <div className="flex min-w-0 items-center gap-4">
+        <Button asChild className="text-white/78 hover:bg-white/8 hover:text-white" size="icon" variant="ghost">
+          <Link href="/">
+            <ArrowLeft className="size-5" />
+            <span className="sr-only">Back to templates</span>
+          </Link>
+        </Button>
+        <div className="min-w-0">
+          <div className="flex min-w-0 items-center gap-3">
+            <h1 className="truncate font-heading text-lg font-semibold">
+              {project.meta.name}
+            </h1>
             <Badge
-              variant={saveState === "error" ? "destructive" : "secondary"}
+              className="border-white/10 bg-white/8 text-white/70"
+              variant={saveState === "error" ? "destructive" : "outline"}
             >
               {saveStatusLabel}
             </Badge>
-            <Badge variant="outline">
-              {project.viewport.width} x {project.viewport.height}
-            </Badge>
-            <Badge variant="outline">{project.viewport.aspectRatio}</Badge>
-            <Badge variant="outline">
-              {project.export.format.toUpperCase()}
-            </Badge>
-            {snapshotVersion ? (
-              <Badge variant="outline">
-                Snapshot {snapshotVersion.slice(0, 8)}
-              </Badge>
-            ) : null}
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-[11px] font-medium uppercase tracking-[0.22em] text-muted-foreground">
-              Canvas ratio
-            </span>
-            {supportedAspectRatios.map((aspectRatio) => (
-              <Button
-                key={aspectRatio}
-                size="sm"
-                variant={
-                  project.viewport.aspectRatio === aspectRatio
-                    ? "secondary"
-                    : "outline"
-                }
-                onClick={() => setAspectRatio(aspectRatio)}
-              >
-                {aspectRatio}
-              </Button>
-            ))}
-          </div>
-          <div className="min-w-0">
-            <h1 className="truncate font-heading text-3xl font-semibold tracking-tight">
-              {project.meta.name}
-            </h1>
-            <p className="text-sm text-muted-foreground">
-              Project ID: {projectId} · Last checkpoint {formattedSaveTime}
-            </p>
-          </div>
+          <p className="truncate text-xs text-white/42">
+            {projectId} · Saved {formattedSaveTime}
+          </p>
+        </div>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="flex items-center gap-1 rounded-md border border-white/10 bg-black/18 p-1">
+          {supportedAspectRatios.map((aspectRatio) => (
+            <Button
+              key={aspectRatio}
+              className={
+                project.viewport.aspectRatio === aspectRatio
+                  ? "bg-white/18 text-white hover:bg-white/22"
+                  : "text-white/55 hover:bg-white/8 hover:text-white"
+              }
+              size="sm"
+              variant="ghost"
+              onClick={() => setAspectRatio(aspectRatio)}
+            >
+              {aspectRatio}
+            </Button>
+          ))}
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          <Button size="sm" variant="outline" onClick={onSave}>
+        <div className="hidden items-center gap-2 text-xs text-white/46 md:flex">
+          <span>{project.viewport.width} x {project.viewport.height}</span>
+          <span>{project.export.format.toUpperCase()}</span>
+          {snapshotVersion ? <span>Snapshot {snapshotVersion.slice(0, 8)}</span> : null}
+        </div>
+
+        <div className="flex items-center gap-2">
+          <Button className="border-white/12 bg-white/8 text-white hover:bg-white/12" size="sm" variant="outline" onClick={onSave}>
             {saveState === "saving" ? (
               <LoaderCircle className="size-4 animate-spin" />
             ) : (
               <Save className="size-4" />
             )}
-            Save draft
+            Save
           </Button>
-          <Button size="sm" variant="outline" onClick={onDownloadMockJson}>
+          <Button className="border-white/12 bg-white/8 text-white hover:bg-white/12" size="sm" variant="outline" onClick={onDownloadMockJson}>
             <FileJson className="size-4" />
             Mock JSON
           </Button>
           <Button
+            className="border border-red-400/45 bg-red-500/10 text-red-200 hover:bg-red-500/18"
             disabled={exportState === "creating"}
             size="sm"
             onClick={onStartExport}
@@ -161,30 +149,11 @@ export function EditorHeader({
             ) : (
               <Rocket className="size-4" />
             )}
-            Export
-          </Button>
-          <Button
-            className="xl:hidden"
-            size="icon"
-            variant="outline"
-            onClick={onOpenMobileInspector}
-          >
-            <PanelRight className="size-4" />
-            <span className="sr-only">Open mobile inspector</span>
-          </Button>
-          <Button
-            aria-pressed={inspectorOpen}
-            className="hidden xl:inline-flex"
-            size="icon"
-            variant={inspectorOpen ? "secondary" : "outline"}
-            onClick={onToggleInspector}
-          >
-            <PanelRight className="size-4" />
-            <span className="sr-only">Toggle inspector</span>
+            Export Video
           </Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button size="icon" variant="outline">
+              <Button className="border-white/12 bg-white/8 text-white hover:bg-white/12" size="icon" variant="outline">
                 <MoreHorizontal className="size-4" />
                 <span className="sr-only">Open project actions</span>
               </Button>
@@ -204,9 +173,9 @@ export function EditorHeader({
               <DropdownMenuItem disabled={!currentJobId}>
                 Current export: {currentJobId?.slice(0, 8) ?? "none"}
               </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem variant="destructive">
-                No destructive shell actions wired
+              <DropdownMenuItem disabled>
+                <CopyPlus className="size-4" />
+                Duplicate project
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -219,6 +188,6 @@ export function EditorHeader({
       {exportError ? (
         <p className="text-sm text-destructive">{exportError}</p>
       ) : null}
-    </Card>
+    </header>
   );
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useEffectEvent, useRef, useState } from "react";
-import { Pause, Play, ZoomIn } from "lucide-react";
+import { Pause, Play, Settings, Volume2 } from "lucide-react";
 
 import {
   type AudioAnalysisProvider,
@@ -22,16 +22,7 @@ import {
   createSpectralRuntimeSession,
   type BrowserRenderRuntime,
 } from "@spectral/render-runtime-browser";
-import { Badge } from "@spectral/ui/components/badge";
 import { Button } from "@spectral/ui/components/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@spectral/ui/components/card";
-import { Slider } from "@spectral/ui/components/slider";
 
 import {
   createProjectAssetResolver,
@@ -137,8 +128,6 @@ export function PreviewStage({
   const play = usePlaybackStore((state) => state.play);
   const pause = usePlaybackStore((state) => state.pause);
   const seekToMs = usePlaybackStore((state) => state.seekToMs);
-  const surfaceWidth = usePreviewStore((state) => state.surfaceWidth);
-  const surfaceHeight = usePreviewStore((state) => state.surfaceHeight);
   const viewportWidth = usePreviewStore((state) => state.viewportWidth);
   const viewportHeight = usePreviewStore((state) => state.viewportHeight);
   const previewAspectRatio = usePreviewStore((state) => state.aspectRatio);
@@ -146,7 +135,6 @@ export function PreviewStage({
   const runtimeHealth = usePreviewStore((state) => state.runtimeHealth);
   const deviceDpr = usePreviewStore((state) => state.dpr);
   const setSurface = usePreviewStore((state) => state.setSurface);
-  const setRenderQuality = usePreviewStore((state) => state.setRenderQuality);
   const setRuntimeHealth = usePreviewStore((state) => state.setRuntimeHealth);
 
   const frameRef = useRef<HTMLDivElement | null>(null);
@@ -550,134 +538,77 @@ export function PreviewStage({
     seekToMs,
   ]);
 
+  const formattedCurrentTime = `${Math.floor(currentTimeMs / 60000)}:${String(
+    Math.floor((currentTimeMs % 60000) / 1000),
+  ).padStart(2, "0")}`;
+  const formattedDuration = `${Math.floor(project.timing.durationMs / 60000)}:${String(
+    Math.floor((project.timing.durationMs % 60000) / 1000),
+  ).padStart(2, "0")}`;
+
   return (
-    <Card className="surface-glow flex min-h-[26rem] flex-1 flex-col overflow-hidden">
-      <CardHeader className="gap-4">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <div className="space-y-2">
-            <div className="flex flex-wrap items-center gap-2">
-              <Badge variant="secondary">Preview stage</Badge>
-              <Badge variant="outline">{previewAspectRatio}</Badge>
-              <Badge variant="outline">
-                {viewportWidth} x {viewportHeight}
-              </Badge>
-              <Badge variant="outline">{runtimeHealth}</Badge>
-              <Badge variant="outline">{renderQuality}</Badge>
-            </div>
-            <div>
-              <CardTitle>Live preview runtime</CardTitle>
-              <CardDescription>
-                `@spectral/render-runtime-browser` mounts here with the real
-                project document and resolved assets.
-              </CardDescription>
-            </div>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2">
-            <Button size="sm" variant="outline" onClick={() => play()}>
-              <Play className="size-4" />
-              Preview
-            </Button>
-            <Button size="sm" variant="outline" onClick={() => pause()}>
-              <Pause className="size-4" />
-              Pause
-            </Button>
-            <div className="flex min-w-56 items-center gap-3 rounded-full border border-border bg-background/70 px-4 py-2">
-              <ZoomIn className="size-4 text-muted-foreground" />
-              <Slider
-                max={100}
-                min={0}
-                step={50}
-                value={[
-                  renderQuality === "draft"
-                    ? 0
-                    : renderQuality === "balanced"
-                      ? 50
-                      : 100,
-                ]}
-                onValueChange={([value]) => {
-                  if (value === undefined) {
-                    return;
-                  }
-
-                  setRenderQuality(
-                    value >= 100 ? "high" : value >= 50 ? "balanced" : "draft",
-                  );
-                }}
-              />
-            </div>
+    <section className="flex min-h-0 flex-1 flex-col bg-[#181a1f]">
+      <div className="flex min-h-0 flex-1 items-center justify-center p-5">
+        <div className="flex size-full items-center justify-center bg-[#111216] p-4 shadow-inner shadow-black/40">
+          <div
+            ref={frameRef}
+            className="relative flex max-h-full max-w-full items-center justify-center overflow-hidden bg-black shadow-[0_24px_80px_-30px_rgba(0,0,0,0.9)]"
+            style={{
+              aspectRatio: toAspectRatioValue(previewAspectRatio),
+              height: previewAspectRatio === "9:16" ? "100%" : "auto",
+              maxHeight: "100%",
+              width: previewAspectRatio === "9:16" ? "auto" : "100%",
+            }}
+          >
+            <div ref={stageRef} className="size-full" />
+            {runtimeHealth !== "ready" ? (
+              <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/65 px-6 text-center text-sm text-white/76">
+                {runtimeError ??
+                  (analysisLoading
+                    ? "Loading audio analysis..."
+                    : "Initializing preview...")}
+              </div>
+            ) : null}
+            <audio
+              ref={audioRef}
+              className="hidden"
+              crossOrigin="anonymous"
+              playsInline
+              preload="auto"
+              src={audioUrl ?? undefined}
+            />
           </div>
         </div>
-      </CardHeader>
+      </div>
 
-      <CardContent className="flex min-h-0 flex-1 flex-col gap-4">
-        <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_18rem]">
-          <div className="flex h-[34rem] items-center justify-center rounded-[28px] border border-border/70 bg-slate-950/55 p-3 xl:h-[42rem]">
-            <div
-              ref={frameRef}
-              className="relative flex w-full max-h-full max-w-full items-center justify-center overflow-hidden rounded-[32px] border border-white/10 bg-black shadow-[0_34px_120px_-52px_rgba(15,23,42,0.95)]"
-              style={{
-                aspectRatio: toAspectRatioValue(previewAspectRatio),
-                maxHeight: "100%",
-              }}
-            >
-              <div ref={stageRef} className="size-full" />
-              {runtimeHealth !== "ready" ? (
-                <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/55 px-6 text-center text-sm text-white/80">
-                  {runtimeError ??
-                    (analysisLoading
-                      ? "Loading audio analysis..."
-                      : "Initializing preview runtime...")}
-                </div>
-              ) : null}
-              <audio
-                ref={audioRef}
-                className="hidden"
-                crossOrigin="anonymous"
-                playsInline
-                preload="auto"
-                src={audioUrl ?? undefined}
-              />
-            </div>
-          </div>
-
-          <div className="space-y-4 rounded-[28px] border border-border/70 bg-background/60 p-4">
-            <div>
-              <p className="text-sm font-medium">Surface</p>
-              <p className="mt-2 text-sm text-muted-foreground">
-                Viewport {viewportWidth} x {viewportHeight} · Surface{" "}
-                {Math.round(renderSurface.width)} x{" "}
-                {Math.round(renderSurface.height)} · Display{" "}
-                {Math.round(surfaceWidth)} x {Math.round(surfaceHeight)}
-              </p>
-            </div>
-            <div>
-              <p className="text-sm font-medium">Playback</p>
-              <p className="mt-2 text-sm text-muted-foreground">
-                {Math.round(currentTimeMs)} ms / {project.timing.durationMs} ms
-              </p>
-            </div>
-            <div>
-              <p className="text-sm font-medium">Media</p>
-              <p className="mt-2 text-sm text-muted-foreground">
-                Audio {project.audio.assetId ? "attached" : "missing"} ·
-                Analysis{" "}
-                {analysisProvider
-                  ? "ready"
-                  : project.audio.analysisId
-                    ? "failed"
-                    : "missing"}
-              </p>
-            </div>
-            {analysisError ? (
-              <p className="text-sm text-amber-600">{analysisError}</p>
-            ) : null}
-            {runtimeError ? (
-              <p className="text-sm text-destructive">{runtimeError}</p>
-            ) : null}
-          </div>
+      <footer className="flex h-20 shrink-0 items-center gap-4 border-t border-white/10 bg-[#2b2d32] px-5">
+        <Button
+          className="size-11 rounded-full bg-red-500 text-white hover:bg-red-400"
+          size="icon"
+          onClick={() => (playing ? pause() : play())}
+        >
+          {playing ? <Pause className="size-5" /> : <Play className="size-5 fill-current" />}
+          <span className="sr-only">{playing ? "Pause" : "Play"}</span>
+        </Button>
+        <Volume2 className="size-5 text-white/50" />
+        <span className="w-24 text-sm font-medium text-white/74">
+          {formattedCurrentTime} / {formattedDuration}
+        </span>
+        <div className="h-px flex-1 bg-red-400/40" />
+        <div className="hidden items-center gap-3 text-xs text-white/42 md:flex">
+          <span>{previewAspectRatio}</span>
+          <span>{viewportWidth} x {viewportHeight}</span>
+          <span>{renderQuality}</span>
         </div>
-      </CardContent>
-    </Card>
+        {(analysisError || runtimeError) ? (
+          <span className="max-w-64 truncate text-xs text-red-300">
+            {runtimeError ?? analysisError}
+          </span>
+        ) : null}
+        <Button className="text-white/80 hover:bg-white/8 hover:text-white" size="icon" variant="ghost">
+          <Settings className="size-5" />
+          <span className="sr-only">Preview settings</span>
+        </Button>
+      </footer>
+    </section>
   );
 }
