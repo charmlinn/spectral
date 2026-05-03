@@ -1,0 +1,504 @@
+{
+  "version": 1,
+  "projectId": "dd9bc00e-9e36-42d7-8a99-c0b4368e1a9b",
+  "createdAt": "2026-05-03T02:43:54.699Z",
+  "updatedAt": "2026-05-03T02:55:49.824Z",
+  "meta": {
+    "name": "Untitled Project",
+    "description": null,
+    "presetId": "d6e20411-571e-417e-a8af-784985fc6b51",
+    "source": "preset",
+    "tags": [
+      "free"
+    ]
+  },
+  "timing": {
+    "durationMs": 15000,
+    "fps": 60,
+    "beatOffsetMs": 0
+  },
+  "viewport": {
+    "width": 1920,
+    "height": 1080,
+    "backgroundColor": "#000000",
+    "aspectRatio": "16:9"
+  },
+  "audio": {
+    "assetId": "6d760563-af4a-4bfd-b11c-b55d4a3de0bf",
+    "source": {
+      "assetId": "6d760563-af4a-4bfd-b11c-b55d4a3de0bf",
+      "storageKey": "projects/dd9bc00e-9e36-42d7-8a99-c0b4368e1a9b/assets/6d760563-af4a-4bfd-b11c-b55d4a3de0bf/source.mp3",
+      "url": null,
+      "kind": "audio",
+      "origin": "upload",
+      "mimeType": "audio/mpeg"
+    },
+    "analysisId": "be63799d-cd0a-492d-bcd9-7c23161ff23b",
+    "trimStartMs": 0,
+    "trimEndMs": 15000,
+    "gain": 1
+  },
+  "visualizer": {
+    "enabled": true,
+    "pipeline": "CircleWavePipeline",
+    "logoVisible": true,
+    "mediaSource": {
+      "assetId": null,
+      "storageKey": null,
+      "url": "https://specterr.b-cdn.net/specterr-visualizer-image-b.png",
+      "kind": "image",
+      "origin": "legacy-url",
+      "mimeType": null
+    },
+    "logoSource": null,
+    "waveCircles": [
+      {
+        "fillColor": "#f9c73f",
+        "secondaryFillColor": null,
+        "lineColor": "#ffffff",
+        "secondaryLineColor": null,
+        "fillAlpha": 1,
+        "secondaryFillAlpha": 1,
+        "lineWidth": 0,
+        "lineAlpha": 1,
+        "secondaryLineAlpha": 1,
+        "visible": true,
+        "spinSettings": {
+          "enabled": false,
+          "speed": 0,
+          "acceleration": 0,
+          "logoLocked": false
+        },
+        "customOptions": {
+          "enabled": false,
+          "barCount": 200,
+          "barWidth": 0.75,
+          "inverted": false,
+          "rotation": 0,
+          "smoothed": true,
+          "waveType": "bass spectrum",
+          "waveStyle": "solid",
+          "pointRadius": 1,
+          "reflectionType": "vertical",
+          "waveScaleFactor": 1.2
+        }
+      },
+      {
+        "fillColor": "#ffe046",
+        "secondaryFillColor": null,
+        "lineColor": "#ffffff",
+        "secondaryLineColor": null,
+        "fillAlpha": 1,
+        "secondaryFillAlpha": 1,
+        "lineWidth": 0,
+        "lineAlpha": 1,
+        "secondaryLineAlpha": 1,
+        "visible": true,
+        "spinSettings": {
+          "enabled": false,
+          "speed": 0,
+          "acceleration": 0,
+          "logoLocked": false
+        },
+        "customOptions": {
+          "enabled": false,
+          "barCount": 200,
+          "barWidth": 0.75,
+          "inverted": false,
+          "rotation": 0,
+          "smoothed": true,
+          "waveType": "bass spectrum",
+          "waveStyle": "solid",
+          "pointRadius": 1,
+          "reflectionType": "vertical",
+          "waveScaleFactor": 1.2
+        }
+      },
+      {
+        "fillColor": "#ff4e41",
+        "secondaryFillColor": null,
+        "lineColor": "#ffffff",
+        "secondaryLineColor": null,
+        "fillAlpha": 1,
+        "secondaryFillAlpha": 1,
+        "lineWidth": 0,
+        "lineAlpha": 1,
+        "secondaryLineAlpha": 1,
+        "visible": true,
+        "spinSettings": {
+          "enabled": false,
+          "speed": 0,
+          "acceleration": 0,
+          "logoLocked": false
+        },
+        "customOptions": {
+          "enabled": false,
+          "barCount": 200,
+          "barWidth": 0.75,
+          "inverted": false,
+          "rotation": 0,
+          "smoothed": true,
+          "waveType": "bass spectrum",
+          "waveStyle": "solid",
+          "pointRadius": 1,
+          "reflectionType": "vertical",
+          "waveScaleFactor": 1.2
+        }
+      },
+      {
+        "fillColor": "#da3330",
+        "secondaryFillColor": null,
+        "lineColor": "#ffffff",
+        "secondaryLineColor": null,
+        "fillAlpha": 1,
+        "secondaryFillAlpha": 1,
+        "lineWidth": 0,
+        "lineAlpha": 1,
+        "secondaryLineAlpha": 1,
+        "visible": true,
+        "spinSettings": {
+          "enabled": false,
+          "speed": 0,
+          "acceleration": 0,
+          "logoLocked": false
+        },
+        "customOptions": {
+          "enabled": false,
+          "barCount": 200,
+          "barWidth": 0.75,
+          "inverted": false,
+          "rotation": 0,
+          "smoothed": true,
+          "waveType": "bass spectrum",
+          "waveStyle": "solid",
+          "pointRadius": 1,
+          "reflectionType": "vertical",
+          "waveScaleFactor": 1.2
+        }
+      },
+      {
+        "fillColor": "#a21212",
+        "secondaryFillColor": null,
+        "lineColor": "#ffffff",
+        "secondaryLineColor": null,
+        "fillAlpha": 1,
+        "secondaryFillAlpha": 1,
+        "lineWidth": 0,
+        "lineAlpha": 1,
+        "secondaryLineAlpha": 1,
+        "visible": true,
+        "spinSettings": {
+          "enabled": false,
+          "speed": 0,
+          "acceleration": 0,
+          "logoLocked": false
+        },
+        "customOptions": {
+          "enabled": false,
+          "barCount": 200,
+          "barWidth": 0.75,
+          "inverted": false,
+          "rotation": 0,
+          "smoothed": true,
+          "waveType": "bass spectrum",
+          "waveStyle": "solid",
+          "pointRadius": 1,
+          "reflectionType": "vertical",
+          "waveScaleFactor": 1.2
+        }
+      },
+      {
+        "fillColor": "#000000",
+        "secondaryFillColor": null,
+        "lineColor": "#000000",
+        "secondaryLineColor": null,
+        "fillAlpha": 1,
+        "secondaryFillAlpha": 1,
+        "lineWidth": 0,
+        "lineAlpha": 1,
+        "secondaryLineAlpha": 1,
+        "visible": true,
+        "spinSettings": {
+          "enabled": false,
+          "speed": 0,
+          "acceleration": 0,
+          "logoLocked": false
+        },
+        "customOptions": {
+          "enabled": false,
+          "barCount": 200,
+          "barWidth": 0.75,
+          "inverted": false,
+          "rotation": 0,
+          "smoothed": true,
+          "waveType": "bass spectrum",
+          "waveStyle": "solid",
+          "pointRadius": 1,
+          "reflectionType": "vertical",
+          "waveScaleFactor": 1.2
+        }
+      }
+    ],
+    "waveType": "bass spectrum",
+    "layoutType": "webbed",
+    "reflectionType": "vertical",
+    "shakeAmount": "little",
+    "radiusFactor": 80,
+    "seperationFactor": 0.8,
+    "waveScaleFactor": 1.2,
+    "logoSizeFactor": 0.95,
+    "bounceFactor": 1,
+    "centerCutoutFactor": 0,
+    "delayed": true,
+    "inverted": false,
+    "waveStyle": "solid",
+    "barCount": 200,
+    "barWidth": 0.75,
+    "pointRadius": 1,
+    "smoothed": true,
+    "glowSettings": {
+      "enabled": true,
+      "glowType": "inner",
+      "blur": 3.6,
+      "scale": 1
+    },
+    "fireSettings": {
+      "enabled": false,
+      "intensity": 5,
+      "detail": 1
+    },
+    "dropShadowSettings": {
+      "enabled": false,
+      "color": "0x000000",
+      "blur": 5,
+      "opacity": 1
+    },
+    "position": {
+      "x": 0,
+      "y": 0
+    },
+    "spinSettings": {
+      "enabled": false,
+      "speed": 0,
+      "acceleration": 0,
+      "logoLocked": false
+    },
+    "drift": {
+      "enabled": false,
+      "intensity": 0,
+      "customMode": false,
+      "amplitudeX": 0,
+      "amplitudeY": 0,
+      "rotation": 0,
+      "speed": 0,
+      "octaves": 1,
+      "scale": 0,
+      "acceleration": 0
+    },
+    "width": 888,
+    "baseHeight": 5,
+    "rotation": 0,
+    "shape": "circle",
+    "glowType": "outer"
+  },
+  "backdrop": {
+    "source": {
+      "assetId": null,
+      "storageKey": null,
+      "url": "https://specterr.b-cdn.net/bg-magma.jpg",
+      "kind": "image",
+      "origin": "legacy-url",
+      "mimeType": null
+    },
+    "bounceEnabled": true,
+    "bounceScale": -1.5,
+    "paddingFactor": 1.1,
+    "shakeEnabled": true,
+    "shakeFactor": 300,
+    "filterEnabled": true,
+    "rotation": 0,
+    "vignetteEnabled": true,
+    "maxVignette": 0.2,
+    "vignetteFactor": 5,
+    "contrastEnabled": true,
+    "maxContrast": 1.2,
+    "contrastFactor": 6,
+    "zoomBlurEnabled": true,
+    "maxZoomBlur": 0.5,
+    "zoomBlurFactor": 1.7,
+    "reflection": {
+      "type": "two-way",
+      "direction": "left"
+    },
+    "hlsAdjustment": {
+      "enabled": false,
+      "colorize": false,
+      "alpha": 1,
+      "hue": 0,
+      "lightness": 0,
+      "saturation": 0
+    },
+    "drift": {
+      "enabled": false,
+      "intensity": 0,
+      "customMode": false,
+      "amplitudeX": 0,
+      "amplitudeY": 0,
+      "rotation": 0,
+      "speed": 0,
+      "octaves": 1,
+      "scale": 0,
+      "acceleration": 0
+    }
+  },
+  "lyrics": {
+    "style": {
+      "text": "",
+      "color": "#ffffff",
+      "anchorPoint": "CENTER",
+      "font": "Montserrat",
+      "fontSize": 52,
+      "bold": true,
+      "shadow": {
+        "enabled": false,
+        "color": "#000000",
+        "blur": 0,
+        "opacity": 1
+      },
+      "position": {
+        "x": 0,
+        "y": -160
+      },
+      "drift": {
+        "enabled": false,
+        "intensity": 0,
+        "customMode": false,
+        "amplitudeX": 0,
+        "amplitudeY": 0,
+        "rotation": 0,
+        "speed": 0,
+        "octaves": 1,
+        "scale": 0,
+        "acceleration": 0
+      }
+    },
+    "segments": []
+  },
+  "textLayers": [
+    {
+      "id": "text-1",
+      "visible": true,
+      "startMs": 0,
+      "endMs": null,
+      "style": {
+        "text": "ARTIST NAME",
+        "color": "#ffffff",
+        "anchorPoint": "CENTER",
+        "font": "Montserrat",
+        "fontSize": 52,
+        "bold": true,
+        "shadow": {
+          "enabled": false,
+          "color": "#000000",
+          "blur": 0,
+          "opacity": 1
+        },
+        "position": {
+          "x": 0,
+          "y": 170
+        },
+        "drift": {
+          "enabled": false,
+          "intensity": 0,
+          "customMode": false,
+          "amplitudeX": 0,
+          "amplitudeY": 0,
+          "rotation": 0,
+          "speed": 0,
+          "octaves": 1,
+          "scale": 0,
+          "acceleration": 0
+        }
+      }
+    },
+    {
+      "id": "text-2",
+      "visible": true,
+      "startMs": 0,
+      "endMs": null,
+      "style": {
+        "text": "TRACK NAME",
+        "color": "#ffffff",
+        "anchorPoint": "CENTER",
+        "font": "Montserrat",
+        "fontSize": 45,
+        "bold": false,
+        "shadow": {
+          "enabled": false,
+          "color": "#000000",
+          "blur": 0,
+          "opacity": 1
+        },
+        "position": {
+          "x": 0,
+          "y": 205
+        },
+        "drift": {
+          "enabled": false,
+          "intensity": 0,
+          "customMode": false,
+          "amplitudeX": 0,
+          "amplitudeY": 0,
+          "rotation": 0,
+          "speed": 0,
+          "octaves": 1,
+          "scale": 0,
+          "acceleration": 0
+        }
+      }
+    }
+  ],
+  "overlays": {
+    "particles": {
+      "enabled": true,
+      "speedUpEnabled": true,
+      "direction": "OUT",
+      "items": [
+        {
+          "shape": "circle",
+          "color": "0xfbfbfb",
+          "birthRate": 35,
+          "maxSize": 0.3,
+          "minSize": 0.1,
+          "maxOpacity": 1,
+          "minOpacity": 0.2,
+          "mediaData": null
+        }
+      ],
+      "color": "0xfbfbfb",
+      "birthRate": 35,
+      "maxSize": 0.3,
+      "minSize": 0.1,
+      "maxOpacity": 1,
+      "minOpacity": 0.2
+    },
+    "youTubeCta": {
+      "enabled": false,
+      "cornerPosition": "bottom-right"
+    },
+    "emojiImages": []
+  },
+  "export": {
+    "format": "mp4",
+    "width": 1920,
+    "height": 1080,
+    "fps": 60,
+    "videoBitrateKbps": null,
+    "audioBitrateKbps": null
+  },
+  "source": {
+    "legacyPresetId": "d6e20411-571e-417e-a8af-784985fc6b51",
+    "legacyPresetVersion": "16",
+    "legacyAspectRatioCode": 0
+  }
+}
