@@ -25,6 +25,11 @@ const MIN_B = 100;
 const MAX_B = 500;
 const MIN_H = 0;
 const MAX_H = MAX_B * 10 * Math.PI;
+const BASE_FPS = 60;
+const MAX_SPAWN_PER_FRAME = 5;
+const MAX_ACTIVE_PARTICLES = 96;
+const ATTACK_PER_SECOND = 9;
+const RELEASE_PER_SECOND = 4;
 
 type SidewaysParticle = {
   aX: number;
@@ -55,6 +60,9 @@ export class SidewaysParticlesRenderer {
   private speedUpEnabled = false;
   private particleTextures: ParticleTextureConfig[] = [];
   private activeParticles: ParticleTextureConfig[] = [];
+  private lastTimeMs: number | null = null;
+  private smoothedMagnitude = 0;
+  private spawnAccumulators = new Map<string, number>();
   private spectrumOptions: ProcessSpectrumOptions = {
     barCount: undefined,
     loop: false,
@@ -84,6 +92,9 @@ export class SidewaysParticlesRenderer {
     this.particles.forEach((particle) => particle.sprite.destroy());
     this.container.removeChildren();
     this.particles = [];
+    this.lastTimeMs = null;
+    this.smoothedMagnitude = 0;
+    this.spawnAccumulators.clear();
   }
 
   updateSurface(surface: RenderSurface) {
@@ -157,16 +168,47 @@ export class SidewaysParticlesRenderer {
     }
   }
 
-  draw(spectrum: ArrayLike<number>) {
+  private getDeltaSeconds(timeMs: number) {
+    const previousTimeMs = this.lastTimeMs;
+    this.lastTimeMs = timeMs;
+
+    if (previousTimeMs === null) {
+      return 1 / BASE_FPS;
+    }
+
+    const deltaSeconds = (timeMs - previousTimeMs) / 1000;
+
+    if (deltaSeconds <= 0 || deltaSeconds > 0.25) {
+      return 1 / BASE_FPS;
+    }
+
+    return deltaSeconds;
+  }
+
+  private smoothMagnitude(target: number, deltaSeconds: number) {
+    const rate =
+      target > this.smoothedMagnitude ? ATTACK_PER_SECOND : RELEASE_PER_SECOND;
+    const alpha = Math.min(1, Math.max(0, deltaSeconds * rate));
+
+    this.smoothedMagnitude += (target - this.smoothedMagnitude) * alpha;
+    return this.smoothedMagnitude;
+  }
+
+  draw(spectrum: ArrayLike<number>, timeMs: number) {
     if (!this.enabled) {
       return;
     }
 
+    const deltaSeconds = this.getDeltaSeconds(timeMs);
+    const frameSteps = deltaSeconds * BASE_FPS;
     const processedSpectrum = processSpectrum(
       Array.from(spectrum ?? []),
       this.spectrumOptions,
     );
-    const spectrumMagnitude = getSpectrumMagnitude(processedSpectrum);
+    const spectrumMagnitude = this.smoothMagnitude(
+      getSpectrumMagnitude(processedSpectrum),
+      deltaSeconds,
+    );
 
     let speedMultiplier = this.speedUpEnabled
       ? 1 + (spectrumMagnitude / 255) * SPEED_UP_FACTOR
@@ -181,17 +223,39 @@ export class SidewaysParticlesRenderer {
       );
       const averagedTotalBirthRate = totalBirthRate / this.activeParticles.length;
 
-      this.activeParticles.forEach((particleConfig) => {
+      let spawnedThisFrame = 0;
+
+      for (const particleConfig of this.activeParticles) {
+        if (
+          spawnedThisFrame >= MAX_SPAWN_PER_FRAME ||
+          this.particles.length >= MAX_ACTIVE_PARTICLES
+        ) {
+          break;
+        }
+
         const particleBirthRate = particleConfig.birthRate ?? 35;
         const proportionalBirthRate =
           (particleBirthRate / totalBirthRate) * averagedTotalBirthRate;
-
-        this.addNewParticles(
-          proportionalBirthRate * speedMultiplier,
-          this.fps,
-          particleConfig,
+        const textureKey = JSON.stringify(particleConfig);
+        const nextAccumulator =
+          (this.spawnAccumulators.get(textureKey) ?? 0) +
+          proportionalBirthRate * speedMultiplier * deltaSeconds;
+        const spawnCount = Math.min(
+          Math.floor(nextAccumulator),
+          MAX_SPAWN_PER_FRAME - spawnedThisFrame,
+          MAX_ACTIVE_PARTICLES - this.particles.length,
         );
-      });
+
+        this.spawnAccumulators.set(
+          textureKey,
+          spawnCount > 0 ? nextAccumulator - spawnCount : nextAccumulator,
+        );
+
+        if (spawnCount > 0) {
+          this.addNewParticles(spawnCount, particleConfig);
+          spawnedThisFrame += spawnCount;
+        }
+      }
 
       speedMultiplier = this.fps === 30 ? speedMultiplier * 2 : speedMultiplier;
     }
@@ -201,10 +265,10 @@ export class SidewaysParticlesRenderer {
 
     this.particles.forEach((particle, index) => {
       particle.x +=
-        particle.xSpeed * speedMultiplier +
+        particle.xSpeed * speedMultiplier * frameSteps +
         particle.aX * Math.sin(particle.hX / particle.bX);
       particle.y +=
-        particle.ySpeed * speedMultiplier +
+        particle.ySpeed * speedMultiplier * frameSteps +
         particle.aY * Math.sin(particle.hY / particle.bY);
       particle.sprite.position.set(particle.x, particle.y);
 
@@ -218,19 +282,7 @@ export class SidewaysParticlesRenderer {
     removalIndexes.forEach((index) => this.particles.splice(index, 1));
   }
 
-  private addNewParticles(
-    birthRate: number,
-    fps: number,
-    particleConfig: ParticleTextureConfig,
-  ) {
-    let count = birthRate / fps;
-    const diff = count - Math.floor(count);
-    count = Math.floor(count);
-
-    if (Math.random() < diff) {
-      count += 1;
-    }
-
+  private addNewParticles(count: number, particleConfig: ParticleTextureConfig) {
     const parsedConfig = {
       maxOpacity:
         particleConfig.maxOpacity !== undefined ? particleConfig.maxOpacity : 1,

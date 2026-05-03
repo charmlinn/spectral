@@ -82,7 +82,10 @@ export class PixiParticlesLayer {
       },
       SPECTERR_PREVIEW_PARTICLE_FPS,
     );
-    this.renderer.draw(layer?.props.bassSpectrum ?? new Float32Array());
+    this.renderer.draw(
+      layer?.props.bassSpectrum ?? new Float32Array(),
+      input.frameContext.timeMs,
+    );
   }
 
   destroy() {

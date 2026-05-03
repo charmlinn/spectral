@@ -1,19 +1,14 @@
 import { createHtmlMediaElementClock } from "../clock/html-media-clock";
 import type { BrowserRenderRuntime, PreviewStageRuntimeOptions } from "../contracts/runtime";
-import { createSpectralPixiRenderAdapter } from "../pixi/spectral-pixi-render-adapter";
-import { createBrowserRenderRuntime } from "./browser-render-runtime";
+import { createSpectralRuntimeSession } from "./create-spectral-runtime-session";
 
 const SPECTERR_PREVIEW_FRAME_CONTEXT_FPS = 60;
 
 export async function bootstrapPreviewStageRuntime(
   options: PreviewStageRuntimeOptions,
 ): Promise<BrowserRenderRuntime> {
-  const runtime = createBrowserRenderRuntime({
-    adapter:
-      options.adapter ??
-      createSpectralPixiRenderAdapter({
-        assetResolver: options.assetResolver,
-    }),
+  return createSpectralRuntimeSession({
+    adapter: options.adapter,
     project: options.project,
     surface: options.surface,
     clock: createHtmlMediaElementClock(
@@ -24,9 +19,7 @@ export async function bootstrapPreviewStageRuntime(
     analysisProvider: options.analysisProvider,
     assetResolver: options.assetResolver ?? null,
     autoStart: options.autoStart,
+    mode: "preview",
+    target: options.target,
   });
-
-  await runtime.mount(options.target);
-
-  return runtime;
 }

@@ -4,22 +4,22 @@ import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { Pause, Play, ZoomIn } from "lucide-react";
 
 import {
-  createRealtimeAudioAnalysisController,
   type AudioAnalysisProvider,
   type AudioAnalysisSnapshot,
-  type RealtimeAudioAnalysisController,
 } from "@spectral/audio-analysis";
 import {
   usePlaybackStore,
   usePreviewStore,
   useProjectStore,
 } from "@spectral/editor-store";
-import type { SupportedAspectRatio } from "@spectral/project-schema";
+import type {
+  SupportedAspectRatio,
+  VideoProject,
+} from "@spectral/project-schema";
 import {
-  createBrowserRenderRuntime,
   createHtmlMediaElementClock,
   createManualRenderClock,
-  createSpectralPixiRenderAdapter,
+  createSpectralRuntimeSession,
   type BrowserRenderRuntime,
 } from "@spectral/render-runtime-browser";
 import { Badge } from "@spectral/ui/components/badge";
@@ -110,6 +110,19 @@ function createPreviewClock(
   return fallbackClock;
 }
 
+function projectRequiresAudioAnalysis(project: VideoProject) {
+  return (
+    project.visualizer.enabled ||
+    project.backdrop.bounceEnabled ||
+    project.backdrop.shakeEnabled ||
+    project.backdrop.zoomBlurEnabled ||
+    project.overlays.particles.enabled ||
+    project.overlays.particles.speedUpEnabled ||
+    (Array.isArray(project.overlays.particles.items) &&
+      project.overlays.particles.items.some((item) => (item.birthRate ?? 0) > 0))
+  );
+}
+
 export function PreviewStage({
   analysisError,
   analysisLoading,
@@ -140,10 +153,6 @@ export function PreviewStage({
   const stageRef = useRef<HTMLDivElement | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const runtimeRef = useRef<BrowserRenderRuntime | null>(null);
-  const realtimeAnalysisRef = useRef<RealtimeAudioAnalysisController | null>(
-    null,
-  );
-  const realtimeAnalysisReadyRef = useRef(false);
   const manualClockRef = useRef(
     createManualRenderClock({ fps: SPECTERR_PREVIEW_FRAME_CONTEXT_FPS }),
   );
@@ -155,6 +164,8 @@ export function PreviewStage({
     renderQuality,
   );
   const effectiveDpr = Math.max(1, Math.min(deviceDpr || 1, 2));
+  const requiresAudioAnalysis = projectRequiresAudioAnalysis(project);
+  const canRenderRuntime = !requiresAudioAnalysis || analysisProvider !== null;
 
   useEffect(() => {
     const element = frameRef.current;
@@ -219,40 +230,16 @@ export function PreviewStage({
   }, [project.audio.assetId, project.audio.source?.url, setRuntimeHealth]);
 
   useEffect(() => {
-    const audioElement = audioRef.current;
-
-    if (!audioElement || !audioUrl || !analysisSnapshot) {
-      realtimeAnalysisReadyRef.current = false;
-      runtimeRef.current?.setHistoryProvider(null);
-      return;
-    }
-
-    const controller = createRealtimeAudioAnalysisController({
-      audioElement,
-      fps: SPECTERR_PREVIEW_FRAME_CONTEXT_FPS,
-      waveform: analysisSnapshot.waveform,
-      volume: muted ? 0 : 1,
-    });
-
-    controller.setMaxMagnitudes(analysisSnapshot.magnitudes);
-    controller.setVolume(muted ? 0 : 1);
-    realtimeAnalysisRef.current = controller;
-    realtimeAnalysisReadyRef.current = false;
     runtimeRef.current?.setHistoryProvider(analysisProvider);
-
-    return () => {
-      if (realtimeAnalysisRef.current === controller) {
-        realtimeAnalysisRef.current = null;
-      }
-
-      realtimeAnalysisReadyRef.current = false;
-      runtimeRef.current?.setHistoryProvider(analysisProvider);
-      void controller.destroy().catch(() => undefined);
-    };
-  }, [analysisProvider, analysisSnapshot, audioUrl, muted]);
+  }, [analysisProvider, analysisSnapshot]);
 
   useEffect(() => {
     if (runtimeRef.current) {
+      return;
+    }
+
+    if (!canRenderRuntime) {
+      setRuntimeHealth(analysisLoading ? "idle" : "warning");
       return;
     }
 
@@ -268,10 +255,7 @@ export function PreviewStage({
       try {
         setRuntimeError(null);
 
-        const runtime = createBrowserRenderRuntime({
-          adapter: createSpectralPixiRenderAdapter({
-            assetResolver: assetResolverRef.current,
-          }),
+        const runtime = await createSpectralRuntimeSession({
           project,
           surface: {
             width: renderSurface.width,
@@ -286,14 +270,12 @@ export function PreviewStage({
             manualClockRef.current,
           ),
           analysisProvider,
-          historyProvider: realtimeAnalysisReadyRef.current
-            ? realtimeAnalysisRef.current
-            : analysisProvider,
+          historyProvider: analysisProvider,
           assetResolver: assetResolverRef.current,
           autoStart: false,
+          mode: "preview",
+          target,
         });
-
-        await runtime.mount(target);
 
         if (disposed) {
           await runtime.unmount();
@@ -320,8 +302,10 @@ export function PreviewStage({
       disposed = true;
     };
   }, [
+    analysisLoading,
     analysisProvider,
     audioUrl,
+    canRenderRuntime,
     effectiveDpr,
     project.projectId,
     renderSurface.height,
@@ -358,15 +342,26 @@ export function PreviewStage({
       return;
     }
 
+    if (!canRenderRuntime) {
+      const runtime = runtimeRef.current;
+      runtimeRef.current = null;
+      runtime.stop();
+      setRuntimeHealth(analysisLoading ? "idle" : "warning");
+      void runtime.unmount();
+      return;
+    }
+
     runtimeRef.current.setProject(project);
     runtimeRef.current.setAudioAnalysisProvider(analysisProvider);
-    runtimeRef.current.setHistoryProvider(
-      realtimeAnalysisReadyRef.current
-        ? realtimeAnalysisRef.current
-        : analysisProvider,
-    );
+    runtimeRef.current.setHistoryProvider(analysisProvider);
     runtimeRef.current.setAssetResolver(assetResolverRef.current);
-  }, [analysisProvider, project]);
+  }, [
+    analysisLoading,
+    analysisProvider,
+    canRenderRuntime,
+    project,
+    setRuntimeHealth,
+  ]);
 
   useEffect(() => {
     if (!runtimeRef.current) {
@@ -377,12 +372,12 @@ export function PreviewStage({
   }, [playing]);
 
   useEffect(() => {
-    if (!runtimeRef.current || playing) {
+    if (!runtimeRef.current || playing || !canRenderRuntime) {
       return;
     }
 
     void runtimeRef.current.renderFrameAt(currentTimeMs);
-  }, [currentTimeMs, playing]);
+  }, [canRenderRuntime, currentTimeMs, playing]);
 
   useEffect(() => {
     if (!runtimeRef.current || runtimeError) {
@@ -399,35 +394,17 @@ export function PreviewStage({
       throw new Error("Preview audio element is not available.");
     }
 
-    const controller = realtimeAnalysisRef.current;
-
-    if (controller) {
-      await controller.play();
-      realtimeAnalysisReadyRef.current = true;
-      runtimeRef.current?.setHistoryProvider(controller);
-      return;
-    }
-
     await audioElement.play();
   });
 
   const stopAudioPreview = useEffectEvent(() => {
-    const controller = realtimeAnalysisRef.current;
-
-    if (controller) {
-      controller.pause();
-      runtimeRef.current?.setHistoryProvider(
-        realtimeAnalysisReadyRef.current ? controller : analysisProvider,
-      );
-      return;
-    }
-
     audioRef.current?.pause();
   });
 
   useEffect(() => {
     if (
       !runtimeRef.current ||
+      !canRenderRuntime ||
       renderSurface.width <= 0 ||
       renderSurface.height <= 0
     ) {
@@ -446,6 +423,7 @@ export function PreviewStage({
       }
     })();
   }, [
+    canRenderRuntime,
     effectiveDpr,
     playing,
     renderSurface.height,
@@ -459,11 +437,8 @@ export function PreviewStage({
       return;
     }
 
-    const realtimeController = realtimeAnalysisRef.current;
-
     audioElement.muted = muted;
     audioElement.playbackRate = playbackRate;
-    realtimeController?.setVolume(muted ? 0 : 1);
   }, [muted, playbackRate]);
 
   useEffect(() => {
@@ -474,16 +449,18 @@ export function PreviewStage({
     if (Math.abs(audioRef.current.currentTime - currentTimeMs / 1000) > 0.05) {
       audioRef.current.currentTime = currentTimeMs / 1000;
     }
-
-    realtimeAnalysisRef.current?.seekToMs(currentTimeMs);
   }, [audioUrl, currentTimeMs]);
 
   useEffect(() => {
     if (playing) {
+      if (!canRenderRuntime) {
+        pause();
+        return;
+      }
+
       if (audioUrl && audioRef.current) {
         runtimeRef.current?.start();
         void startAudioPreview().catch((error: unknown) => {
-          realtimeAnalysisReadyRef.current = false;
           runtimeRef.current?.setHistoryProvider(analysisProvider);
           setRuntimeError(
             error instanceof Error
@@ -502,11 +479,14 @@ export function PreviewStage({
       runtimeRef.current?.stop();
       stopAudioPreview();
       manualClockRef.current.seekToMs(currentTimeMs);
-      void runtimeRef.current?.renderFrameAt(currentTimeMs);
+      if (canRenderRuntime) {
+        void runtimeRef.current?.renderFrameAt(currentTimeMs);
+      }
     }
   }, [
     analysisProvider,
     audioUrl,
+    canRenderRuntime,
     currentTimeMs,
     pause,
     playing,
@@ -541,7 +521,9 @@ export function PreviewStage({
 
         manualClockRef.current.seekToMs(nextTimeMs);
         seekToMs(nextTimeMs, project.timing.fps);
-        void runtimeRef.current?.renderFrameAt(nextTimeMs);
+        if (canRenderRuntime) {
+          void runtimeRef.current?.renderFrameAt(nextTimeMs);
+        }
 
         if (nextTimeMs >= project.timing.durationMs) {
           pause();
@@ -559,6 +541,7 @@ export function PreviewStage({
     };
   }, [
     audioUrl,
+    canRenderRuntime,
     pause,
     playbackRate,
     playing,

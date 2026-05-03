@@ -136,11 +136,13 @@ export function drawPolygonGraphic(
     graphic.fill({ alpha: style.fillAlpha, color: style.fillColor });
   }
 
-  graphic.stroke({
-    alpha: style.lineAlpha,
-    color: style.lineColor,
-    width: style.lineWidth,
-  });
+  if (style.lineWidth > 0 && style.lineAlpha > 0) {
+    graphic.stroke({
+      alpha: style.lineAlpha,
+      color: style.lineColor,
+      width: style.lineWidth,
+    });
+  }
 }
 
 export function drawCircleGraphic(
@@ -155,11 +157,13 @@ export function drawCircleGraphic(
 
   graphic.circle(x, y, radius);
   graphic.fill({ alpha: style.fillAlpha, color: style.fillColor });
-  graphic.stroke({
-    alpha: style.lineAlpha,
-    color: style.lineColor,
-    width: style.lineWidth,
-  });
+  if (style.lineWidth > 0 && style.lineAlpha > 0) {
+    graphic.stroke({
+      alpha: style.lineAlpha,
+      color: style.lineColor,
+      width: style.lineWidth,
+    });
+  }
 }
 
 export function drawRectGraphic(
@@ -175,11 +179,13 @@ export function drawRectGraphic(
 
   graphic.rect(x, y, width, height);
   graphic.fill({ alpha: style.fillAlpha, color: style.fillColor });
-  graphic.stroke({
-    alpha: style.lineAlpha,
-    color: style.lineColor,
-    width: style.lineWidth,
-  });
+  if (style.lineWidth > 0 && style.lineAlpha > 0) {
+    graphic.stroke({
+      alpha: style.lineAlpha,
+      color: style.lineColor,
+      width: style.lineWidth,
+    });
+  }
 }
 
 export function createVisualizerBloomFilter(multiplier: number) {

@@ -1,19 +1,14 @@
 import { createManualRenderClock } from "../clock/manual-render-clock";
 import type { BrowserRenderRuntime, RenderPageRuntimeOptions } from "../contracts/runtime";
-import { createSpectralPixiRenderAdapter } from "../pixi/spectral-pixi-render-adapter";
-import { createBrowserRenderRuntime } from "./browser-render-runtime";
+import { createSpectralRuntimeSession } from "./create-spectral-runtime-session";
 
 export async function bootstrapRenderPageRuntime(
   options: RenderPageRuntimeOptions,
 ): Promise<BrowserRenderRuntime> {
   const fps = options.fps ?? options.project.timing.fps;
 
-  const runtime = createBrowserRenderRuntime({
-    adapter:
-      options.adapter ??
-      createSpectralPixiRenderAdapter({
-        assetResolver: options.assetResolver,
-      }),
+  return createSpectralRuntimeSession({
+    adapter: options.adapter,
     project: options.project,
     surface: options.surface,
     clock: options.clock ?? createManualRenderClock({ fps }),
@@ -22,9 +17,7 @@ export async function bootstrapRenderPageRuntime(
     analysisProvider: options.analysisProvider,
     assetResolver: options.assetResolver ?? null,
     autoStart: options.autoStart,
+    mode: "export",
+    target: options.target,
   });
-
-  await runtime.mount(options.target);
-
-  return runtime;
 }
