@@ -103,11 +103,18 @@ export const renderSessionSpectrumFrameSchema = z.object({
   values: z.array(z.number()),
 });
 
+export const renderSessionAudioAnalysisMagnitudesSchema = z.object({
+  bass: z.number().positive(),
+  wide: z.number().positive(),
+});
+
 export const renderSessionAudioAnalysisSnapshotSchema = z.object({
   createdAt: z.string().datetime({ offset: true }),
   fps: z.number().positive(),
   waveform: renderSessionWaveformSchema,
-  spectrumFrames: z.array(renderSessionSpectrumFrameSchema),
+  bassSpectrumFrames: z.array(renderSessionSpectrumFrameSchema),
+  wideSpectrumFrames: z.array(renderSessionSpectrumFrameSchema),
+  magnitudes: renderSessionAudioAnalysisMagnitudesSchema,
 });
 
 export const renderSessionAudioAnalysisRefSchema = z.object({

@@ -25,7 +25,8 @@ export type AudioAnalysisSnapshot = {
   createdAt: string;
   fps: number;
   waveform: WaveformOverview;
-  spectrumFrames: SpectrumFrame[];
+  bassSpectrumFrames: SpectrumFrame[];
+  wideSpectrumFrames: SpectrumFrame[];
   magnitudes: AudioAnalysisMagnitudes;
 };
 
@@ -37,4 +38,8 @@ export type AudioAnalysisProvider = {
   ): WaveformOverview;
   getSpectrumAtFrame(frame: number): Float32Array;
   getSpectrumAtTimeMs(timeMs: number): Float32Array;
+  getCurrentBassFrequency(timeMs?: number): ArrayLike<number>;
+  getCurrentWideFrequency(timeMs?: number): ArrayLike<number>;
+  getHistoricalBassFrequencies(timeMs?: number, includeNextFrame?: boolean): number[][];
+  getHistoricalWideFrequencies(timeMs?: number, includeNextFrame?: boolean): number[][];
 };

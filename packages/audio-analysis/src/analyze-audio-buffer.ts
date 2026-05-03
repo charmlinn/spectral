@@ -111,6 +111,27 @@ function createWideSpectrumFrame(
   );
 }
 
+function createBassSpectrumFrame(
+  byteFrequencyData: Float32Array,
+  cumulativeMaxMagnitude: number,
+): Float32Array {
+  return new Float32Array(
+    decorateAudioFrequency(
+      Array.from(
+        byteFrequencyData.slice(
+          BASS_SPECTRUM_OPTIONS.spectrumStart,
+          BASS_SPECTRUM_OPTIONS.spectrumEnd,
+        ),
+      ),
+      BASS_SPECTRUM_OPTIONS.magnitudeTargetMax,
+      BASS_SPECTRUM_OPTIONS.exponent,
+      BASS_SPECTRUM_OPTIONS.root,
+      BASS_SPECTRUM_OPTIONS.baseBarCount,
+      cumulativeMaxMagnitude,
+    ),
+  );
+}
+
 function createRawSpectrumSlice(
   byteFrequencyData: Float32Array,
   start: number,
@@ -258,7 +279,17 @@ export function analyzeAudioChannelData(
     durationMs,
   );
 
-  const spectrumFrames: SpectrumFrame[] = rawWideSpectrums.map(
+  const bassSpectrumFrames: SpectrumFrame[] = rawBassSpectrums.map(
+    (rawBassSpectrum, frame) => ({
+      frame,
+      timeMs: Math.round((frame / fps) * 1000),
+      values: createBassSpectrumFrame(
+        rawBassSpectrum,
+        cumulativeMaxMagnitudes.bass,
+      ),
+    }),
+  );
+  const wideSpectrumFrames: SpectrumFrame[] = rawWideSpectrums.map(
     (rawWideSpectrum, frame) => ({
       frame,
       timeMs: Math.round((frame / fps) * 1000),
@@ -273,7 +304,8 @@ export function analyzeAudioChannelData(
     createdAt: new Date().toISOString(),
     fps,
     waveform,
-    spectrumFrames,
+    bassSpectrumFrames,
+    wideSpectrumFrames,
     magnitudes: {
       bass: cumulativeMaxMagnitudes.bass,
       wide: cumulativeMaxMagnitudes.wide,

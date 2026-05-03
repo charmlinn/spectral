@@ -13,23 +13,14 @@ const SPECTERR_BACKDROP_BASS_SPECTRUM_OPTIONS = {
   smoothingPoints: 5,
 } as const;
 
-function getBassSpectrum(spectrum: Float32Array): Float32Array {
-  return spectrum.slice(0, Math.max(12, Math.floor(spectrum.length * 0.18)));
-}
+function getCurrentBassSpectrum(input: BuildSceneGraphInput) {
+  const provider = input.historyProvider ?? input.analysisProvider;
 
-function getCurrentBassSpectrum(input: BuildSceneGraphInput, spectrum: Float32Array) {
-  const provider = (input.historyProvider ?? input.analysisProvider) as
-    | ((BuildSceneGraphInput["historyProvider"] | BuildSceneGraphInput["analysisProvider"]) & {
-        getCurrentBassFrequency?(): ArrayLike<number>;
-      })
-    | null
-    | undefined;
-
-  if (provider?.getCurrentBassFrequency) {
-    return new Float32Array(provider.getCurrentBassFrequency());
+  if (!provider) {
+    return new Float32Array();
   }
 
-  return getBassSpectrum(spectrum);
+  return new Float32Array(provider.getCurrentBassFrequency(input.frameContext.timeMs));
 }
 
 function hasRenderableParticles(
@@ -71,7 +62,7 @@ function getActiveLyricsProps(input: BuildSceneGraphInput) {
 
 export function buildSceneGraph(input: BuildSceneGraphInput): RenderSceneGraph {
   const spectrum = getSpectrumForFrame(input.analysisProvider, input.frameContext);
-  const bassSpectrum = getCurrentBassSpectrum(input, spectrum);
+  const bassSpectrum = getCurrentBassSpectrum(input);
   const amplitude = getAverageAmplitude(spectrum);
   const bassAmplitude = getAverageAmplitude(bassSpectrum);
   const backdropBassAmplitude = getSpectrumMagnitude(

@@ -289,53 +289,113 @@ function isWaveformShape(value: unknown): value is RenderPageAudioAnalysisSnapsh
   );
 }
 
+function isSpectrumPayloadShape(value: unknown): value is {
+  bassSpectrumFrames: unknown[];
+  wideSpectrumFrames: unknown[];
+  magnitudes: unknown;
+} {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return false;
+  }
+
+  const candidate = value as {
+    bassSpectrumFrames?: unknown;
+    wideSpectrumFrames?: unknown;
+    magnitudes?: unknown;
+  };
+
+  return (
+    Array.isArray(candidate.bassSpectrumFrames) &&
+    Array.isArray(candidate.wideSpectrumFrames) &&
+    typeof candidate.magnitudes === "object" &&
+    candidate.magnitudes !== null
+  );
+}
+
+function toSpectrumFrames(
+  frames: unknown[],
+): RenderPageAudioAnalysisSnapshot["wideSpectrumFrames"] {
+  return frames.flatMap((frame) => {
+    if (typeof frame !== "object" || frame === null) {
+      return [];
+    }
+
+    const candidate = frame as {
+      frame?: unknown;
+      timeMs?: unknown;
+      values?: unknown;
+    };
+
+    if (
+      typeof candidate.frame !== "number" ||
+      typeof candidate.timeMs !== "number" ||
+      !Array.isArray(candidate.values)
+    ) {
+      return [];
+    }
+
+    const values = candidate.values.filter(
+      (value): value is number => typeof value === "number",
+    );
+
+    return [
+      {
+        frame: candidate.frame,
+        timeMs: candidate.timeMs,
+        values,
+      },
+    ];
+  });
+}
+
+function toAnalysisMagnitudes(
+  value: unknown,
+): RenderPageAudioAnalysisSnapshot["magnitudes"] {
+  const candidate = value as {
+    bass?: unknown;
+    wide?: unknown;
+  };
+
+  if (typeof candidate.bass !== "number" || typeof candidate.wide !== "number") {
+    throw badRequest("Audio analysis magnitudes are invalid.");
+  }
+
+  return {
+    bass: candidate.bass,
+    wide: candidate.wide,
+  };
+}
+
 function toAnalysisSnapshot(
   record: AudioAnalysisRecord | null,
   fps: number,
 ): RenderPageAudioAnalysisSnapshot | null {
-  if (!record || !isWaveformShape(record.waveformJson) || !Array.isArray(record.spectrumJson)) {
+  if (!record) {
     return null;
   }
 
-  const spectrumFrames = record.spectrumJson.flatMap(
-    (frame): RenderPageAudioAnalysisSnapshot["spectrumFrames"] => {
-      if (typeof frame !== "object" || frame === null) {
-        return [];
-      }
+  if (!isWaveformShape(record.waveformJson)) {
+    throw badRequest("Audio analysis waveform payload is invalid.", {
+      analysisId: record.id,
+    });
+  }
 
-      const candidate = frame as {
-        frame?: unknown;
-        timeMs?: unknown;
-        values?: unknown;
-      };
-
-      if (
-        typeof candidate.frame !== "number" ||
-        typeof candidate.timeMs !== "number" ||
-        !Array.isArray(candidate.values)
-      ) {
-        return [];
-      }
-
-      const values = candidate.values.filter(
-        (value): value is number => typeof value === "number",
-      );
-
-      return [
-        {
-          frame: candidate.frame,
-          timeMs: candidate.timeMs,
-          values,
-        },
-      ];
-    },
-  );
+  if (!isSpectrumPayloadShape(record.spectrumJson)) {
+    throw badRequest(
+      "Audio analysis spectrum payload must use explicit bassSpectrumFrames and wideSpectrumFrames.",
+      {
+        analysisId: record.id,
+      },
+    );
+  }
 
   return {
     createdAt: record.createdAt.toISOString(),
     fps,
     waveform: record.waveformJson,
-    spectrumFrames,
+    bassSpectrumFrames: toSpectrumFrames(record.spectrumJson.bassSpectrumFrames),
+    wideSpectrumFrames: toSpectrumFrames(record.spectrumJson.wideSpectrumFrames),
+    magnitudes: toAnalysisMagnitudes(record.spectrumJson.magnitudes),
   };
 }
 

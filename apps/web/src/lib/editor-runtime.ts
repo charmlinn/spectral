@@ -23,6 +23,12 @@ type SpectrumFrameDto = {
   values: number[];
 };
 
+type AudioAnalysisSpectrumDto = {
+  bassSpectrumFrames: SpectrumFrameDto[];
+  wideSpectrumFrames: SpectrumFrameDto[];
+  magnitudes: AudioAnalysisMagnitudes;
+};
+
 function toAudioAnalysisMagnitudes(value: unknown): AudioAnalysisMagnitudes {
   if (typeof value !== "object" || value === null) {
     return {
@@ -132,7 +138,7 @@ function toWaveformPoints(points: unknown): WaveformPointDto[] {
 
 function toSpectrumFrames(value: unknown): SpectrumFrame[] {
   if (!Array.isArray(value)) {
-    return [];
+    throw new Error("Audio analysis spectrum frames are missing.");
   }
 
   return value.flatMap((frame) => {
@@ -164,6 +170,35 @@ function toSpectrumFrames(value: unknown): SpectrumFrame[] {
   });
 }
 
+function isAudioAnalysisSpectrumDto(value: unknown): value is AudioAnalysisSpectrumDto {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return false;
+  }
+
+  const candidate = value as {
+    bassSpectrumFrames?: unknown;
+    wideSpectrumFrames?: unknown;
+    magnitudes?: unknown;
+  };
+
+  return (
+    Array.isArray(candidate.bassSpectrumFrames) &&
+    Array.isArray(candidate.wideSpectrumFrames) &&
+    typeof candidate.magnitudes === "object" &&
+    candidate.magnitudes !== null
+  );
+}
+
+function toAudioAnalysisSpectrumDto(value: unknown): AudioAnalysisSpectrumDto {
+  if (!isAudioAnalysisSpectrumDto(value)) {
+    throw new Error(
+      "Audio analysis spectrum payload must contain bassSpectrumFrames and wideSpectrumFrames.",
+    );
+  }
+
+  return value;
+}
+
 export function createAudioAnalysisProviderFromDto(
   analysis: AudioAnalysisDto,
 ): AudioAnalysisProvider {
@@ -185,13 +220,15 @@ export function createAudioAnalysisSnapshotFromDto(
     samplesPerPoint: analysis.waveformJson.samplesPerPoint,
     points: toWaveformPoints(analysis.waveformJson.points),
   };
+  const spectrum = toAudioAnalysisSpectrumDto(analysis.spectrumJson);
 
   const snapshot: AudioAnalysisSnapshot = {
     createdAt: analysis.createdAt,
     fps: toAnalysisFps(analysis.metadata),
     waveform,
-    spectrumFrames: toSpectrumFrames(analysis.spectrumJson),
-    magnitudes: toAudioAnalysisMagnitudes(analysis.metadata),
+    bassSpectrumFrames: toSpectrumFrames(spectrum.bassSpectrumFrames),
+    wideSpectrumFrames: toSpectrumFrames(spectrum.wideSpectrumFrames),
+    magnitudes: toAudioAnalysisMagnitudes(spectrum.magnitudes),
   };
 
   return snapshot;
@@ -225,11 +262,19 @@ export function serializeAudioAnalysisSnapshot(
     createdAt: snapshot.createdAt,
     fps: snapshot.fps,
     waveform: snapshot.waveform,
-    spectrumFrames: snapshot.spectrumFrames.map((frame) => ({
-      frame: frame.frame,
-      timeMs: frame.timeMs,
-      values: Array.from(frame.values),
-    })),
+    spectrum: {
+      bassSpectrumFrames: snapshot.bassSpectrumFrames.map((frame) => ({
+        frame: frame.frame,
+        timeMs: frame.timeMs,
+        values: Array.from(frame.values),
+      })),
+      wideSpectrumFrames: snapshot.wideSpectrumFrames.map((frame) => ({
+        frame: frame.frame,
+        timeMs: frame.timeMs,
+        values: Array.from(frame.values),
+      })),
+      magnitudes: snapshot.magnitudes,
+    },
     magnitudes: snapshot.magnitudes,
   };
 }

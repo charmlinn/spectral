@@ -1,4 +1,7 @@
-import { EMPTY_AUDIO_FREQUENCY } from "../configuration/audio-analyzer-constants";
+import {
+  AUDIO_ANALYZER_CONSTANTS,
+  EMPTY_AUDIO_FREQUENCY,
+} from "../configuration/audio-analyzer-constants";
 import { sliceWaveformOverview } from "../protocol/waveform";
 import type {
   AudioAnalysisProvider,
@@ -13,6 +16,34 @@ function cloneSpectrum(values: Float32Array | undefined): Float32Array {
   }
 
   return new Float32Array(values);
+}
+
+function spectrumFrameValues(
+  spectrumFrames: SpectrumFrame[],
+  frame: number,
+): Float32Array {
+  const match =
+    findNearestFrameByFrame(spectrumFrames, frame) ??
+    findNearestFrameLinear(
+      spectrumFrames,
+      (candidate) => Math.abs(candidate.frame - frame),
+    );
+
+  return cloneSpectrum(match?.values);
+}
+
+function spectrumTimeValues(
+  spectrumFrames: SpectrumFrame[],
+  timeMs: number,
+): Float32Array {
+  const match =
+    findNearestFrameByTimeMs(spectrumFrames, timeMs) ??
+    findNearestFrameLinear(
+      spectrumFrames,
+      (candidate) => Math.abs(candidate.timeMs - timeMs),
+    );
+
+  return cloneSpectrum(match?.values);
 }
 
 function findNearestFrameLinear(
@@ -130,25 +161,62 @@ export class ArrayAudioAnalysisProvider implements AudioAnalysisProvider {
   }
 
   public getSpectrumAtFrame(frame: number): Float32Array {
-    const match =
-      findNearestFrameByFrame(this.snapshot.spectrumFrames, frame) ??
-      findNearestFrameLinear(
-        this.snapshot.spectrumFrames,
-        (candidate) => Math.abs(candidate.frame - frame),
-      );
-
-    return cloneSpectrum(match?.values);
+    return this.getWideSpectrumAtFrame(frame);
   }
 
   public getSpectrumAtTimeMs(timeMs: number): Float32Array {
-    const match =
-      findNearestFrameByTimeMs(this.snapshot.spectrumFrames, timeMs) ??
-      findNearestFrameLinear(
-        this.snapshot.spectrumFrames,
-        (candidate) => Math.abs(candidate.timeMs - timeMs),
-      );
+    return this.getWideSpectrumAtTimeMs(timeMs);
+  }
 
-    return cloneSpectrum(match?.values);
+  public getCurrentBassFrequency(timeMs = 0): Float32Array {
+    return this.getBassSpectrumAtTimeMs(timeMs);
+  }
+
+  public getCurrentWideFrequency(timeMs = 0): Float32Array {
+    return this.getWideSpectrumAtTimeMs(timeMs);
+  }
+
+  public getHistoricalBassFrequencies(timeMs = 0): number[][] {
+    return this.getHistoricalSpectrumFrames(this.snapshot.bassSpectrumFrames, timeMs);
+  }
+
+  public getHistoricalWideFrequencies(timeMs = 0): number[][] {
+    return this.getHistoricalSpectrumFrames(this.snapshot.wideSpectrumFrames, timeMs);
+  }
+
+  private getBassSpectrumAtFrame(frame: number): Float32Array {
+    return spectrumFrameValues(this.snapshot.bassSpectrumFrames, frame);
+  }
+
+  private getWideSpectrumAtFrame(frame: number): Float32Array {
+    return spectrumFrameValues(this.snapshot.wideSpectrumFrames, frame);
+  }
+
+  private getBassSpectrumAtTimeMs(timeMs: number): Float32Array {
+    return spectrumTimeValues(this.snapshot.bassSpectrumFrames, timeMs);
+  }
+
+  private getWideSpectrumAtTimeMs(timeMs: number): Float32Array {
+    return spectrumTimeValues(this.snapshot.wideSpectrumFrames, timeMs);
+  }
+
+  private getHistoricalSpectrumFrames(
+    spectrumFrames: SpectrumFrame[],
+    timeMs: number,
+  ): number[][] {
+    const frameMs = 1000 / Math.max(1, this.snapshot.fps);
+    const history: number[][] = [];
+
+    for (
+      let frameDelay = 0;
+      frameDelay < AUDIO_ANALYZER_CONSTANTS.historicalFrequenciesLimit;
+      frameDelay += 1
+    ) {
+      const historyTimeMs = Math.max(0, timeMs - frameDelay * frameMs);
+      history.push(Array.from(spectrumTimeValues(spectrumFrames, historyTimeMs)));
+    }
+
+    return history;
   }
 }
 

@@ -1,6 +1,5 @@
 import {
   createArrayAudioAnalysisProvider,
-  type AudioAnalysisMagnitudes,
   type AudioAnalysisProvider,
   type AudioAnalysisSnapshot,
   type SpectrumFrame,
@@ -15,32 +14,6 @@ import type {
 
 import { createCachedBrowserAssetResolver } from "../media/browser-asset-resolver";
 
-function toAudioAnalysisMagnitudes(
-  snapshot: RenderSessionAudioAnalysisSnapshot,
-): AudioAnalysisMagnitudes {
-  const values = snapshot.spectrumFrames.flatMap((frame) => frame.values);
-
-  if (values.length === 0) {
-    return {
-      bass: 250,
-      wide: 250,
-    };
-  }
-
-  let maxMagnitude = 0;
-
-  for (const value of values) {
-    maxMagnitude = Math.max(maxMagnitude, value);
-  }
-
-  const normalizedMagnitude = Math.max(1, Math.ceil(maxMagnitude));
-
-  return {
-    bass: normalizedMagnitude,
-    wide: normalizedMagnitude,
-  };
-}
-
 function toWaveformOverview(
   snapshot: RenderSessionAudioAnalysisSnapshot,
 ): WaveformOverview {
@@ -53,9 +26,9 @@ function toWaveformOverview(
 }
 
 function toSpectrumFrames(
-  snapshot: RenderSessionAudioAnalysisSnapshot,
+  frames: RenderSessionAudioAnalysisSnapshot["wideSpectrumFrames"],
 ): SpectrumFrame[] {
-  return snapshot.spectrumFrames.map((frame) => ({
+  return frames.map((frame) => ({
     frame: frame.frame,
     timeMs: frame.timeMs,
     values: new Float32Array(frame.values),
@@ -75,8 +48,9 @@ export function createAudioAnalysisProviderFromRenderSession(
     createdAt: snapshot.createdAt,
     fps: snapshot.fps,
     waveform: toWaveformOverview(snapshot),
-    spectrumFrames: toSpectrumFrames(snapshot),
-    magnitudes: toAudioAnalysisMagnitudes(snapshot),
+    bassSpectrumFrames: toSpectrumFrames(snapshot.bassSpectrumFrames),
+    wideSpectrumFrames: toSpectrumFrames(snapshot.wideSpectrumFrames),
+    magnitudes: snapshot.magnitudes,
   };
 
   return createArrayAudioAnalysisProvider(analysisSnapshot);

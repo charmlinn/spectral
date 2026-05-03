@@ -125,10 +125,6 @@ export function getGlobalVisualizerSpinRotation(
   return timeMs * (effectiveRpm / 60000) * Math.PI * 2;
 }
 
-function getBassSpectrumSlice(spectrum: Float32Array) {
-  return spectrum.slice(0, Math.max(12, Math.floor(spectrum.length * 0.18)));
-}
-
 function waveformPointToMagnitude(point: { min: number; max: number }) {
   return Math.max(Math.abs(point.min), Math.abs(point.max)) * 255;
 }
@@ -173,14 +169,7 @@ function getSpectrumHistory(
   waveType: string,
   targetPoints: number,
 ): number[][] {
-  const historyProvider = (input.historyProvider ?? input.analysisProvider) as
-    | ((typeof input.historyProvider | typeof input.analysisProvider) & {
-        getHistoricalBassFrequencies?(includeNextFrame?: boolean): number[][];
-        getHistoricalWideFrequencies?(includeNextFrame?: boolean): number[][];
-      })
-    | null
-    | undefined;
-  const fallbackProvider = input.analysisProvider ?? input.historyProvider;
+  const historyProvider = input.historyProvider ?? input.analysisProvider;
   const normalizedWaveType = normalizeVisualizerWaveType(waveType);
   const cachedHistory = getVisualizerHistoryCache(input);
 
@@ -193,60 +182,30 @@ function getSpectrumHistory(
       return cachedHistory.bassHistory;
     }
 
-    try {
-      if (historyProvider?.getHistoricalBassFrequencies) {
-        cachedHistory.bassHistory = historyProvider.getHistoricalBassFrequencies(true);
-        return cachedHistory.bassHistory;
-      }
-    } catch {
-      // Fall back to frame-based history when realtime history is unavailable.
+    if (!historyProvider) {
+      throw new Error("Visualizer bass spectrum requires an audio analysis provider.");
     }
 
-    const history: number[][] = [];
-
-    for (
-      let frameDelay = 0;
-      frameDelay < SPECTERR_HISTORY_LIMIT;
-      frameDelay += 1
-    ) {
-      const frame = Math.max(0, input.frameContext.frame - frameDelay);
-      const spectrum = fallbackProvider?.getSpectrumAtFrame(frame);
-      history.push(
-        Array.from(getBassSpectrumSlice(spectrum ?? new Float32Array())),
-      );
-    }
-
-    cachedHistory.bassHistory = history;
-    return history;
+    cachedHistory.bassHistory = historyProvider.getHistoricalBassFrequencies(
+      input.frameContext.timeMs,
+      true,
+    );
+    return cachedHistory.bassHistory;
   }
 
   if (cachedHistory.wideHistory) {
     return cachedHistory.wideHistory;
   }
 
-  try {
-    if (historyProvider?.getHistoricalWideFrequencies) {
-      cachedHistory.wideHistory = historyProvider.getHistoricalWideFrequencies(true);
-      return cachedHistory.wideHistory;
-    }
-  } catch {
-    // Fall back to frame-based history when realtime history is unavailable.
+  if (!historyProvider) {
+    throw new Error("Visualizer wide spectrum requires an audio analysis provider.");
   }
 
-  const history: number[][] = [];
-
-  for (
-    let frameDelay = 0;
-    frameDelay < SPECTERR_HISTORY_LIMIT;
-    frameDelay += 1
-  ) {
-    const frame = Math.max(0, input.frameContext.frame - frameDelay);
-    const spectrum = fallbackProvider?.getSpectrumAtFrame(frame);
-    history.push(Array.from(spectrum ?? new Float32Array()));
-  }
-
-  cachedHistory.wideHistory = history;
-  return history;
+  cachedHistory.wideHistory = historyProvider.getHistoricalWideFrequencies(
+    input.frameContext.timeMs,
+    true,
+  );
+  return cachedHistory.wideHistory;
 }
 
 export function getSpectrumForVisualizer(
@@ -263,12 +222,11 @@ export function getSpectrumForVisualizer(
   );
   const targetSpectrum =
     spectrumHistory[ringOptions.frameDelay] ??
-    spectrumHistory[0] ??
-    Array.from(
-      normalizedWaveType.includes("bass")
-        ? layer.props.bassSpectrum
-        : layer.props.spectrum,
-    );
+    spectrumHistory[0];
+
+  if (!targetSpectrum) {
+    throw new Error(`Visualizer ${normalizedWaveType} history is empty.`);
+  }
 
   return processSpectrum(targetSpectrum, ringOptions.spectrumOptions);
 }

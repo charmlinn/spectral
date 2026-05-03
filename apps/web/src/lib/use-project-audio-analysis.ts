@@ -113,7 +113,7 @@ export function useProjectAudioAnalysis({
           channelCount: audioBuffer.numberOfChannels,
           sampleCount: audioBuffer.length,
           waveformJson: snapshot.waveform,
-          spectrumJson: serializeAudioAnalysisSnapshot(snapshot).spectrumFrames,
+          spectrumJson: serializeAudioAnalysisSnapshot(snapshot).spectrum,
           metadata: {
             generatedBy: "editor-preview",
             fps,

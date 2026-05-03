@@ -13,7 +13,7 @@ export async function requestAudioAnalysis(input: {
   channelCount?: number | null;
   sampleCount?: number | null;
   waveformJson?: JsonValue;
-  spectrumJson?: JsonValue[];
+  spectrumJson?: JsonValue;
   metadata?: JsonRecord;
 }) {
   const { assetRepository, audioAnalysisRepository } = getServerRepositories();

@@ -42,10 +42,10 @@ export type RealtimeAudioAnalysisController = AudioAnalysisProvider & {
   setVolume(volume: number): void;
   getVolume(): number;
   setMaxMagnitudes(values: RealtimeAudioAnalysisMagnitudes): void;
-  getCurrentBassFrequency(): number[];
-  getCurrentWideFrequency(): number[];
-  getHistoricalBassFrequencies(includeNextFrame?: boolean): number[][];
-  getHistoricalWideFrequencies(includeNextFrame?: boolean): number[][];
+  getCurrentBassFrequency(timeMs?: number): number[];
+  getCurrentWideFrequency(timeMs?: number): number[];
+  getHistoricalBassFrequencies(timeMs?: number, includeNextFrame?: boolean): number[][];
+  getHistoricalWideFrequencies(timeMs?: number, includeNextFrame?: boolean): number[][];
 };
 
 type InternalState = {
@@ -183,8 +183,12 @@ export function createRealtimeAudioAnalysisController(
     }
   }
 
-  function getCurrentFrequency(kind: SpectrumKind): number[] {
+  function getCurrentFrequency(kind: SpectrumKind, timeMs?: number): number[] {
     const connectedState = getConnectedState();
+
+    if (typeof timeMs === "number") {
+      assertRealtimeTime(timeMs);
+    }
 
     const maxMagnitude = assertMagnitudesReady(kind);
     const timeDomainData = new Float32Array(connectedState.analyzerNode.fftSize);
@@ -213,7 +217,11 @@ export function createRealtimeAudioAnalysisController(
     );
   }
 
-  function getHistoricalFrequencies(kind: SpectrumKind, includeNextFrame = true): number[][] {
+  function getHistoricalFrequencies(
+    kind: SpectrumKind,
+    timeMs?: number,
+    includeNextFrame = true,
+  ): number[][] {
     const history =
       kind === "bass"
         ? state.historicalBassFrequencies
@@ -224,7 +232,7 @@ export function createRealtimeAudioAnalysisController(
     }
 
     concatHistoricalFrequencies(
-      getCurrentFrequency(kind),
+      getCurrentFrequency(kind, timeMs),
       history,
       AUDIO_ANALYZER_CONSTANTS.historicalFrequenciesLimit,
     );
@@ -311,17 +319,17 @@ export function createRealtimeAudioAnalysisController(
       state.bassMaxMagnitude = values.bass;
       state.wideMaxMagnitude = values.wide;
     },
-    getCurrentBassFrequency() {
-      return getCurrentFrequency("bass");
+    getCurrentBassFrequency(timeMs) {
+      return getCurrentFrequency("bass", timeMs);
     },
-    getCurrentWideFrequency() {
-      return getCurrentFrequency("wide");
+    getCurrentWideFrequency(timeMs) {
+      return getCurrentFrequency("wide", timeMs);
     },
-    getHistoricalBassFrequencies(includeNextFrame = true) {
-      return getHistoricalFrequencies("bass", includeNextFrame);
+    getHistoricalBassFrequencies(timeMs, includeNextFrame = true) {
+      return getHistoricalFrequencies("bass", timeMs, includeNextFrame);
     },
-    getHistoricalWideFrequencies(includeNextFrame = true) {
-      return getHistoricalFrequencies("wide", includeNextFrame);
+    getHistoricalWideFrequencies(timeMs, includeNextFrame = true) {
+      return getHistoricalFrequencies("wide", timeMs, includeNextFrame);
     },
     getWaveformSlice(startMs, endMs, targetPoints) {
       if (!waveform) {

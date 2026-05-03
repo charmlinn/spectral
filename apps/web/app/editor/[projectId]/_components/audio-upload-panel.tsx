@@ -141,7 +141,7 @@ export function AudioUploadPanel({ projectId }: AudioUploadPanelProps) {
         channelCount: audioBuffer.numberOfChannels,
         sampleCount: audioBuffer.length,
         waveformJson: snapshot.waveform,
-        spectrumJson: serializeAudioAnalysisSnapshot(snapshot).spectrumFrames,
+        spectrumJson: serializeAudioAnalysisSnapshot(snapshot).spectrum,
         metadata: {
           generatedBy: "editor-audio-panel",
           fps: project.timing.fps,

@@ -9,6 +9,6 @@ export const requestAudioAnalysisSchema = z.object({
   channelCount: z.number().int().positive().nullable().optional(),
   sampleCount: z.number().int().nonnegative().nullable().optional(),
   waveformJson: z.unknown().optional(),
-  spectrumJson: z.array(z.unknown()).optional(),
+  spectrumJson: z.unknown().optional(),
   metadata: z.record(z.string(), z.unknown()).optional(),
 });
