@@ -27,6 +27,7 @@ import {
   startLocalAssetServer,
   type LocalAssetServer,
 } from "./local-asset-server";
+import { createOfflineRuntimeHost } from "./runtime-host";
 import { uploadArtifactToStorage } from "./storage";
 
 export type RenderExecutionResult = {
@@ -70,6 +71,11 @@ type PipelineState = {
   renderResult: ChromiumRenderResult | null;
   encodeResult: EncodeRenderResult | null;
   posterPath: string | null;
+  runtimeHost: {
+    bundlePath: string;
+    hostPath: string;
+    hostUrl: string;
+  } | null;
   thumbnailPaths: Map<number, string>;
 };
 
@@ -189,14 +195,6 @@ function buildVideoEncodeArgs(input: {
   args.push(input.outputPath);
 
   return args;
-}
-
-async function readResponseText(response: Response): Promise<string> {
-  try {
-    return await response.text();
-  } catch {
-    return "";
-  }
 }
 
 async function writeJsonFile(targetPath: string, payload: unknown) {
@@ -340,6 +338,7 @@ export class PipelineRenderExecutor implements RenderExecutor {
       renderResult: null,
       encodeResult: null,
       posterPath: null,
+      runtimeHost: null,
       thumbnailPaths: new Map(),
     };
 
@@ -371,14 +370,13 @@ export class PipelineRenderExecutor implements RenderExecutor {
       await context.setStage({
         stage: "renderer_warmup",
         progressPct: 30,
-        message: "Checking render entrypoints.",
+        message: "Preparing offline render runtime.",
         details: {
-          pagePath: context.session.routes.public.pagePath,
-          bootstrapPath: context.session.routes.public.bootstrapPath,
+          workDir: context.workDir,
         },
       });
       await context.throwIfCancelled("warming up the renderer");
-      await this.runRendererWarmup(context);
+      await this.runRendererWarmup(context, state);
 
       await context.setStage({
         stage: "rendering",
@@ -489,55 +487,17 @@ export class PipelineRenderExecutor implements RenderExecutor {
     );
   }
 
-  private async runRendererWarmup(context: RenderExecutorContext) {
-    const renderPageUrl = context.resolveUrl(
-      context.session.routes.public.pagePath,
-    );
+  private async runRendererWarmup(
+    context: RenderExecutorContext,
+    state: PipelineState,
+  ) {
+    const runtimeHost = await createOfflineRuntimeHost({
+      workDir: context.workDir,
+    });
+    let renderBootstrapResponse: Response;
     const renderBootstrapUrl = context.resolveUrl(
       context.session.routes.public.bootstrapPath,
     );
-
-    let renderPageResponse: Response;
-
-    try {
-      renderPageResponse = await fetch(renderPageUrl, buildRenderRequestInit());
-    } catch (error) {
-      throw new RetryableWorkerError(
-        `Failed to reach render page ${renderPageUrl}: ${error instanceof Error ? error.message : String(error)}`,
-        {
-          code: "RENDER_PAGE_UNREACHABLE",
-          stage: "renderer_warmup",
-          cause: error,
-        },
-      );
-    }
-
-    if (!renderPageResponse.ok) {
-      throw new RetryableWorkerError(
-        `Render page ${renderPageUrl} responded with ${renderPageResponse.status}.`,
-        {
-          code: "RENDER_PAGE_BAD_STATUS",
-          stage: "renderer_warmup",
-          details: {
-            status: renderPageResponse.status,
-          },
-        },
-      );
-    }
-
-    const renderPageHtml = await readResponseText(renderPageResponse);
-
-    if (!renderPageHtml.includes("spectral-render-page-bootstrap")) {
-      throw new NonRetryableWorkerError(
-        `Render page ${renderPageUrl} did not expose the bootstrap script tag.`,
-        {
-          code: "RENDER_PAGE_BOOTSTRAP_TAG_MISSING",
-          stage: "renderer_warmup",
-        },
-      );
-    }
-
-    let renderBootstrapResponse: Response;
 
     try {
       renderBootstrapResponse = await fetch(
@@ -586,11 +546,13 @@ export class PipelineRenderExecutor implements RenderExecutor {
     await writeJsonFile(
       join(context.workDir, "diagnostics", "bootstrap.json"),
       {
-        pageUrl: renderPageUrl,
+        runtimeHost,
         bootstrapUrl: renderBootstrapUrl,
         bootstrapPayload,
       },
     );
+
+    state.runtimeHost = runtimeHost;
   }
 
   private async runRendering(
@@ -599,9 +561,17 @@ export class PipelineRenderExecutor implements RenderExecutor {
   ): Promise<void> {
     const sessionForRender = state.materializedSession ?? context.session;
     const workerEnv = getWorkerEnv();
-    const renderPageUrl = context.resolveUrl(
-      context.session.routes.public.pagePath,
-    );
+    const renderPageUrl = state.runtimeHost?.hostUrl;
+
+    if (!renderPageUrl) {
+      throw new NonRetryableWorkerError(
+        "Offline runtime host was not prepared before rendering.",
+        {
+          code: "OFFLINE_RUNTIME_HOST_MISSING",
+          stage: "rendering",
+        },
+      );
+    }
     const frameUpdateInterval = Math.max(
       1,
       Math.floor(context.session.runtime.frameCount / 20),

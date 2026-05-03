@@ -5,7 +5,6 @@ import { join } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 
 import type { RenderSession } from "@spectral/render-session";
-import type { RenderPageBootstrapPayload } from "@spectral/render-runtime-browser";
 import {
   createBenchmarkRecorder,
   hashFrameBuffer,
@@ -36,7 +35,12 @@ type CDPEventEnvelope = {
 };
 
 type CDPResult<T> = {
-  result?: T;
+  result?: {
+    type?: string;
+    value?: T;
+    unserializableValue?: string;
+    description?: string;
+  };
   exceptionDetails?: {
     text?: string;
     exception?: {
@@ -44,6 +48,12 @@ type CDPResult<T> = {
       value?: unknown;
     };
   };
+};
+
+type CDPNavigateResult = {
+  frameId?: string;
+  loaderId?: string;
+  errorText?: string;
 };
 
 type CDPClient = {
@@ -57,14 +67,6 @@ type CDPClient = {
   ) => Promise<T>;
   evaluate: <T = unknown>(expression: string) => Promise<T>;
   close: () => Promise<void>;
-};
-
-type CanvasClip = {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-  scale: number;
 };
 
 export type ChromiumRenderResult = {
@@ -194,6 +196,7 @@ async function launchChromium(options: ChromiumLaunchOptions): Promise<{
       "--no-first-run",
       "--no-default-browser-check",
       "--autoplay-policy=no-user-gesture-required",
+      "--allow-file-access-from-files",
       "--disable-background-networking",
       `--remote-debugging-port=${port}`,
       `--user-data-dir=${options.userDataDir}`,
@@ -393,7 +396,26 @@ async function createCDPClient(webSocketUrl: string): Promise<CDPClient> {
       throw new Error(description);
     }
 
-    return evaluation.result as T;
+    if (!evaluation.result) {
+      return undefined as T;
+    }
+
+    if (evaluation.result.unserializableValue !== undefined) {
+      return evaluation.result.unserializableValue as T;
+    }
+
+    if (evaluation.result.value !== undefined) {
+      return evaluation.result.value;
+    }
+
+    if (evaluation.result.type === "undefined") {
+      return undefined as T;
+    }
+
+    throw new Error(
+      evaluation.result.description ??
+        `Chromium evaluation returned a non-serializable ${evaluation.result.type ?? "value"}.`,
+    );
   };
   const close: CDPClient["close"] = async () => {
     socket.close();
@@ -427,29 +449,29 @@ async function connectToPage(port: number): Promise<CDPClient> {
   return createCDPClient(pageTarget.webSocketDebuggerUrl);
 }
 
-async function waitForDriverReady(
-  client: CDPClient,
-): Promise<RenderPageBootstrapPayload> {
+async function waitForOfflineRuntimeReady(client: CDPClient): Promise<void> {
   const startedAt = Date.now();
   let lastError: unknown = null;
 
   while (Date.now() - startedAt < 30_000) {
     try {
-      const bootstrap =
-        await client.evaluate<RenderPageBootstrapPayload | null>(`
+      const ready = await client.evaluate<boolean>(`
         (() => {
-          const script = document.getElementById("spectral-render-page-bootstrap");
-
-          if (!(script instanceof HTMLScriptElement) || !window.__spectralRenderDriver) {
-            return null;
-          }
-
-          return JSON.parse(script.textContent ?? "null");
+          return Boolean(
+            document.getElementById("stage") &&
+            window.spectralRuntime &&
+            window.__spectralOfflineRuntimeReady
+          );
         })()
       `);
 
-      if (bootstrap) {
-        return bootstrap;
+      if (ready) {
+        await client.evaluate(`
+          (async () => {
+            await window.__spectralOfflineRuntimeReady;
+          })()
+        `);
+        return;
       }
     } catch (error) {
       lastError = error;
@@ -459,62 +481,8 @@ async function waitForDriverReady(
   }
 
   throw new Error(
-    `Render page did not expose window.__spectralRenderDriver in time${lastError ? `; last error: ${describeError(lastError)}` : ""}.`,
+    `Offline runtime did not expose window.spectralRuntime in time${lastError ? `; last error: ${describeError(lastError)}` : ""}.`,
   );
-}
-
-async function prepareRenderViewport(
-  client: CDPClient,
-  targetElementId: string,
-  session: RenderSession,
-): Promise<CanvasClip> {
-  await client.evaluate(`
-    (() => {
-      const target = document.getElementById(${JSON.stringify(targetElementId)});
-
-      if (!(target instanceof HTMLElement)) {
-        throw new Error("Render target is not mounted.");
-      }
-
-      document.documentElement.style.margin = "0";
-      document.documentElement.style.padding = "0";
-      document.body.style.margin = "0";
-      document.body.style.padding = "0";
-      document.body.style.background = "transparent";
-      document.body.style.overflow = "hidden";
-      target.style.position = "fixed";
-      target.style.left = "0";
-      target.style.top = "0";
-      target.style.margin = "0";
-      target.style.padding = "0";
-      target.style.border = "0";
-      target.style.borderRadius = "0";
-      target.style.width = "${session.runtime.width}px";
-      target.style.height = "${session.runtime.height}px";
-      target.style.background = "transparent";
-      target.style.zIndex = "2147483647";
-    })()
-  `);
-
-  return client.evaluate<CanvasClip>(`
-    (() => {
-      const canvas = document.querySelector("#${targetElementId} canvas");
-
-      if (!(canvas instanceof HTMLCanvasElement)) {
-        throw new Error("Render page canvas is not mounted.");
-      }
-
-      const rect = canvas.getBoundingClientRect();
-
-      return {
-        x: Math.max(0, rect.left),
-        y: Math.max(0, rect.top),
-        width: rect.width,
-        height: rect.height,
-        scale: 1,
-      };
-    })()
-  `);
 }
 
 function buildFrameFilePath(framesDir: string, frame: number): string {
@@ -569,39 +537,36 @@ export async function renderWithChromium(
       screenHeight: height,
     });
 
-    const loadEvent = client.waitForEvent("Page.loadEventFired", 30_000);
-    await client.send("Page.navigate", {
+    const navigation = await client.send<CDPNavigateResult>("Page.navigate", {
       url: options.renderPageUrl,
     });
-    await loadEvent;
-    benchmark.mark("page_loaded");
 
-    const bootstrap = await waitForDriverReady(client);
-    const targetElementId = bootstrap.runtime.targetElementId;
+    if (navigation.errorText) {
+      throw new Error(
+        `Chromium failed to navigate to ${options.renderPageUrl}: ${navigation.errorText}`,
+      );
+    }
+
+    benchmark.mark("page_navigated");
+
+    await waitForOfflineRuntimeReady(client);
     const sessionForRender = options.sessionOverride ?? options.session;
 
     await client.evaluate(`
       (async () => {
-        const driver = window.__spectralRenderDriver;
+        await window.__spectralOfflineRuntimeReady;
 
-        if (!driver) {
-          throw new Error("Render driver is unavailable on the render page.");
+        const runtime = window.spectralRuntime;
+
+        if (!runtime) {
+          throw new Error("Spectral offline runtime is unavailable.");
         }
 
-        await driver.init({
-          session: ${toExpressionPayload(sessionForRender)},
-          bootstrap: ${JSON.stringify(bootstrap)},
-        });
-        await driver.warmup(0);
+        await runtime.loadSession(${toExpressionPayload(sessionForRender)});
+        await runtime.renderFrame(0);
       })()
     `);
     benchmark.mark("renderer_warm");
-
-    const clip = await prepareRenderViewport(
-      client,
-      targetElementId,
-      options.session,
-    );
 
     for (
       let frame = 0;
@@ -614,28 +579,39 @@ export async function renderWithChromium(
         renderMs: number;
       }>(`
         (async () => {
-          const driver = window.__spectralRenderDriver;
+          const runtime = window.spectralRuntime;
 
-          if (!driver) {
-            throw new Error("Render driver is unavailable while rendering.");
+          if (!runtime) {
+            throw new Error("Spectral offline runtime is unavailable while rendering.");
           }
 
-          const result = await driver.renderFrame(${frame});
+          const result = await runtime.renderFrame(${frame});
+
           return {
             renderMs: result.renderMs,
           };
         })()
       `);
-      const screenshot = await client.send<{ data: string }>(
-        "Page.captureScreenshot",
-        {
-          format: "png",
-          clip,
-          captureBeyondViewport: true,
-          fromSurface: true,
-        },
+      const pngDataUrl = await client.evaluate<string>(`
+        (async () => {
+          const runtime = window.spectralRuntime;
+
+          if (!runtime) {
+            throw new Error("Spectral offline runtime is unavailable while capturing.");
+          }
+
+          return runtime.captureFrame({ format: "png" });
+        })()
+      `);
+
+      if (!pngDataUrl.startsWith("data:image/png;base64,")) {
+        throw new Error("Render canvas capture returned an unexpected payload.");
+      }
+
+      const frameBytes = Buffer.from(
+        pngDataUrl.replace(/^data:image\/png;base64,/, ""),
+        "base64",
       );
-      const frameBytes = Buffer.from(screenshot.data, "base64");
       const framePath = buildFrameFilePath(framesDir, frame);
 
       await writeFile(framePath, frameBytes);

@@ -9,6 +9,7 @@
     ".": "./src/index.ts"
   },
   "scripts": {
+    "build:offline": "node ./scripts/build-offline-runtime.mjs",
     "lint": "eslint src --ext .ts",
     "typecheck": "tsc --project tsconfig.json --noEmit"
   },
